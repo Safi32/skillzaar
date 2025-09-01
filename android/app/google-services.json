@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "781796858808",
+    "project_id": "skillzaar-9469c",
+    "storage_bucket": "skillzaar-9469c.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:781796858808:android:7cc68edfafdac3c5a50d4d",
+        "android_client_info": {
+          "package_name": "com.example.skillzaar"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCsHn7DgMFGCOKRCWI2z5fJdUlKf6n_5dQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
