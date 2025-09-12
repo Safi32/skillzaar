@@ -1,13 +1,13 @@
 {
   "project_info": {
-    "project_number": "781796858808",
-    "project_id": "skillzaar-9469c",
-    "storage_bucket": "skillzaar-9469c.firebasestorage.app"
+    "project_number": "18417914632",
+    "project_id": "skillzaar-bcb0f",
+    "storage_bucket": "skillzaar-bcb0f.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:781796858808:android:7cc68edfafdac3c5a50d4d",
+        "mobilesdk_app_id": "1:18417914632:android:4bc87dbda7b98ccfd892bd",
         "android_client_info": {
           "package_name": "com.example.skillzaar"
         }
@@ -15,7 +15,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyCsHn7DgMFGCOKRCWI2z5fJdUlKf6n_5dQ"
+          "current_key": "AIzaSyAtG2_o2-9_BrXDCAKikd_83uYGxIDfy30"
         }
       ],
       "services": {
