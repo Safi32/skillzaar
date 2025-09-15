@@ -18,11 +18,16 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
-    final String role = args != null && args['role'] != null ? args['role'] as String : 'job_poster';
-    final String description = role == 'skilled_worker'
-        ? 'Enter your mobile number to join as a Skilled Worker.'
-        : 'Enter your mobile number to join as a Job Poster.';
+    final args =
+        ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+    final String role =
+        args != null && args['role'] != null
+            ? args['role'] as String
+            : 'job_poster';
+    final String description =
+        role == 'skilled_worker'
+            ? 'Enter your mobile number to join as a Skilled Worker.'
+            : 'Enter your mobile number to join as a Job Poster.';
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -90,10 +95,16 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: Colors.green, width: 2),
+                        borderSide: const BorderSide(
+                          color: Colors.green,
+                          width: 2,
+                        ),
                       ),
                       prefixIcon: const Icon(Icons.phone, color: Colors.green),
-                      contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+                      contentPadding: const EdgeInsets.symmetric(
+                        vertical: 16,
+                        horizontal: 16,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 32),
@@ -110,18 +121,27 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       onPressed: () {
                         if (phoneController.text.isNotEmpty) {
-                          Navigator.pushNamed(context, role == 'skilled_worker' ? '/skilled-worker-otp' : '/job-poster-otp', arguments: {
-                            'phone': phoneController.text,
-                          });
+                          Navigator.pushNamed(
+                            context,
+                            role == 'skilled_worker'
+                                ? '/skilled-worker-otp'
+                                : '/job-poster-home',
+                            arguments: {'phone': phoneController.text},
+                          );
                         } else {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Please enter your phone number')),
+                            const SnackBar(
+                              content: Text('Please enter your phone number'),
+                            ),
                           );
                         }
                       },
                       child: const Text(
                         'Continue',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 18,
+                        ),
                       ),
                     ),
                   ),
@@ -129,11 +149,17 @@ class _LoginScreenState extends State<LoginScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Text("Don't have an account? ", style: TextStyle(fontSize: 15)),
+                      const Text(
+                        "Don't have an account? ",
+                        style: TextStyle(fontSize: 15),
+                      ),
                       GestureDetector(
                         onTap: () {
                           if (role == 'skilled_worker') {
-                            Navigator.pushNamed(context, '/skilled-worker-signup');
+                            Navigator.pushNamed(
+                              context,
+                              '/skilled-worker-signup',
+                            );
                           } else {
                             Navigator.pushNamed(context, '/job-poster-signup');
                           }

@@ -25,9 +25,15 @@ class DefaultFirebaseOptions {
       case TargetPlatform.iOS:
         return ios;
       case TargetPlatform.macOS:
-        return macos;
+        throw UnsupportedError(
+          'DefaultFirebaseOptions have not been configured for macos - '
+          'you can reconfigure this by running the FlutterFire CLI again.',
+        );
       case TargetPlatform.windows:
-        return windows;
+        throw UnsupportedError(
+          'DefaultFirebaseOptions have not been configured for windows - '
+          'you can reconfigure this by running the FlutterFire CLI again.',
+        );
       case TargetPlatform.linux:
         throw UnsupportedError(
           'DefaultFirebaseOptions have not been configured for linux - '
@@ -41,12 +47,12 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyCsHn7DgMFGCOKRCWI2z5fJdUlKf6n_5dQ',
-    appId: '1:781796858808:web:7cc68edfafdac3c5a50d4d',
-    messagingSenderId: '781796858808',
-    projectId: 'skillzaar-9469c',
-    authDomain: 'skillzaar-9469c.firebaseapp.com',
-    storageBucket: 'skillzaar-9469c.firebasestorage.app',
+    apiKey: 'AIzaSyALzdd7qQdemxo4BHN--GRkLZ0GFlbEwLA',
+    appId: '1:18417914632:web:9c08693103ccd713d892bd',
+    messagingSenderId: '18417914632',
+    projectId: 'skillzaar-bcb0f',
+    authDomain: 'skillzaar-bcb0f.firebaseapp.com',
+    storageBucket: 'skillzaar-bcb0f.firebasestorage.app',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
@@ -64,22 +70,5 @@ class DefaultFirebaseOptions {
     projectId: 'skillzaar-bcb0f',
     storageBucket: 'skillzaar-bcb0f.firebasestorage.app',
     iosBundleId: 'com.example.skillzaar',
-  );
-
-  static const FirebaseOptions macos = FirebaseOptions(
-    apiKey: 'AIzaSyCsHn7DgMFGCOKRCWI2z5fJdUlKf6n_5dQ',
-    appId: '1:781796858808:macos:7cc68edfafdac3c5a50d4d',
-    messagingSenderId: '781796858808',
-    projectId: 'skillzaar-9469c',
-    storageBucket: 'skillzaar-9469c.firebasestorage.app',
-    iosBundleId: 'com.example.skillzaar',
-  );
-
-  static const FirebaseOptions windows = FirebaseOptions(
-    apiKey: 'AIzaSyCsHn7DgMFGCOKRCWI2z5fJdUlKf6n_5dQ',
-    appId: '1:781796858808:windows:7cc68edfafdac3c5a50d4d',
-    messagingSenderId: '781796858808',
-    projectId: 'skillzaar-9469c',
-    storageBucket: 'skillzaar-9469c.firebasestorage.app',
   );
 }

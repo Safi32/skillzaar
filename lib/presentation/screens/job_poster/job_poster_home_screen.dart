@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:skillzaar/presentation/screens/job_poster/home_screen.dart';
+import 'package:skillzaar/presentation/widgets/bottom_bar_widget.dart';
 import '../../providers/ui_state_provider.dart';
 import 'job_poster_ads_screen.dart';
 import 'job_requests_screen.dart';
@@ -50,6 +52,7 @@ class _JobPosterHomeContentState extends State<_JobPosterHomeContent> {
       _maybeRedirectToAccepted();
     });
     _pages = [
+      HomeScreen(),
       JobPosterAdsScreen(myAdsOnly: _showMyAdsOnly),
       const JobRequestsScreen(),
       const JobPosterProfileScreen(),
@@ -57,32 +60,44 @@ class _JobPosterHomeContentState extends State<_JobPosterHomeContent> {
   }
 
   Future<void> _maybeRedirectToAccepted() async {
-    final currentPosterId = JobRequestService.getCurrentUserId() ?? 'TEST_POSTER_ID';
-    Map<String, dynamic>? req = await JobRequestService.getAcceptedRequestForPoster(currentPosterId);
+    final currentPosterId =
+        JobRequestService.getCurrentUserId() ?? 'TEST_POSTER_ID';
+    Map<String, dynamic>? req =
+        await JobRequestService.getAcceptedRequestForPoster(currentPosterId);
     if (!mounted) return;
     if (req != null && req['status'] == 'accepted') {
       // Fetch job details
-      final jobDetails = await JobRequestService.getJobDetails(req['jobId'] as String);
+      final jobDetails = await JobRequestService.getJobDetails(
+        req['jobId'] as String,
+      );
       // Fetch skilled worker details
-      final skilledWorkerDetails = await JobRequestService.getSkilledWorkerDetails(req['skilledWorkerId'] as String);
+      final skilledWorkerDetails =
+          await JobRequestService.getSkilledWorkerDetails(
+            req['skilledWorkerId'] as String,
+          );
       if (!mounted) return;
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
-          builder: (_) => JobAcceptedDetailsScreen(
-            jobDetails: jobDetails ?? {},
-            skilledWorkerDetails: skilledWorkerDetails ?? {
-              'name': req?['skilledWorkerName'] ?? '-',
-              'phone': req?['skilledWorkerPhone'] ?? '-',
-              'email': req?['skilledWorkerEmail'] ?? '-',
-            },
-            isJobCompleted: false,
-          ),
+          builder:
+              (_) => JobAcceptedDetailsScreen(
+                jobDetails: jobDetails ?? {},
+                skilledWorkerDetails:
+                    skilledWorkerDetails ??
+                    {
+                      'name': req?['skilledWorkerName'] ?? '-',
+                      'phone': req?['skilledWorkerPhone'] ?? '-',
+                      'email': req?['skilledWorkerEmail'] ?? '-',
+                    },
+                isJobCompleted: false,
+              ),
         ),
       );
       return;
     }
     // If not accepted, check for in-progress
-    req = await JobRequestService.getInProgressRequestForPoster(currentPosterId);
+    req = await JobRequestService.getInProgressRequestForPoster(
+      currentPosterId,
+    );
     if (!mounted) return;
     if (req != null) {
       Navigator.of(context).pushReplacement(
@@ -101,13 +116,10 @@ class _JobPosterHomeContentState extends State<_JobPosterHomeContent> {
     LocationPermission permission = await Geolocator.checkPermission();
 
     if (permission == LocationPermission.denied) {
-      
       _showLocationDialog();
     } else if (permission == LocationPermission.deniedForever) {
-      
       _showLocationSettingsDialog();
     }
-    
   }
 
   void _showLocationDialog() {
@@ -138,18 +150,14 @@ class _JobPosterHomeContentState extends State<_JobPosterHomeContent> {
 
   Future<void> _requestLocationPermission() async {
     try {
-      
       LocationPermission permission = await Geolocator.requestPermission();
 
-      
       await Future.delayed(const Duration(milliseconds: 500));
 
-      
       permission = await Geolocator.checkPermission();
 
       if (permission == LocationPermission.whileInUse ||
           permission == LocationPermission.always) {
-        
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -162,7 +170,6 @@ class _JobPosterHomeContentState extends State<_JobPosterHomeContent> {
           );
         }
       } else if (permission == LocationPermission.denied) {
-
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -198,43 +205,78 @@ class _JobPosterHomeContentState extends State<_JobPosterHomeContent> {
     setState(() {
       _showMyAdsOnly = myAds;
       _pages[0] = JobPosterAdsScreen(myAdsOnly: _showMyAdsOnly);
-      _selectedIndex = 0; 
+      _selectedIndex = 0;
     });
-    Navigator.pop(context); 
+    Navigator.pop(context);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          _selectedIndex == 0
-              ? (_showMyAdsOnly ? 'My Ads' : 'All Ads')
-              : _selectedIndex == 1
-              ? 'Requests'
-              : 'Profile',
-        ),
-        centerTitle: true,
-        backgroundColor: Colors.green,
-        foregroundColor: Colors.white,
-        elevation: 0,
-      ),
       drawer: JobPosterDrawer(
         onPostJob: () => Navigator.pushNamed(context, '/job-poster-post-job'),
         onAllAds: () => _switchAdsView(myAds: false),
         onMyAds: () => _switchAdsView(myAds: true),
         onLogout: () => _showLogoutDialog(context),
       ),
-      body: _pages[_selectedIndex],
-      bottomNavigationBar: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed,
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-          BottomNavigationBarItem(icon: Icon(Icons.inbox), label: 'Requests'),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
+      body: Column(
+        children: [
+          // 🔹 Custom App Bar
+          SafeArea(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              color: Colors.white,
+              child: Row(
+                children: [
+                  // Drawer icon
+                  Builder(
+                    builder:
+                        (context) => IconButton(
+                          icon: const Icon(Icons.menu, color: Colors.green),
+                          onPressed: () => Scaffold.of(context).openDrawer(),
+                        ),
+                  ),
+
+                  // Search bar in center
+                  Expanded(
+                    child: SizedBox(
+                      height: 50,
+                      child: TextFormField(
+                        decoration: InputDecoration(
+                          hintText: "Search...",
+                          hintStyle: TextStyle(color: Colors.grey[500]),
+                          prefixIcon: Icon(
+                            Icons.search,
+                            color: Colors.grey[500],
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(30),
+                            borderSide: BorderSide.none,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  // Notification icon at the end
+                  IconButton(
+                    icon: const Icon(Icons.notifications, color: Colors.green),
+                    onPressed: () {
+                      // Handle notifications
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // 🔹 Main page content
+          Expanded(child: _pages[_selectedIndex]),
         ],
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+      floatingActionButton: FloatingIslandNavBar(
         currentIndex: _selectedIndex,
-        selectedItemColor: Colors.green,
         onTap: _onItemTapped,
       ),
     );
