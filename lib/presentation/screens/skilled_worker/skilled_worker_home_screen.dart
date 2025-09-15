@@ -1,3 +1,9 @@
+import 'dart:ffi';
+
+import 'package:skillzaar/presentation/screens/job_poster/home_screen.dart';
+import 'package:skillzaar/presentation/screens/skilled_worker/home_screen_skilled.dart';
+import 'package:skillzaar/presentation/widgets/bottom_bar_widget.dart';
+
 import '../../widgets/contact_us_dialog.dart';
 import '../../widgets/filter_dialog.dart';
 import '../../widgets/skilled_worker_drawer_header.dart';
@@ -67,45 +73,45 @@ class _HomeContentState extends State<_HomeContent> {
   }
 
   void _showContactUsDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => const ContactUsDialog(),
-    );
+    showDialog(context: context, builder: (context) => const ContactUsDialog());
   }
 
   void _showFilterDialog(BuildContext context) {
     showDialog(
       context: context,
-      builder: (context) => FilterDialog(
-        selectedJobType: _selectedJobType,
-        selectedRadius: _selectedRadius,
-        onJobTypeChanged: (type) => setState(() => _selectedJobType = type),
-        onRadiusChanged: (value) => setState(() => _selectedRadius = value),
-        onReset: () {
-          setState(() {
-            _selectedJobType = 'All';
-            _selectedRadius = 50.0;
-          });
-          Navigator.of(context).pop();
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Filters reset to default'),
-              backgroundColor: Colors.orange,
-              duration: Duration(seconds: 2),
-            ),
-          );
-        },
-        onApply: () {
-          Navigator.of(context).pop();
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Filters applied: \\${_selectedJobType} jobs within \\${_selectedRadius.round()} km'),
-              backgroundColor: Colors.green,
-              duration: const Duration(seconds: 2),
-            ),
-          );
-        },
-      ),
+      builder:
+          (context) => FilterDialog(
+            selectedJobType: _selectedJobType,
+            selectedRadius: _selectedRadius,
+            onJobTypeChanged: (type) => setState(() => _selectedJobType = type),
+            onRadiusChanged: (value) => setState(() => _selectedRadius = value),
+            onReset: () {
+              setState(() {
+                _selectedJobType = 'All';
+                _selectedRadius = 50.0;
+              });
+              Navigator.of(context).pop();
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Filters reset to default'),
+                  backgroundColor: Colors.orange,
+                  duration: Duration(seconds: 2),
+                ),
+              );
+            },
+            onApply: () {
+              Navigator.of(context).pop();
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    'Filters applied: \\${_selectedJobType} jobs within \\${_selectedRadius.round()} km',
+                  ),
+                  backgroundColor: Colors.green,
+                  duration: const Duration(seconds: 2),
+                ),
+              );
+            },
+          ),
     );
   }
 
@@ -142,6 +148,7 @@ class _HomeContentState extends State<_HomeContent> {
   @override
   Widget build(BuildContext context) {
     final List<Widget> pages = [
+      HomeScreenSkilled(),
       const SkilledWorkerJobsScreen(),
       const SkilledWorkerRequestsScreen(),
       const HomeProfileScreen(),
@@ -200,31 +207,23 @@ class _HomeContentState extends State<_HomeContent> {
         ),
       ),
       body: pages[_selectedIndex],
-      bottomNavigationBar: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed,
-        items: const <BottomNavigationBarItem>[
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.assignment),
-            label: 'Requests',
-          ),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
-        ],
+      floatingActionButton: FloatingIslandNavBar(
         currentIndex: _selectedIndex,
-        selectedItemColor: Colors.green,
-        unselectedItemColor: Colors.grey,
         onTap: _onItemTapped,
       ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
     );
   }
 
   String _getTitle(int index) {
     switch (index) {
       case 0:
-        return 'All Jobs';
+        return 'Home';
       case 1:
-        return 'My Requests';
+        return 'All Ads';
       case 2:
+        return 'Requests';
+      case 3:
         return 'Profile';
       default:
         return 'All Jobs';

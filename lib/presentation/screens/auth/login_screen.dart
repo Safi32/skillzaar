@@ -124,7 +124,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           Navigator.pushNamed(
                             context,
                             role == 'skilled_worker'
-                                ? '/skilled-worker-otp'
+                                ? '/skilled-worker-home'
                                 : '/job-poster-home',
                             arguments: {'phone': phoneController.text},
                           );

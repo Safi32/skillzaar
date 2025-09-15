@@ -5,7 +5,7 @@ import '../../providers/ui_state_provider.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/services/job_request_service.dart';
 import 'job_detail_screen.dart';
-import 'home_screen.dart';
+import 'skilled_worker_home_screen.dart';
 
 class SkilledWorkerLoginScreen extends StatefulWidget {
   const SkilledWorkerLoginScreen({super.key});

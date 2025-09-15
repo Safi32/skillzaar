@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 import 'package:skillzaar/presentation/screens/auth/job_poster_signup_screen.dart';
 import 'package:skillzaar/presentation/screens/auth/login_screen.dart';
 
-
 import '../screens/job_poster/otp_screen.dart' as job_poster_otp;
 import '../screens/job_poster/post_job_screen.dart';
 import '../screens/job_poster/job_poster_home_screen.dart';
@@ -15,7 +14,7 @@ import '../screens/skilled_worker/signup_screen.dart';
 import '../screens/skilled_worker/otp_screen.dart' as skilled_worker_otp;
 import '../screens/skilled_worker/cnic_screen.dart';
 import '../screens/skilled_worker/profile_screen.dart';
-import '../screens/skilled_worker/home_screen.dart';
+import '../screens/skilled_worker/skilled_worker_home_screen.dart';
 import '../screens/skilled_worker/home_profile_screen.dart';
 import '../screens/skilled_worker/jobs_screen.dart';
 import '../screens/skilled_worker/accepted_requests_screen.dart';
@@ -30,8 +29,7 @@ class AppRoutes {
   static Map<String, WidgetBuilder> routes = {
     '/job-poster-login': (context) => LoginScreen(),
     '/job-poster-quick-register': (context) => LoginScreen(),
-  '/job-poster-signup':
-    (context) => const JobPosterSignUpScreen(),
+    '/job-poster-signup': (context) => const JobPosterSignUpScreen(),
     '/job-poster-otp': (context) => const job_poster_otp.JobPosterOTPScreen(),
     '/job-poster-post-job': (context) => const PostJobScreen(),
     '/job-poster-home': (context) => const JobPosterHomeScreen(),
@@ -39,9 +37,9 @@ class AppRoutes {
     '/job-poster-profile': (context) => const JobPosterProfileScreen(),
     '/job-poster-ads': (context) => const JobPosterAdsScreen(),
     '/job-poster-contact': (context) => const ContactUsScreen(),
-  '/job-poster-job-detail': (context) => const JobDetailScreen(),
-  '/skilled-worker-signup': (context) => const SkilledWorkerSignUpScreen(),
-  '/skilled-worker-login': (context) => LoginScreen(),
+    '/job-poster-job-detail': (context) => const JobDetailScreen(),
+    '/skilled-worker-signup': (context) => const SkilledWorkerSignUpScreen(),
+    '/skilled-worker-login': (context) => LoginScreen(),
     '/skilled-worker-otp':
         (context) => const skilled_worker_otp.SkilledWorkerOTPScreen(),
     '/skilled-worker-cnic': (context) => const CnicScreen(),
@@ -50,7 +48,7 @@ class AppRoutes {
     '/skilled-worker-accepted-requests':
         (context) => const AcceptedRequestsScreen(),
   };
-  
+
   static Route<dynamic>? onGenerateRoute(RouteSettings settings) {
     switch (settings.name) {
       case '/skilled-worker-profile':
@@ -74,9 +72,7 @@ class AppRoutes {
           builder: (context) => const PortfolioOverviewScreen(),
         );
       case '/job-poster-job-detail':
-        return MaterialPageRoute(
-          builder: (context) => const JobDetailScreen(),
-        );
+        return MaterialPageRoute(builder: (context) => const JobDetailScreen());
       case '/skilled-worker-job-detail':
         final args = settings.arguments as Map<String, dynamic>?;
         if (args != null) {
