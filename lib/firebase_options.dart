@@ -41,12 +41,12 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyCsHn7DgMFGCOKRCWI2z5fJdUlKf6n_5dQ',
-    appId: '1:781796858808:web:7cc68edfafdac3c5a50d4d',
-    messagingSenderId: '781796858808',
-    projectId: 'skillzaar-9469c',
-    authDomain: 'skillzaar-9469c.firebaseapp.com',
-    storageBucket: 'skillzaar-9469c.firebasestorage.app',
+    apiKey: 'AIzaSyAtG2_o2-9_BrXDCAKikd_83uYGxIDfy30',
+    appId: '1:18417914632:web:4bc87dbda7b98ccfd892bd',
+    messagingSenderId: '18417914632',
+    projectId: 'skillzaar-bcb0f',
+    authDomain: 'skillzaar-bcb0f.firebaseapp.com',
+    storageBucket: 'skillzaar-bcb0f.firebasestorage.app',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
@@ -67,19 +67,19 @@ class DefaultFirebaseOptions {
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
-    apiKey: 'AIzaSyCsHn7DgMFGCOKRCWI2z5fJdUlKf6n_5dQ',
-    appId: '1:781796858808:macos:7cc68edfafdac3c5a50d4d',
-    messagingSenderId: '781796858808',
-    projectId: 'skillzaar-9469c',
-    storageBucket: 'skillzaar-9469c.firebasestorage.app',
+    apiKey: 'AIzaSyA7zqXeNz4rCbXaIT3Bou1FbYpo0XIKC5A',
+    appId: '1:18417914632:macos:20aa8631557efd13d892bd',
+    messagingSenderId: '18417914632',
+    projectId: 'skillzaar-bcb0f',
+    storageBucket: 'skillzaar-bcb0f.firebasestorage.app',
     iosBundleId: 'com.example.skillzaar',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(
-    apiKey: 'AIzaSyCsHn7DgMFGCOKRCWI2z5fJdUlKf6n_5dQ',
-    appId: '1:781796858808:windows:7cc68edfafdac3c5a50d4d',
-    messagingSenderId: '781796858808',
-    projectId: 'skillzaar-9469c',
-    storageBucket: 'skillzaar-9469c.firebasestorage.app',
+    apiKey: 'AIzaSyAtG2_o2-9_BrXDCAKikd_83uYGxIDfy30',
+    appId: '1:18417914632:windows:4bc87dbda7b98ccfd892bd',
+    messagingSenderId: '18417914632',
+    projectId: 'skillzaar-bcb0f',
+    storageBucket: 'skillzaar-bcb0f.firebasestorage.app',
   );
 }

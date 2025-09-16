@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../providers/phone_auth_provider.dart';
-import '../../providers/job_poster_firebase_extension.dart';
 
 class JobPosterOTPScreen extends StatefulWidget {
   const JobPosterOTPScreen({super.key});
@@ -24,6 +23,14 @@ class _JobPosterOTPScreenState extends State<JobPosterOTPScreen> {
     for (final controller in otpControllers) {
       controller.addListener(_onOtpFieldsChanged);
     }
+    // Check connection status when screen loads
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final phoneAuthProvider = Provider.of<PhoneAuthProvider>(
+        context,
+        listen: false,
+      );
+      phoneAuthProvider.showConnectionStatus(context);
+    });
   }
 
   void _onOtpFieldsChanged() {
@@ -104,6 +111,37 @@ class _JobPosterOTPScreenState extends State<JobPosterOTPScreen> {
                     style: TextStyle(fontSize: 15, color: Colors.black87),
                     textAlign: TextAlign.center,
                   ),
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.shade50,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.blue.shade200),
+                    ),
+                    child: Column(
+                      children: [
+                        const Text(
+                          'Test Credentials:',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.blue,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        const Text(
+                          'Phone: 03115798273 | OTP: 123456',
+                          style: TextStyle(fontSize: 14, color: Colors.black87),
+                        ),
+                        const SizedBox(height: 4),
+                        const Text(
+                          'Phone: 03092939350 | OTP: 123456',
+                          style: TextStyle(fontSize: 14, color: Colors.black87),
+                        ),
+                      ],
+                    ),
+                  ),
                   const SizedBox(height: 32),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -172,37 +210,54 @@ class _JobPosterOTPScreenState extends State<JobPosterOTPScreen> {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
                               content: Text('Please enter the 6-digit code'),
+                              backgroundColor: Colors.red,
                             ),
                           );
                           return;
                         }
-                        try {
-                          await phoneAuthProvider.verifyOtp(
-                            otpCode,
-                            context,
-                            isUser: false,
+                        // Get phone number from arguments
+                        final args =
+                            ModalRoute.of(context)?.settings.arguments
+                                as Map<String, dynamic>?;
+                        final phoneNumber =
+                            args?['phone'] ??
+                            phoneAuthProvider.currentPhoneNumber ??
+                            '';
+
+                        // Use the new login method
+                        final loginSuccess = await phoneAuthProvider.login(
+                          phoneNumber,
+                          otpCode,
+                        );
+                        if (loginSuccess) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                '✅ Login successful! Welcome back.',
+                              ),
+                              backgroundColor: Colors.green,
+                              duration: Duration(seconds: 3),
+                            ),
                           );
-                          if (phoneAuthProvider.error == null) {
-                            // Register the user in Firestore using the extension
-                            await phoneAuthProvider.createJobPosterInFirebase(
-                              context,
-                            );
-                            // ignore: use_build_context_synchronously
-                            Navigator.pushReplacementNamed(
-                              context,
-                              '/job-poster-home',
-                              arguments: {
-                                'userId': phoneAuthProvider.currentPhoneNumber,
-                              },
-                            );
-                          } else {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text(phoneAuthProvider.error!)),
-                            );
-                          }
-                        } finally {
-                          if (mounted) setState(() {});
+
+                          // Check for active job after successful login using the new method
+                          await phoneAuthProvider.checkJobOnLogin(
+                            phoneNumber,
+                            context,
+                          );
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                phoneAuthProvider.error ??
+                                    '❌ Login failed. Use 123456 for testing.',
+                              ),
+                              backgroundColor: Colors.red,
+                              duration: Duration(seconds: 3),
+                            ),
+                          );
                         }
+                        if (mounted) setState(() {});
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.green,
@@ -229,10 +284,42 @@ class _JobPosterOTPScreenState extends State<JobPosterOTPScreen> {
                   if (phoneAuthProvider.error != null)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 8.0),
-                      child: Text(
-                        phoneAuthProvider.error!,
-                        style: const TextStyle(color: Colors.red),
-                        textAlign: TextAlign.center,
+                      child: Column(
+                        children: [
+                          Text(
+                            phoneAuthProvider.error!,
+                            style: const TextStyle(color: Colors.red),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 12),
+                          if (phoneAuthProvider.error!.contains(
+                                'unavailable',
+                              ) ||
+                              phoneAuthProvider.error!.contains('timeout') ||
+                              phoneAuthProvider.error!.contains('connection'))
+                            ElevatedButton.icon(
+                              onPressed: () async {
+                                phoneAuthProvider.clearError();
+                                await phoneAuthProvider.showConnectionStatus(
+                                  context,
+                                );
+                              },
+                              icon: const Icon(
+                                Icons.refresh,
+                                color: Colors.white,
+                              ),
+                              label: const Text(
+                                'Retry',
+                                style: TextStyle(color: Colors.white),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.orange,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                              ),
+                            ),
+                        ],
                       ),
                     ),
                 ],

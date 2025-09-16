@@ -9,12 +9,15 @@ import 'presentation/providers/profile_provider.dart';
 import 'presentation/providers/home_profile_provider.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
-import 'package:firebase_app_check/firebase_app_check.dart';
 import 'presentation/providers/phone_auth_provider.dart';
 import 'presentation/providers/job_provider.dart';
 import 'presentation/providers/ui_state_provider.dart';
 import 'presentation/providers/location_state_provider.dart';
+import 'presentation/providers/notification_provider.dart';
 import 'presentation/widgets/splash_and_dialog_gate.dart';
+import 'presentation/widgets/notification_initializer.dart';
+import 'presentation/widgets/provider_connector.dart';
+import 'presentation/widgets/active_work_gate.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -23,10 +26,8 @@ void main() async {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
-    print('✅ Firebase initialized successfully');
-    print('📱 Project ID: ${DefaultFirebaseOptions.currentPlatform.projectId}');
   } catch (e) {
-    print('❌ Firebase initialization failed: $e');
+    print(e);
   }
 
   // Temporarily disable App Check until API is enabled
@@ -46,8 +47,11 @@ void main() async {
         ChangeNotifierProvider(create: (_) => UIStateProvider()),
         ChangeNotifierProvider(create: (_) => LocationStateProvider()),
         ChangeNotifierProvider(create: (_) => HomeProfileProvider()),
+        ChangeNotifierProvider(create: (_) => NotificationProvider()),
       ],
-      child: const MyApp(),
+      child: const NotificationInitializer(
+        child: ProviderConnector(child: MyApp()),
+      ),
     ),
   );
 }

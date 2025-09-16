@@ -5,9 +5,6 @@ import 'job_poster_ads_screen.dart';
 import 'job_requests_screen.dart';
 import 'job_poster_profile_screen.dart';
 import 'package:geolocator/geolocator.dart';
-import '../../../core/services/job_request_service.dart';
-import 'in_progress_job_screen.dart';
-import 'job_accepted_details_screen.dart';
 import 'package:skillzaar/presentation/widgets/job_poster_drawer.dart';
 import 'package:skillzaar/presentation/widgets/location_permission_dialog.dart';
 import 'package:skillzaar/presentation/widgets/location_settings_dialog.dart';
@@ -47,48 +44,14 @@ class _JobPosterHomeContentState extends State<_JobPosterHomeContent> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _showLocationPermissionPrompt();
-      _maybeRedirectToAccepted();
+      // Active job redirect is now handled in OTP screen
+      // _maybeRedirectToAccepted();
     });
     _pages = [
       JobPosterAdsScreen(myAdsOnly: _showMyAdsOnly),
       const JobRequestsScreen(),
       const JobPosterProfileScreen(),
     ];
-  }
-
-  Future<void> _maybeRedirectToAccepted() async {
-    final currentPosterId = JobRequestService.getCurrentUserId() ?? 'TEST_POSTER_ID';
-    Map<String, dynamic>? req = await JobRequestService.getAcceptedRequestForPoster(currentPosterId);
-    if (!mounted) return;
-    if (req != null && req['status'] == 'accepted') {
-      // Fetch job details
-      final jobDetails = await JobRequestService.getJobDetails(req['jobId'] as String);
-      // Fetch skilled worker details
-      final skilledWorkerDetails = await JobRequestService.getSkilledWorkerDetails(req['skilledWorkerId'] as String);
-      if (!mounted) return;
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (_) => JobAcceptedDetailsScreen(
-            jobDetails: jobDetails ?? {},
-            skilledWorkerDetails: skilledWorkerDetails ?? {
-              'name': req?['skilledWorkerName'] ?? '-',
-              'phone': req?['skilledWorkerPhone'] ?? '-',
-              'email': req?['skilledWorkerEmail'] ?? '-',
-            },
-            isJobCompleted: false,
-          ),
-        ),
-      );
-      return;
-    }
-    // If not accepted, check for in-progress
-    req = await JobRequestService.getInProgressRequestForPoster(currentPosterId);
-    if (!mounted) return;
-    if (req != null) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const InProgressJobScreen()),
-      );
-    }
   }
 
   Future<void> _showLocationPermissionPrompt() async {
@@ -101,13 +64,10 @@ class _JobPosterHomeContentState extends State<_JobPosterHomeContent> {
     LocationPermission permission = await Geolocator.checkPermission();
 
     if (permission == LocationPermission.denied) {
-      
       _showLocationDialog();
     } else if (permission == LocationPermission.deniedForever) {
-      
       _showLocationSettingsDialog();
     }
-    
   }
 
   void _showLocationDialog() {
@@ -138,18 +98,14 @@ class _JobPosterHomeContentState extends State<_JobPosterHomeContent> {
 
   Future<void> _requestLocationPermission() async {
     try {
-      
       LocationPermission permission = await Geolocator.requestPermission();
 
-      
       await Future.delayed(const Duration(milliseconds: 500));
 
-      
       permission = await Geolocator.checkPermission();
 
       if (permission == LocationPermission.whileInUse ||
           permission == LocationPermission.always) {
-        
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -162,7 +118,6 @@ class _JobPosterHomeContentState extends State<_JobPosterHomeContent> {
           );
         }
       } else if (permission == LocationPermission.denied) {
-
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -198,9 +153,9 @@ class _JobPosterHomeContentState extends State<_JobPosterHomeContent> {
     setState(() {
       _showMyAdsOnly = myAds;
       _pages[0] = JobPosterAdsScreen(myAdsOnly: _showMyAdsOnly);
-      _selectedIndex = 0; 
+      _selectedIndex = 0;
     });
-    Navigator.pop(context); 
+    Navigator.pop(context);
   }
 
   @override
@@ -221,6 +176,7 @@ class _JobPosterHomeContentState extends State<_JobPosterHomeContent> {
       ),
       drawer: JobPosterDrawer(
         onPostJob: () => Navigator.pushNamed(context, '/job-poster-post-job'),
+        onJobPosterDetail: () => Navigator.pushNamed(context, '/job-poster-detail'),
         onAllAds: () => _switchAdsView(myAds: false),
         onMyAds: () => _switchAdsView(myAds: true),
         onLogout: () => _showLogoutDialog(context),

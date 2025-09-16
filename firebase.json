@@ -1,1 +1,39 @@
-{"emulators":{"dataconnect":{"dataDir":"dataconnect/.dataconnect/pgliteData"}},"dataconnect":{"source":"dataconnect"},"firestore":{"database":"(default)","location":"nam5","rules":"firestore.rules","indexes":"firestore.indexes.json"},"flutter":{"platforms":{"android":{"default":{"projectId":"skillzaar-bcb0f","appId":"1:18417914632:android:4bc87dbda7b98ccfd892bd","fileOutput":"android/app/google-services.json"}},"dart":{"lib/firebase_options.dart":{"projectId":"skillzaar-bcb0f","configurations":{"android":"1:18417914632:android:4bc87dbda7b98ccfd892bd","ios":"1:18417914632:ios:20aa8631557efd13d892bd"}}}}}}
+{
+  "emulators": {
+    "dataconnect": {
+      "dataDir": "dataconnect/.dataconnect/pgliteData"
+    }
+  },
+  "dataconnect": {
+    "source": "dataconnect"
+  },
+  "firestore": {
+    "database": "(default)",
+    "location": "nam5",
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "skillzaar-bcb0f",
+          "appId": "1:18417914632:android:4bc87dbda7b98ccfd892bd",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "skillzaar-bcb0f",
+          "configurations": {
+            "android": "1:18417914632:android:4bc87dbda7b98ccfd892bd",
+            "ios": "1:18417914632:ios:20aa8631557efd13d892bd",
+            "web": "1:18417914632:web:4bc87dbda7b98ccfd892bd",
+            "macos": "1:18417914632:macos:20aa8631557efd13d892bd",
+            "windows": "1:18417914632:windows:4bc87dbda7b98ccfd892bd"
+          }
+        }
+      }
+    }
+  }
+}}

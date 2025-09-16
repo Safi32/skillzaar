@@ -8,10 +8,10 @@ import '../../widgets/editable_portfolio_section.dart';
 import '../../widgets/save_portfolio_button.dart';
 import '../../widgets/custom_category_dialog.dart';
 import '../../widgets/dialogs.dart';
+import '../../providers/skilled_worker_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/home_profile_provider.dart';
-
 
 class HomeProfileScreen extends StatelessWidget {
   const HomeProfileScreen({super.key});
@@ -50,7 +50,12 @@ class _HomeProfileContentState extends State<_HomeProfileContent> {
     super.initState();
     // Load existing skill profile data
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      widget.homeProfileProvider.loadPortfolioFromFirestore();
+      final skilledWorkerProvider = Provider.of<SkilledWorkerProvider>(
+        context,
+        listen: false,
+      );
+      final userId = skilledWorkerProvider.loggedInUserId ?? '';
+      widget.homeProfileProvider.loadPortfolioFromFirestore(userId);
     });
   }
 
@@ -132,7 +137,8 @@ class _HomeProfileContentState extends State<_HomeProfileContent> {
   Widget _buildProfileCompletionCard() {
     return ProfileCompletionCard(
       isProfileComplete: widget.homeProfileProvider.isProfileComplete,
-      completionPercentage: widget.homeProfileProvider.profileCompletionPercentage,
+      completionPercentage:
+          widget.homeProfileProvider.profileCompletionPercentage,
       completionMessage: widget.homeProfileProvider.profileCompletionMessage,
       onHelp: () => _showProfileHelpDialog(context),
     );
@@ -142,7 +148,8 @@ class _HomeProfileContentState extends State<_HomeProfileContent> {
     return CategoriesSection(
       allCategories: widget.homeProfileProvider.allCategories,
       selectedCategories: widget.homeProfileProvider.selectedCategories,
-      onToggleCategory: (category) => widget.homeProfileProvider.toggleCategory(category),
+      onToggleCategory:
+          (category) => widget.homeProfileProvider.toggleCategory(category),
       onCustomCategory: () => _showCustomCategoryDialog(context),
     );
   }
@@ -179,14 +186,18 @@ class _HomeProfileContentState extends State<_HomeProfileContent> {
     return EditablePortfolioSection(
       images: List<String>.from(widget.homeProfileProvider.portfolioImages),
       onAddImage: widget.homeProfileProvider.addPortfolioImage,
-      onRemoveImage: (index) => widget.homeProfileProvider.removePortfolioImage(index),
+      onRemoveImage:
+          (index) => widget.homeProfileProvider.removePortfolioImage(index),
     );
   }
 
   Widget _buildNextButton() {
     return SavePortfolioButton(
       isFormValid: widget.homeProfileProvider.isFormValid,
-      onPressed: widget.homeProfileProvider.isFormValid ? () => _saveSkillProfile(context) : null,
+      onPressed:
+          widget.homeProfileProvider.isFormValid
+              ? () => _saveSkillProfile(context)
+              : null,
     );
   }
 
@@ -249,7 +260,18 @@ class _HomeProfileContentState extends State<_HomeProfileContent> {
           );
         },
       );
-      final success = await widget.homeProfileProvider.savePortfolioToFirestore();
+      // Get user info from SkilledWorkerProvider
+      final skilledWorkerProvider = Provider.of<SkilledWorkerProvider>(
+        context,
+        listen: false,
+      );
+      final userId = skilledWorkerProvider.loggedInUserId ?? '';
+      final phoneNumber = skilledWorkerProvider.loggedInPhoneNumber ?? '';
+
+      final success = await widget.homeProfileProvider.savePortfolioToFirestore(
+        userId,
+        phoneNumber,
+      );
       if (!mounted) return;
       Navigator.of(context).pop();
       if (success) {
@@ -296,9 +318,7 @@ class _HomeProfileContentState extends State<_HomeProfileContent> {
     showDialog(
       context: context,
       builder: (BuildContext context) {
-        return ProfileHelpDialog(
-          onGotIt: () => Navigator.of(context).pop(),
-        );
+        return ProfileHelpDialog(onGotIt: () => Navigator.of(context).pop());
       },
     );
   }
