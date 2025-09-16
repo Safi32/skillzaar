@@ -1,10 +1,11 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:skillzaar/presentation/widgets/job_request_card.dart';
 import 'package:skillzaar/presentation/widgets/job_requests_empty_state.dart';
 
 import '../../../core/services/job_request_service.dart';
+import '../../providers/phone_auth_provider.dart';
 import 'portfolio_view_screen.dart';
 
 class JobRequestsScreen extends StatelessWidget {
@@ -12,27 +13,43 @@ class JobRequestsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final user = FirebaseAuth.instance.currentUser;
+    final phoneAuthProvider = Provider.of<PhoneAuthProvider>(
+      context,
+      listen: false,
+    );
 
     String jobPosterId;
 
-    if (user != null) {
-      jobPosterId = user.uid;
+    if (phoneAuthProvider.isLoggedIn &&
+        phoneAuthProvider.loggedInUserId != null) {
+      jobPosterId = phoneAuthProvider.loggedInUserId!;
     } else {
       jobPosterId = 'TEST_JOB_POSTER_ID';
     }
 
+    print('🔍 Job Requests Screen - Job Poster ID: $jobPosterId');
+    print(
+      '🔍 Job Requests Screen - Is Logged In: ${phoneAuthProvider.isLoggedIn}',
+    );
+
+    // Normalize legacy requests on first build
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await JobRequestService.normalizeJobRequestsForPoster(
+        jobPosterId: jobPosterId,
+        posterPhone: phoneAuthProvider.loggedInPhoneNumber,
+      );
+    });
+
     return Scaffold(
       body: StreamBuilder<QuerySnapshot>(
-        stream: JobRequestService.getJobsForPoster(jobPosterId),
-        builder: (context, jobSnapshot) {
-          if (jobSnapshot.hasError) {}
-          if (jobSnapshot.hasData) {}
-          if (jobSnapshot.connectionState == ConnectionState.waiting) {
+        // Fetch requests directly by jobPosterId, independent of job list
+        stream: JobRequestService.getJobRequestsForPoster(jobPosterId),
+        builder: (context, reqSnapshot) {
+          if (reqSnapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
 
-          if (jobSnapshot.hasError) {
+          if (reqSnapshot.hasError) {
             return Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -40,12 +57,12 @@ class JobRequestsScreen extends StatelessWidget {
                   const Icon(Icons.error_outline, size: 64, color: Colors.red),
                   const SizedBox(height: 16),
                   const Text(
-                    'Error loading jobs',
+                    'Error loading requests',
                     style: TextStyle(fontSize: 18, color: Colors.red),
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Error: ${jobSnapshot.error}',
+                    'Error: ${reqSnapshot.error}',
                     style: const TextStyle(fontSize: 14, color: Colors.grey),
                     textAlign: TextAlign.center,
                   ),
@@ -54,100 +71,47 @@ class JobRequestsScreen extends StatelessWidget {
             );
           }
 
-          if (!jobSnapshot.hasData || jobSnapshot.data!.docs.isEmpty) {
+          if (!reqSnapshot.hasData || reqSnapshot.data!.docs.isEmpty) {
             return const JobRequestsEmptyState();
           }
-          final jobs = jobSnapshot.data!.docs;
+
+          // Group requests by jobId
+          final byJob = <String, List<QueryDocumentSnapshot>>{};
+          for (final doc in reqSnapshot.data!.docs) {
+            final data = doc.data() as Map<String, dynamic>;
+            final jobId = data['jobId'] as String? ?? '';
+            if (jobId.isEmpty) continue;
+            byJob.putIfAbsent(jobId, () => <QueryDocumentSnapshot>[]).add(doc);
+          }
+
+          final jobIds = byJob.keys.toList();
+
           return ListView.builder(
-            itemCount: jobs.length,
-            itemBuilder: (context, jobIndex) {
-              final job = jobs[jobIndex];
-              final jobId = job.id;
-              final jobTitle =
-                  job['title_en'] ??
-                  job['title_ur'] ??
-                  job['Name'] ??
-                  'No Title';
-              return StreamBuilder<QuerySnapshot>(
-                stream:
+            itemCount: jobIds.length,
+            itemBuilder: (context, index) {
+              final jobId = jobIds[index];
+              final requests = byJob[jobId]!;
+
+              return FutureBuilder<DocumentSnapshot>(
+                future:
                     FirebaseFirestore.instance
-                        .collection('JobRequests')
-                        .where('jobId', isEqualTo: jobId)
-                        .where('isActive', isEqualTo: true)
-                        .snapshots(),
-                builder: (context, reqSnapshot) {
-                  if (reqSnapshot.connectionState == ConnectionState.waiting) {
-                    return const Padding(
-                      padding: EdgeInsets.all(16),
-                      child: Center(child: CircularProgressIndicator()),
-                    );
-                  }
+                        .collection('Job')
+                        .doc(jobId)
+                        .get(),
+                builder: (context, jobSnap) {
+                  final jobTitle = () {
+                    if (jobSnap.hasData && jobSnap.data!.exists) {
+                      final d = jobSnap.data!.data() as Map<String, dynamic>;
+                      return d['title_en'] ??
+                          d['title_ur'] ??
+                          d['Name'] ??
+                          'No Title';
+                    }
+                    return 'Job';
+                  }();
 
-                  if (reqSnapshot.hasError) {
-                    return Card(
-                      margin: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 8,
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Job: $jobTitle',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            const Text(
-                              'Error loading requests',
-                              style: TextStyle(
-                                color: Colors.red,
-                                fontStyle: FontStyle.italic,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  }
-
-                  if (!reqSnapshot.hasData || reqSnapshot.data!.docs.isEmpty) {
-                    return Card(
-                      margin: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 8,
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Job: $jobTitle',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            const Text(
-                              'No requests yet',
-                              style: TextStyle(
-                                color: Colors.grey,
-                                fontStyle: FontStyle.italic,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  }
-                  final requests =
-                      reqSnapshot.data!.docs.toList()..sort((a, b) {
+                  final sorted =
+                      requests.toList()..sort((a, b) {
                         final aData = a.data() as Map<String, dynamic>;
                         final bData = b.data() as Map<String, dynamic>;
                         final aTime = aData['requestedAt'];
@@ -157,11 +121,13 @@ class JobRequestsScreen extends StatelessWidget {
                         if (bTime == null) return -1;
                         return bTime.compareTo(aTime);
                       });
+
                   final requestMaps =
-                      requests
+                      sorted
                           .map((doc) => doc.data() as Map<String, dynamic>)
                           .toList();
-                  final requestIds = requests.map((doc) => doc.id).toList();
+                  final requestIds = sorted.map((doc) => doc.id).toList();
+
                   return JobRequestCard(
                     jobTitle: jobTitle,
                     jobId: jobId,

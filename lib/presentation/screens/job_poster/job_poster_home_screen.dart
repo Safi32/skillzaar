@@ -7,9 +7,6 @@ import 'job_poster_ads_screen.dart';
 import 'job_requests_screen.dart';
 import 'job_poster_profile_screen.dart';
 import 'package:geolocator/geolocator.dart';
-import '../../../core/services/job_request_service.dart';
-import 'in_progress_job_screen.dart';
-import 'job_accepted_details_screen.dart';
 import 'package:skillzaar/presentation/widgets/job_poster_drawer.dart';
 import 'package:skillzaar/presentation/widgets/location_permission_dialog.dart';
 import 'package:skillzaar/presentation/widgets/location_settings_dialog.dart';
@@ -49,7 +46,8 @@ class _JobPosterHomeContentState extends State<_JobPosterHomeContent> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _showLocationPermissionPrompt();
-      _maybeRedirectToAccepted();
+      // Active job redirect is now handled in OTP screen
+      // _maybeRedirectToAccepted();
     });
     _pages = [
       HomeScreen(),
@@ -215,6 +213,8 @@ class _JobPosterHomeContentState extends State<_JobPosterHomeContent> {
     return Scaffold(
       drawer: JobPosterDrawer(
         onPostJob: () => Navigator.pushNamed(context, '/job-poster-post-job'),
+        onJobPosterDetail:
+            () => Navigator.pushNamed(context, '/job-poster-detail'),
         onAllAds: () => _switchAdsView(myAds: false),
         onMyAds: () => _switchAdsView(myAds: true),
         onLogout: () => _showLogoutDialog(context),

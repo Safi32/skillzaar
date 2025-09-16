@@ -75,6 +75,7 @@ class SkilledWorkerSignUpScreen extends StatelessWidget {
                                 Navigator.pushNamed(
                                   context,
                                   '/skilled-worker-otp',
+                                  arguments: {'phone': rawInput},
                                 );
                               }
                             },

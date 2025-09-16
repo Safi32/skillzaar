@@ -3,12 +3,15 @@ import 'package:skillzaar/presentation/screens/job_poster/contact_us_screen.dart
 
 class JobPosterDrawer extends StatelessWidget {
   final VoidCallback onPostJob;
+  final VoidCallback onJobPosterDetail;
+
   final VoidCallback onAllAds;
   final VoidCallback onMyAds;
   final VoidCallback onLogout;
   const JobPosterDrawer({
     super.key,
     required this.onPostJob,
+    required this.onJobPosterDetail,
     required this.onAllAds,
     required this.onMyAds,
     required this.onLogout,
@@ -42,10 +45,7 @@ class JobPosterDrawer extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   'Welcome to Skillzaar',
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 14,
-                  ),
+                  style: TextStyle(color: Colors.white70, fontSize: 14),
                 ),
               ],
             ),
@@ -54,6 +54,11 @@ class JobPosterDrawer extends StatelessWidget {
             leading: const Icon(Icons.add_box, color: Colors.green),
             title: const Text('Post New Job'),
             onTap: onPostJob,
+          ),
+          ListTile(
+            leading: const Icon(Icons.add_box, color: Colors.green),
+            title: const Text('Job Poster Detail '),
+            onTap: onJobPosterDetail,
           ),
           ListTile(
             leading: const Icon(Icons.dashboard, color: Colors.green),

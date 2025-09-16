@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../providers/skilled_worker_provider.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/services/job_request_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class SkilledWorkerOTPScreen extends StatefulWidget {
   const SkilledWorkerOTPScreen({super.key});
@@ -38,15 +40,101 @@ class _SkilledWorkerOTPScreenState extends State<SkilledWorkerOTPScreen> {
     }
   }
 
-  Future<bool> _isProfileComplete(String skilledWorkerId) async {
-    // For test: simulate Firestore check
-    // In real app, fetch from Firestore and check required fields
-    // Here, return false to always force registration flow for test
-    return false;
-  }
-
   String get otpCode =>
       otpControllers.map((controller) => controller.text).join();
+
+  Future<void> _checkForActiveJob(
+    BuildContext context,
+    SkilledWorkerProvider provider,
+  ) async {
+    try {
+      print('[OTP Screen] Checking for active job after login...');
+
+      // Check SharedPreferences first
+      final prefs = await SharedPreferences.getInstance();
+      final spKey = 'active_job_${provider.loggedInUserId!}';
+      final spActive = prefs.getBool(spKey) ?? false;
+      final spJobId = prefs.getString('${spKey}_jobId');
+
+      print('[OTP Screen] SharedPrefs - Active: $spActive, JobId: $spJobId');
+
+      if (spActive && spJobId != null && spJobId.isNotEmpty) {
+        // Get job details and navigate to job detail screen
+        final job = await JobRequestService.getJobDetails(spJobId);
+        if (job != null) {
+          print(
+            '[OTP Screen] Found active job via SharedPrefs, redirecting...',
+          );
+          Navigator.pushReplacementNamed(
+            context,
+            '/skilled-worker-job-detail',
+            arguments: {
+              'imageUrl': job['Image'] ?? '',
+              'title': job['title_en'] ?? job['title_ur'] ?? '',
+              'location': job['Address'] ?? job['Location'] ?? '',
+              'date': DateTime.tryParse(
+                (job['createdAt']?.toDate()?.toString()) ?? '',
+              ),
+              'description':
+                  job['description_en'] ?? job['description_ur'] ?? '',
+              'jobId': spJobId,
+              'jobPosterId': job['jobPosterId'] ?? '',
+            },
+          );
+          return;
+        }
+      }
+
+      // Fallback: Check Firebase for active job
+      final active = await JobRequestService.getActiveRequestForWorker(
+        provider.loggedInUserId!,
+        skilledWorkerPhone: provider.loggedInPhoneNumber,
+      );
+
+      print('[OTP Screen] Firebase active job result: $active');
+
+      if (active != null) {
+        final job = await JobRequestService.getJobDetails(active['jobId']);
+        if (job != null) {
+          print('[OTP Screen] Found active job via Firebase, redirecting...');
+          Navigator.pushReplacementNamed(
+            context,
+            '/skilled-worker-job-detail',
+            arguments: {
+              'imageUrl': job['Image'] ?? '',
+              'title': job['title_en'] ?? job['title_ur'] ?? '',
+              'location': job['Address'] ?? job['Location'] ?? '',
+              'date': DateTime.tryParse(
+                (job['createdAt']?.toDate()?.toString()) ?? '',
+              ),
+              'description':
+                  job['description_en'] ?? job['description_ur'] ?? '',
+              'jobId': active['jobId'],
+              'jobPosterId': active['jobPosterId'],
+              'requestId': active['requestId'],
+            },
+          );
+          return;
+        }
+      }
+
+      // No active job found, proceed to home screen
+      print('[OTP Screen] No active job found, going to home screen');
+      Navigator.pushReplacementNamed(
+        context,
+        '/skilled-worker-home',
+        arguments: {'userId': provider.loggedInUserId},
+      );
+    } catch (e) {
+      print('[OTP Screen] Error checking for active job: $e');
+      // On error, proceed to home screen
+      Navigator.pushReplacementNamed(
+        context,
+        '/skilled-worker-home',
+        arguments: {'userId': provider.loggedInUserId},
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -164,27 +252,41 @@ class _SkilledWorkerOTPScreenState extends State<SkilledWorkerOTPScreen> {
                       otpCode.length == 6 && !skilledWorkerProvider.isLoading
                           ? () async {
                             setState(() {});
-                            final isValid = await skilledWorkerProvider
-                                .verifyOtp(otpCode);
-                            if (isValid) {
-                              // For test: always go to CNIC/profile setup first
-                              // In real app, check Firestore for profile completeness
-                              final skilledWorkerId = 'TEST_SKILLED_WORKER_ID';
-                              final complete = await _isProfileComplete(
-                                skilledWorkerId,
+                            // Get phone number from arguments
+                            final args =
+                                ModalRoute.of(context)?.settings.arguments
+                                    as Map<String, dynamic>?;
+                            final phoneNumber = args?['phone'] ?? '';
+
+                            final loginSuccess = await skilledWorkerProvider
+                                .login(phoneNumber, otpCode);
+                            if (loginSuccess) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    '✅ Login successful! Welcome back.',
+                                  ),
+                                  backgroundColor: Colors.green,
+                                  duration: Duration(seconds: 3),
+                                ),
                               );
-                              if (complete) {
-                                Navigator.pushReplacementNamed(
-                                  context,
-                                  '/skilled-worker-home',
-                                );
-                              } else {
-                                Navigator.pushReplacementNamed(
-                                  context,
-                                  '/skilled-worker-cnic',
-                                );
-                              }
+
+                              // Check for active job after successful login
+                              await _checkForActiveJob(
+                                context,
+                                skilledWorkerProvider,
+                              );
                             } else {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    skilledWorkerProvider.error ??
+                                        '❌ Login failed. Use 123456 for testing.',
+                                  ),
+                                  backgroundColor: Colors.red,
+                                  duration: Duration(seconds: 3),
+                                ),
+                              );
                               setState(() {}); // To show error
                             }
                           }

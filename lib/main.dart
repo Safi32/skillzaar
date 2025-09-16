@@ -13,7 +13,11 @@ import 'presentation/providers/phone_auth_provider.dart';
 import 'presentation/providers/job_provider.dart';
 import 'presentation/providers/ui_state_provider.dart';
 import 'presentation/providers/location_state_provider.dart';
+import 'presentation/providers/notification_provider.dart';
 import 'presentation/widgets/splash_and_dialog_gate.dart';
+import 'presentation/widgets/notification_initializer.dart';
+import 'presentation/widgets/provider_connector.dart';
+import 'presentation/widgets/active_work_gate.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -35,8 +39,11 @@ void main() async {
         ChangeNotifierProvider(create: (_) => UIStateProvider()),
         ChangeNotifierProvider(create: (_) => LocationStateProvider()),
         ChangeNotifierProvider(create: (_) => HomeProfileProvider()),
+        ChangeNotifierProvider(create: (_) => NotificationProvider()),
       ],
-      child: const MyApp(),
+      child: const NotificationInitializer(
+        child: ProviderConnector(child: MyApp()),
+      ),
     ),
   );
 }

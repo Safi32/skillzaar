@@ -126,71 +126,75 @@ class _PostJobContentState extends State<_PostJobContent> {
               const SizedBox(height: 32),
               PostJobButton(
                 isLoading: widget.uiProvider.isLoading,
-                onPressed: widget.uiProvider.isLoading
-                    ? () {}
-                    : () async {
-                        if (titleController.text.isEmpty ||
-                            descriptionController.text.isEmpty ||
-                            selectedAddress.isEmpty) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Please fill all required fields'),
-                              backgroundColor: Colors.red,
-                            ),
-                          );
-                          return;
-                        }
-                        widget.uiProvider.setLoading(true);
-                        try {
-                          await widget.jobProvider.postJob(
-                            name_en: titleController.text,
-                            name_ur: titleController.text,
-                            description_en: descriptionController.text,
-                            description_ur: descriptionController.text,
-                            image: images.isNotEmpty ? images.first : null,
-                            location: selectedAddress,
-                            address: selectedAddress,
-                            latitude: selectedLatitude ?? 0.0,
-                            longitude: selectedLongitude ?? 0.0,
-                          );
-                          if (widget.jobProvider.success != null) {
+                onPressed:
+                    widget.uiProvider.isLoading
+                        ? () {}
+                        : () async {
+                          if (titleController.text.isEmpty ||
+                              descriptionController.text.isEmpty ||
+                              selectedAddress.isEmpty) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(widget.jobProvider.success!),
-                                backgroundColor: Colors.green,
-                                duration: const Duration(seconds: 4),
+                              const SnackBar(
+                                content: Text(
+                                  'Please fill all required fields',
+                                ),
+                                backgroundColor: Colors.red,
                               ),
                             );
-                            titleController.clear();
-                            descriptionController.clear();
-                            setState(() {
-                              images.clear();
-                              selectedAddress = '';
-                              selectedLatitude = null;
-                              selectedLongitude = null;
-                            });
-                            Navigator.of(context).pop();
-                          } else if (widget.jobProvider.error != null) {
+                            return;
+                          }
+                          widget.uiProvider.setLoading(true);
+                          try {
+                            await widget.jobProvider.postJob(
+                              name_en: titleController.text,
+                              name_ur: titleController.text,
+                              description_en: descriptionController.text,
+                              description_ur: descriptionController.text,
+                              image: images.isNotEmpty ? images.first : null,
+                              location: selectedAddress,
+                              address: selectedAddress,
+                              latitude: selectedLatitude ?? 0.0,
+                              longitude: selectedLongitude ?? 0.0,
+                              context: context,
+                            );
+                            if (widget.jobProvider.success != null) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(widget.jobProvider.success!),
+                                  backgroundColor: Colors.green,
+                                  duration: const Duration(seconds: 4),
+                                ),
+                              );
+                              titleController.clear();
+                              descriptionController.clear();
+                              setState(() {
+                                images.clear();
+                                selectedAddress = '';
+                                selectedLatitude = null;
+                                selectedLongitude = null;
+                              });
+                              Navigator.of(context).pop();
+                            } else if (widget.jobProvider.error != null) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(widget.jobProvider.error!),
+                                  backgroundColor: Colors.red,
+                                  duration: const Duration(seconds: 4),
+                                ),
+                              );
+                            }
+                          } catch (e) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
-                                content: Text(widget.jobProvider.error!),
+                                content: Text('Error posting job: $e'),
                                 backgroundColor: Colors.red,
                                 duration: const Duration(seconds: 4),
                               ),
                             );
+                          } finally {
+                            widget.uiProvider.setLoading(false);
                           }
-                        } catch (e) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('Error posting job: $e'),
-                              backgroundColor: Colors.red,
-                              duration: const Duration(seconds: 4),
-                            ),
-                          );
-                        } finally {
-                          widget.uiProvider.setLoading(false);
-                        }
-                      },
+                        },
               ),
             ],
           ),

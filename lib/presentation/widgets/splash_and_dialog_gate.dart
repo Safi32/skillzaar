@@ -10,10 +10,17 @@ class SplashAndDialogGate extends StatefulWidget {
 }
 
 class _SplashAndDialogGateState extends State<SplashAndDialogGate> {
+  final bool _navigated = false;
+
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _checkActive());
+  }
+
+  Future<void> _checkActive() async {    
     Future.delayed(const Duration(seconds: 2), () {
+      if (!mounted || _navigated) return;
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => const FeeDialogScreen()),
       );

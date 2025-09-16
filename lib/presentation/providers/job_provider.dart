@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 // import 'package:firebase_storage/firebase_storage.dart';
 import 'dart:io';
+import 'notification_provider.dart';
+import 'package:provider/provider.dart';
+import 'phone_auth_provider.dart' as auth_provider;
 
 class JobProvider with ChangeNotifier {
   bool _isLoading = false;
@@ -11,6 +13,7 @@ class JobProvider with ChangeNotifier {
   String _address = '';
   double? _latitude;
   double? _longitude;
+  NotificationProvider? _notificationProvider;
 
   bool get isLoading => _isLoading;
   String? get error => _error;
@@ -30,6 +33,10 @@ class JobProvider with ChangeNotifier {
     notifyListeners();
   }
 
+  void setNotificationProvider(NotificationProvider provider) {
+    _notificationProvider = provider;
+  }
+
   Future<void> postJob({
     required String name_en,
     required String name_ur,
@@ -40,52 +47,34 @@ class JobProvider with ChangeNotifier {
     required String address,
     required double latitude,
     required double longitude,
+    required BuildContext context,
   }) async {
     _isLoading = true;
     _error = null;
     _success = null;
     notifyListeners();
 
-    final user = FirebaseAuth.instance.currentUser;
+    // Get job poster info from test authentication
+    final phoneAuthProvider = Provider.of<auth_provider.PhoneAuthProvider>(
+      context,
+      listen: false,
+    );
     String jobPosterId;
     String posterPhone;
 
-    if (user != null) {
-      jobPosterId = user.uid;
-      posterPhone = user.phoneNumber ?? '0000000000';
-
-      // Check if job poster exists, if not create one
-      try {
-        final jobPosterDoc =
-            await FirebaseFirestore.instance
-                .collection('JobPosters')
-                .doc(user.uid)
-                .get();
-
-        if (!jobPosterDoc.exists) {
-          // Create job poster document
-          await FirebaseFirestore.instance
-              .collection('JobPosters')
-              .doc(user.uid)
-              .set({
-                'userId': user.uid,
-                'phoneNumber': user.phoneNumber ?? '0000000000',
-                'displayName': user.displayName ?? 'Job Poster',
-                'createdAt': FieldValue.serverTimestamp(),
-                'isActive': true,
-              });
-        }
-      } catch (e) {
-        _error = 'Failed to create job poster profile: $e';
-        _isLoading = false;
-        notifyListeners();
-        return;
-      }
+    if (phoneAuthProvider.isLoggedIn &&
+        phoneAuthProvider.loggedInUserId != null) {
+      jobPosterId = phoneAuthProvider.loggedInUserId!;
+      posterPhone = phoneAuthProvider.loggedInPhoneNumber ?? '0000000000';
     } else {
       // For testing: use a default job poster ID
       jobPosterId = 'TEST_JOB_POSTER_ID';
       posterPhone = '+923115798273';
     }
+
+    print('🔍 Posting Job:');
+    print('  Job Poster ID: $jobPosterId');
+    print('  Job Poster Phone: $posterPhone');
 
     String imageUrl = "https://via.placeholder.com/150";
 
@@ -111,6 +100,36 @@ class JobProvider with ChangeNotifier {
       final docRef = await FirebaseFirestore.instance
           .collection('Job')
           .add(jobData);
+
+      // Send notification to all skilled workers
+      if (_notificationProvider != null) {
+        await _notificationProvider!.sendJobNotification(
+          jobTitle: name_en,
+          jobDescription: description_en,
+          jobId: docRef.id,
+          location: location,
+          budget: 0.0, // You might want to add budget field to your job data
+        );
+
+        // Send push notification to job poster (self)
+        // Get job poster's FCM token from Firestore
+        final userDoc =
+            await FirebaseFirestore.instance
+                .collection('users')
+                .doc(jobPosterId)
+                .get();
+        final posterFcmToken = userDoc.data()?['fcmToken'] as String?;
+        if (posterFcmToken != null) {
+          await _notificationProvider!.notificationService.sendNotificationToToken(
+            fcmToken: posterFcmToken,
+            title: 'Job Posted!',
+            body:
+                'Your job has been posted successfully and is pending admin approval.',
+            data: {'jobId': docRef.id, 'type': 'job_posted'},
+          );
+        }
+      }
+
       _success =
           'Job posted successfully! Your job is pending admin approval and will be visible to skilled workers once approved.';
       _isLoading = false;

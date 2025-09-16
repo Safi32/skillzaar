@@ -8,7 +8,6 @@ import '../../widgets/portfolio_images.dart';
 import '../../widgets/portfolio_action_buttons.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-
 class PortfolioViewScreen extends StatelessWidget {
   final String skilledWorkerId;
   final String skilledWorkerName;
@@ -24,17 +23,66 @@ class PortfolioViewScreen extends StatelessWidget {
   }) : super(key: key);
 
   Future<Map<String, dynamic>?> _fetchPortfolioData() async {
-    final doc = await FirebaseFirestore.instance.collection('SkilledWorkers').doc(skilledWorkerId).get();
-    return doc.data();
+    // Try by document id first
+    final doc =
+        await FirebaseFirestore.instance
+            .collection('SkilledWorkers')
+            .doc(skilledWorkerId)
+            .get();
+    if (doc.exists) return doc.data();
+
+    // Fallbacks: search by phone or legacy fields from request
+    final req =
+        await FirebaseFirestore.instance
+            .collection('JobRequests')
+            .doc(requestId)
+            .get();
+    if (req.exists) {
+      final data = req.data() as Map<String, dynamic>;
+      final phone = data['skilledWorkerPhone'] as String?;
+      if (phone != null && phone.isNotEmpty) {
+        // normalize variants
+        final candidates = <String>{phone};
+        if (phone.startsWith('0') && phone.length == 11) {
+          candidates.add('+92${phone.substring(1)}');
+        }
+        if (phone.startsWith('+92') && phone.length == 13) {
+          candidates.add('0${phone.substring(3)}');
+        }
+        if (phone.length == 10 && phone.startsWith('3')) {
+          candidates.add('+92$phone');
+          candidates.add('0$phone');
+        }
+        for (final ph in candidates) {
+          final snap =
+              await FirebaseFirestore.instance
+                  .collection('SkilledWorkers')
+                  .where('userPhone', isEqualTo: ph)
+                  .limit(1)
+                  .get();
+          if (snap.docs.isNotEmpty) {
+            return snap.docs.first.data();
+          }
+        }
+      }
+    }
+    return null;
   }
 
   Future<Map<String, dynamic>?> _fetchRequestData() async {
-    final doc = await FirebaseFirestore.instance.collection('JobRequests').doc(requestId).get();
+    final doc =
+        await FirebaseFirestore.instance
+            .collection('JobRequests')
+            .doc(requestId)
+            .get();
     return doc.data();
   }
 
   void _updateRequestStatus(BuildContext context, String status) async {
-    await FirebaseFirestore.instance.collection('JobRequests').doc(requestId).update({'status': status, 'isActive': false});
+    await FirebaseFirestore.instance
+        .collection('JobRequests')
+        .doc(requestId)
+        .update({'status': status, 'isActive': false});
     Navigator.of(context).pop();
   }
 
@@ -69,16 +117,24 @@ class PortfolioViewScreen extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    PortfolioProfessionalHeader(skilledWorkerName: skilledWorkerName),
+                    PortfolioProfessionalHeader(
+                      skilledWorkerName: skilledWorkerName,
+                    ),
                     const SizedBox(height: 20),
                     PortfolioWorkerDetails(
-                      phone: portfolio['userPhone']?.toString() ?? 'Not provided',
+                      phone:
+                          portfolio['userPhone']?.toString() ?? 'Not provided',
                       rate: portfolio['rate']?.toString() ?? 'Not specified',
-                      availability: portfolio['availability']?.toString() ?? 'Not specified',
+                      availability:
+                          portfolio['availability']?.toString() ??
+                          'Not specified',
                     ),
                     const SizedBox(height: 20),
                     PortfolioSkills(
-                      skills: (portfolio['skills'] as List<dynamic>?) ?? [],
+                      skills:
+                          (portfolio['skills'] as List<dynamic>?) ??
+                          (portfolio['categories'] as List<dynamic>?) ??
+                          const [],
                     ),
                     const SizedBox(height: 20),
                     PortfolioExperience(
@@ -86,11 +142,17 @@ class PortfolioViewScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 20),
                     PortfolioBio(
-                      bio: portfolio['bio']?.toString() ?? '',
+                      bio:
+                          (portfolio['bio'] ?? portfolio['description'])
+                              ?.toString() ??
+                          '',
                     ),
                     const SizedBox(height: 20),
                     PortfolioImages(
-                      images: (portfolio['portfolioImages'] as List<dynamic>?) ?? [],
+                      images:
+                          (portfolio['portfolioImages'] as List<dynamic>?) ??
+                          (portfolio['images'] as List<dynamic>?) ??
+                          const [],
                     ),
                     const SizedBox(height: 32),
                     PortfolioActionButtons(
@@ -107,5 +169,3 @@ class PortfolioViewScreen extends StatelessWidget {
     );
   }
 }
-
-

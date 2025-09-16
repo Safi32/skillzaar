@@ -2,6 +2,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:provider/provider.dart';
+import 'skilled_worker_provider.dart';
 
 class HomeProfileProvider with ChangeNotifier {
   final List<String> _portfolioImages = [];
@@ -514,96 +516,59 @@ class HomeProfileProvider with ChangeNotifier {
   }
 
   // Check if user can request jobs (has completed portfolio) - by phone number
-  Future<bool> canRequestJobs() async {
+  Future<bool> canRequestJobs(BuildContext context) async {
     try {
       print('=== CHECKING IF USER CAN REQUEST JOBS ===');
 
-      // Get current logged in phone number
-      final user = FirebaseAuth.instance.currentUser;
-      final phoneNumber = user?.phoneNumber;
+      // Get current logged in user from SkilledWorkerProvider
+      final skilledWorkerProvider = Provider.of<SkilledWorkerProvider>(
+        context,
+        listen: false,
+      );
 
-      if (phoneNumber == null) {
-        print('❌ No authenticated user found');
+      if (!skilledWorkerProvider.isLoggedIn ||
+          skilledWorkerProvider.loggedInUserId == null) {
+        print('❌ No authenticated skilled worker found');
         return false;
       }
 
+      final userId = skilledWorkerProvider.loggedInUserId!;
+      final phoneNumber = skilledWorkerProvider.loggedInPhoneNumber ?? '';
+
+      print('👤 Current user ID: $userId');
       print('📱 Current phone number: $phoneNumber');
-      print('📱 Phone number type: ${phoneNumber.runtimeType}');
 
-      // Search for portfolio document by phone number - try different formats
-      QuerySnapshot querySnapshot;
-
-      // First try exact match
-      querySnapshot =
+      // Get portfolio document directly by user ID
+      final doc =
           await FirebaseFirestore.instance
               .collection('SkilledWorkers')
-              .where('userPhone', isEqualTo: phoneNumber)
+              .doc(userId)
               .get();
 
-      print(
-        '🔍 Exact match query results: ${querySnapshot.docs.length} documents',
-      );
+      print('🔍 Document exists: ${doc.exists}');
 
-      // If no exact match, try without + prefix
-      if (querySnapshot.docs.isEmpty && phoneNumber.startsWith('+')) {
-        final phoneWithoutPlus = phoneNumber.substring(1);
-        print('🔍 Trying without + prefix: $phoneWithoutPlus');
-
-        querySnapshot =
-            await FirebaseFirestore.instance
-                .collection('SkilledWorkers')
-                .where('userPhone', isEqualTo: phoneWithoutPlus)
-                .get();
-
-        print(
-          '🔍 Without + prefix query results: ${querySnapshot.docs.length} documents',
-        );
-      }
-
-      // If still no match, try with + prefix
-      if (querySnapshot.docs.isEmpty && !phoneNumber.startsWith('+')) {
-        final phoneWithPlus = '+$phoneNumber';
-        print('🔍 Trying with + prefix: $phoneWithPlus');
-
-        querySnapshot =
-            await FirebaseFirestore.instance
-                .collection('SkilledWorkers')
-                .where('userPhone', isEqualTo: phoneWithPlus)
-                .get();
-
-        print(
-          '🔍 With + prefix query results: ${querySnapshot.docs.length} documents',
-        );
-      }
-
-      if (querySnapshot.docs.isNotEmpty) {
-        final doc = querySnapshot.docs.first;
+      if (doc.exists) {
         final data = doc.data() as Map<String, dynamic>;
 
         print('📄 Found portfolio document!');
         print('📋 Document ID: ${doc.id}');
         print('📋 Document fields: ${data.keys.toList()}');
-        print('📱 Stored phone: ${data['userPhone']}');
 
-        // Check if portfolio is marked as completed
-        final isCompleted = data['completed'] == true;
-        print('✅ Portfolio marked as completed: $isCompleted');
+        // Check if profile is completed
+        final profileCompleted = data['profileCompleted'] == true;
+        final portfolioCompleted = data['completed'] == true;
+        print('✅ Profile completed: $profileCompleted');
+        print('✅ Portfolio completed: $portfolioCompleted');
 
-        if (isCompleted) {
-          print('🎯 User can request jobs - portfolio is complete!');
+        if (profileCompleted || portfolioCompleted) {
+          print('🎯 User can request jobs - profile/portfolio is complete!');
           return true;
         } else {
-          print('⚠️ Portfolio exists but not marked as completed');
+          print('⚠️ Profile/portfolio exists but not marked as completed');
           return false;
         }
       } else {
-        print('❌ No portfolio document found for any phone format');
-        print('❌ Tried: $phoneNumber');
-        if (phoneNumber.startsWith('+')) {
-          print('❌ Also tried: ${phoneNumber.substring(1)}');
-        } else {
-          print('❌ Also tried: +$phoneNumber');
-        }
+        print('❌ No portfolio document found for user ID: $userId');
         return false;
       }
     } catch (e) {
@@ -759,27 +724,24 @@ class HomeProfileProvider with ChangeNotifier {
   }
 
   // Save portfolio to Firestore - NO VALIDATIONS, JUST SAVE
-  Future<bool> savePortfolioToFirestore() async {
+  Future<bool> savePortfolioToFirestore(
+    String userId,
+    String phoneNumber,
+  ) async {
     try {
       print('=== SAVING PORTFOLIO TO FIREBASE ===');
 
-      // Get current logged in phone number
-      final user = FirebaseAuth.instance.currentUser;
-      final phoneNumber = user?.phoneNumber;
-
-      if (phoneNumber == null) {
-        print('❌ No authenticated user found');
+      if (userId.isEmpty) {
+        print('❌ No user ID provided');
         return false;
       }
 
-      // Generate unique document ID
-      final docId = 'portfolio_${DateTime.now().millisecondsSinceEpoch}';
-      print('👤 Saving portfolio for phone: $phoneNumber');
-      print('📄 Document ID: $docId');
+      print('👤 Saving portfolio for user: $userId');
+      print('📱 Phone number: $phoneNumber');
 
-      // Save portfolio data with phone number for searching
+      // Save portfolio data with user ID
       final portfolioData = {
-        'userId': docId, // Unique document ID
+        'userId': userId, // Use the logged in user ID
         'userPhone': phoneNumber, // Phone number for searching
         'categories': _selectedCategories,
         'experience': experienceController.text.trim(),
@@ -794,14 +756,25 @@ class HomeProfileProvider with ChangeNotifier {
 
       print('📦 Portfolio data to save: $portfolioData');
 
-      // Save to collection using unique document ID
+      // Save to collection using user ID as document ID
       await FirebaseFirestore.instance
           .collection('SkilledWorkers')
-          .doc(docId) // Use unique document ID
+          .doc(userId) // Use user ID as document ID
           .set(portfolioData, SetOptions(merge: true));
 
+      // Also update the main user document to mark profile as completed
+      await FirebaseFirestore.instance
+          .collection('SkilledWorkers')
+          .doc(userId)
+          .update({
+            'profileCompleted': true,
+            'portfolioCompleted': true,
+            'profileCompletedAt': FieldValue.serverTimestamp(),
+          });
+
       print('✅ Portfolio saved successfully!');
-      print('📄 Document ID: $docId');
+      print('✅ Profile marked as completed!');
+      print('📄 Document ID: $userId');
       print('📱 Phone number: $phoneNumber');
       print('🔗 Collection: SkilledWorkers');
 
@@ -816,20 +789,19 @@ class HomeProfileProvider with ChangeNotifier {
   }
 
   // Load existing portfolio from Firestore
-  Future<bool> loadPortfolioFromFirestore() async {
+  Future<bool> loadPortfolioFromFirestore(String userId) async {
     try {
-      final user = FirebaseAuth.instance.currentUser;
-      if (user == null) {
-        print('No user logged in');
+      if (userId.isEmpty) {
+        print('No user ID provided');
         return false;
       }
 
-      print('Loading portfolio for user: ${user.uid}');
+      print('Loading portfolio for user: $userId');
 
       final doc =
           await FirebaseFirestore.instance
               .collection('SkilledWorkers')
-              .doc(user.uid)
+              .doc(userId)
               .get();
 
       if (doc.exists) {
@@ -883,7 +855,7 @@ class HomeProfileProvider with ChangeNotifier {
       } else {
         print('No existing portfolio found, creating new user document');
         // Create initial user document
-        await _createInitialUserDocument(user);
+        await _createInitialUserDocument(userId);
         return true;
       }
     } catch (e) {
@@ -893,10 +865,10 @@ class HomeProfileProvider with ChangeNotifier {
   }
 
   // Create initial user document
-  Future<void> _createInitialUserDocument(User user) async {
+  Future<void> _createInitialUserDocument(String userId) async {
     try {
       final initialData = {
-        'userId': user.uid,
+        'userId': userId,
         'categories': [],
         'experience': '',
         'rate': '',
@@ -909,7 +881,7 @@ class HomeProfileProvider with ChangeNotifier {
 
       await FirebaseFirestore.instance
           .collection('SkilledWorkers')
-          .doc(user.uid)
+          .doc(userId)
           .set(initialData);
 
       print('Initial user document created successfully');
@@ -977,15 +949,16 @@ class HomeProfileProvider with ChangeNotifier {
   }
 
   // Check if portfolio exists
-  Future<bool> portfolioExists() async {
+  Future<bool> portfolioExists(String userId) async {
     try {
-      final user = FirebaseAuth.instance.currentUser;
-      if (user == null) return false;
+      if (userId.isEmpty) {
+        return false;
+      }
 
       final doc =
           await FirebaseFirestore.instance
               .collection('SkilledWorkers')
-              .doc(user.uid)
+              .doc(userId)
               .get();
 
       return doc.exists;

@@ -6,6 +6,7 @@ import '../../providers/ui_state_provider.dart';
 import '../../providers/home_profile_provider.dart';
 import '../../../core/services/job_request_service.dart';
 import 'navigate_to_job_screen.dart';
+import '../../providers/skilled_worker_provider.dart';
 
 class JobDetailScreen extends StatelessWidget {
   final String imageUrl;
@@ -15,6 +16,7 @@ class JobDetailScreen extends StatelessWidget {
   final String description;
   final String jobId;
   final String jobPosterId;
+  final String? requestId;
 
   const JobDetailScreen({
     super.key,
@@ -25,6 +27,7 @@ class JobDetailScreen extends StatelessWidget {
     required this.description,
     required this.jobId,
     required this.jobPosterId,
+    this.requestId,
   });
 
   @override
@@ -40,6 +43,7 @@ class JobDetailScreen extends StatelessWidget {
           description: description,
           jobId: jobId,
           jobPosterId: jobPosterId,
+          requestId: requestId,
         );
       },
     );
@@ -55,6 +59,7 @@ class _JobDetailContent extends StatefulWidget {
   final String description;
   final String jobId;
   final String jobPosterId;
+  final String? requestId;
 
   const _JobDetailContent({
     required this.uiProvider,
@@ -65,6 +70,7 @@ class _JobDetailContent extends StatefulWidget {
     required this.description,
     required this.jobId,
     required this.jobPosterId,
+    this.requestId,
   });
 
   @override
@@ -74,6 +80,7 @@ class _JobDetailContent extends StatefulWidget {
 class _JobDetailContentState extends State<_JobDetailContent> {
   Map<String, dynamic>? _jobData;
   bool _isLoadingJobData = true;
+  bool _navigatedOnComplete = false;
 
   @override
   void initState() {
@@ -107,7 +114,7 @@ class _JobDetailContentState extends State<_JobDetailContent> {
     );
 
     // Check if user can request jobs (has completed portfolio)
-    final canRequest = await homeProfileProvider.canRequestJobs();
+    final canRequest = await homeProfileProvider.canRequestJobs(context);
     if (!canRequest) {
       // Show message to complete portfolio
       ScaffoldMessenger.of(context).showSnackBar(
@@ -120,13 +127,22 @@ class _JobDetailContentState extends State<_JobDetailContent> {
       return;
     }
 
+    // Prefer test-auth provider over FirebaseAuth
+    final swProvider = Provider.of<SkilledWorkerProvider>(
+      context,
+      listen: false,
+    );
     final user = FirebaseAuth.instance.currentUser;
 
     String skilledWorkerId;
     String skilledWorkerName;
     String skilledWorkerPhone;
 
-    if (user != null) {
+    if (swProvider.isLoggedIn && swProvider.loggedInUserId != null) {
+      skilledWorkerId = swProvider.loggedInUserId!;
+      skilledWorkerName = 'Skilled Worker';
+      skilledWorkerPhone = swProvider.loggedInPhoneNumber ?? '0000000000';
+    } else if (user != null) {
       skilledWorkerId =
           await JobRequestService.getSkilledWorkerId() ?? user.uid;
       skilledWorkerName = user.displayName ?? 'Skilled Worker';
@@ -140,6 +156,10 @@ class _JobDetailContentState extends State<_JobDetailContent> {
     final actualJobPosterId =
         await JobRequestService.getJobPosterId(widget.jobId) ??
         widget.jobPosterId;
+
+    print('🔍 Job Detail Screen - Job ID: ${widget.jobId}');
+    print('🔍 Job Detail Screen - Actual Job Poster ID: $actualJobPosterId');
+    print('🔍 Job Detail Screen - Skilled Worker ID: $skilledWorkerId');
 
     final hasRequested = await JobRequestService.hasRequestedJob(
       widget.jobId,
@@ -306,6 +326,502 @@ class _JobDetailContentState extends State<_JobDetailContent> {
 
   @override
   Widget build(BuildContext context) {
+    // If requestId is provided, enforce back-block and completion redirect; else behave normally
+    if (widget.requestId != null && widget.requestId!.isNotEmpty) {
+      return WillPopScope(
+        onWillPop: () async => false,
+        child: StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+          stream:
+              FirebaseFirestore.instance
+                  .collection('JobRequests')
+                  .doc(widget.requestId)
+                  .snapshots(),
+          builder: (context, snapshot) {
+            final data = snapshot.data?.data();
+            final status = data?['status'] as String?;
+            final isActive = data?['isActive'] as bool?;
+            if (!_navigatedOnComplete &&
+                (status == 'completed' || isActive == false)) {
+              _navigatedOnComplete = true;
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (!mounted) return;
+                Navigator.pushNamedAndRemoveUntil(
+                  context,
+                  '/skilled-worker-home',
+                  (route) => false,
+                );
+              });
+            }
+            return Scaffold(
+              appBar: AppBar(
+                title: const Text('Job Details'),
+                backgroundColor: Colors.green,
+                foregroundColor: Colors.white,
+              ),
+              body:
+                  _isLoadingJobData
+                      ? const Center(child: CircularProgressIndicator())
+                      : SingleChildScrollView(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              width: double.infinity,
+                              height: 200,
+                              decoration: BoxDecoration(
+                                borderRadius: const BorderRadius.only(
+                                  bottomLeft: Radius.circular(20),
+                                  bottomRight: Radius.circular(20),
+                                ),
+                              ),
+                              child: ClipRRect(
+                                borderRadius: const BorderRadius.only(
+                                  bottomLeft: Radius.circular(20),
+                                  bottomRight: Radius.circular(20),
+                                ),
+                                child: Image.network(
+                                  (widget.imageUrl.isNotEmpty
+                                          ? widget.imageUrl
+                                          : (_jobData?['ImageUrl'] ??
+                                              _jobData?['imageUrl'] ??
+                                              _jobData?['Image'] ??
+                                              ''))
+                                      .toString(),
+                                  fit: BoxFit.cover,
+                                  errorBuilder:
+                                      (context, error, stackTrace) => Container(
+                                        color: Colors.grey.shade200,
+                                        child: const Icon(
+                                          Icons.work,
+                                          color: Colors.green,
+                                          size: 64,
+                                        ),
+                                      ),
+                                ),
+                              ),
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.all(16.0),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    (_jobData?['title_en'] ?? 'Job Title')
+                                        .toString(),
+                                    style: const TextStyle(
+                                      fontSize: 24,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.black87,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  Row(
+                                    children: [
+                                      Text(
+                                        'Location:',
+                                        style: TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.black87,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    (_jobData?['Address'] ??
+                                            _jobData?['Location'] ??
+                                            'Location not specified')
+                                        .toString(),
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      color: Colors.black54,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  // Display creation date from job data
+                                  Row(
+                                    children: [
+                                      Text(
+                                        'Date:',
+                                        style: TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.black87,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    _formatDate(_jobData?['createdAt']),
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      color: Colors.black54,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  Row(
+                                    children: [
+                                      Text(
+                                        'Job Description:',
+                                        style: TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.black87,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    (_jobData?['description_en'] ??
+                                            'No description available')
+                                        .toString(),
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      color: Colors.black54,
+                                      height: 1.5,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 32),
+
+                                  // Portfolio completion warning
+                                  FutureBuilder<bool>(
+                                    future: Provider.of<HomeProfileProvider>(
+                                      context,
+                                      listen: false,
+                                    ).canRequestJobs(context),
+                                    builder: (context, snapshot) {
+                                      if (snapshot.connectionState ==
+                                          ConnectionState.waiting) {
+                                        return const SizedBox.shrink(); // Don't show warning while loading
+                                      }
+
+                                      final canRequest = snapshot.data ?? false;
+                                      if (canRequest) {
+                                        return const SizedBox.shrink(); // Don't show warning if portfolio is complete
+                                      }
+
+                                      return Container(
+                                        width: double.infinity,
+                                        padding: const EdgeInsets.all(16),
+                                        margin: const EdgeInsets.only(
+                                          bottom: 16,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: Colors.orange.shade50,
+                                          borderRadius: BorderRadius.circular(
+                                            12,
+                                          ),
+                                          border: Border.all(
+                                            color: Colors.orange.shade200,
+                                          ),
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            Icon(
+                                              Icons.warning_amber_rounded,
+                                              color: Colors.orange.shade700,
+                                              size: 24,
+                                            ),
+                                            const SizedBox(width: 12),
+                                            Expanded(
+                                              child: Text(
+                                                'Complete your portfolio to send job requests',
+                                                style: TextStyle(
+                                                  color: Colors.orange.shade700,
+                                                  fontSize: 16,
+                                                  fontWeight: FontWeight.w500,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      );
+                                    },
+                                  ),
+
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: FutureBuilder<bool>(
+                                          future:
+                                              Provider.of<HomeProfileProvider>(
+                                                context,
+                                                listen: false,
+                                              ).canRequestJobs(context),
+                                          builder: (context, snapshot) {
+                                            final isLoading =
+                                                snapshot.connectionState ==
+                                                ConnectionState.waiting;
+                                            final canRequest =
+                                                snapshot.data ?? false;
+
+                                            if (isLoading) {
+                                              return ElevatedButton.icon(
+                                                onPressed: null,
+                                                icon: const SizedBox(
+                                                  width: 20,
+                                                  height: 20,
+                                                  child: CircularProgressIndicator(
+                                                    strokeWidth: 2,
+                                                    valueColor:
+                                                        AlwaysStoppedAnimation<
+                                                          Color
+                                                        >(Colors.white),
+                                                  ),
+                                                ),
+                                                label: const Text('Loading...'),
+                                                style: ElevatedButton.styleFrom(
+                                                  backgroundColor:
+                                                      Colors.grey.shade400,
+                                                  foregroundColor: Colors.white,
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        vertical: 16,
+                                                      ),
+                                                ),
+                                              );
+                                            }
+
+                                            if (!canRequest) {
+                                              return ElevatedButton.icon(
+                                                onPressed:
+                                                    null, // Disabled when portfolio incomplete
+                                                icon: const Icon(Icons.work),
+                                                label: const Text(
+                                                  'Send Request',
+                                                ),
+                                                style: ElevatedButton.styleFrom(
+                                                  backgroundColor:
+                                                      Colors.grey.shade400,
+                                                  foregroundColor: Colors.white,
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        vertical: 16,
+                                                      ),
+                                                ),
+                                              );
+                                            }
+
+                                            return FutureBuilder<String>(
+                                              future: _getJobRequestStatus(),
+                                              builder: (context, snapshot) {
+                                                final status =
+                                                    snapshot.data ?? 'none';
+                                                final isLoading =
+                                                    snapshot.connectionState ==
+                                                    ConnectionState.waiting;
+
+                                                if (isLoading) {
+                                                  return ElevatedButton.icon(
+                                                    onPressed: null,
+                                                    icon: const SizedBox(
+                                                      width: 20,
+                                                      height: 20,
+                                                      child: CircularProgressIndicator(
+                                                        strokeWidth: 2,
+                                                        valueColor:
+                                                            AlwaysStoppedAnimation<
+                                                              Color
+                                                            >(Colors.white),
+                                                      ),
+                                                    ),
+                                                    label: const Text(
+                                                      'Loading...',
+                                                    ),
+                                                    style: ElevatedButton.styleFrom(
+                                                      backgroundColor:
+                                                          Colors.grey.shade400,
+                                                      foregroundColor:
+                                                          Colors.white,
+                                                      padding:
+                                                          const EdgeInsets.symmetric(
+                                                            vertical: 16,
+                                                          ),
+                                                    ),
+                                                  );
+                                                }
+
+                                                switch (status) {
+                                                  case 'none':
+                                                    return ElevatedButton.icon(
+                                                      onPressed:
+                                                          () => requestForJob(
+                                                            context,
+                                                          ),
+                                                      icon: const Icon(
+                                                        Icons.send,
+                                                      ),
+                                                      label: const Text(
+                                                        'Send Request',
+                                                      ),
+                                                      style: ElevatedButton.styleFrom(
+                                                        backgroundColor:
+                                                            Colors.green,
+                                                        foregroundColor:
+                                                            Colors.white,
+                                                        padding:
+                                                            const EdgeInsets.symmetric(
+                                                              vertical: 16,
+                                                            ),
+                                                      ),
+                                                    );
+                                                  case 'pending':
+                                                    return ElevatedButton.icon(
+                                                      onPressed: null,
+                                                      icon: const Icon(
+                                                        Icons.schedule,
+                                                      ),
+                                                      label: const Text(
+                                                        'Request Pending',
+                                                      ),
+                                                      style: ElevatedButton.styleFrom(
+                                                        backgroundColor:
+                                                            Colors.orange,
+                                                        foregroundColor:
+                                                            Colors.white,
+                                                        padding:
+                                                            const EdgeInsets.symmetric(
+                                                              vertical: 16,
+                                                            ),
+                                                      ),
+                                                    );
+                                                  case 'accepted':
+                                                    return ElevatedButton.icon(
+                                                      onPressed: null,
+                                                      icon: const Icon(
+                                                        Icons.check_circle,
+                                                      ),
+                                                      label: const Text(
+                                                        'Request Accepted',
+                                                      ),
+                                                      style: ElevatedButton.styleFrom(
+                                                        backgroundColor:
+                                                            Colors.green,
+                                                        foregroundColor:
+                                                            Colors.white,
+                                                        padding:
+                                                            const EdgeInsets.symmetric(
+                                                              vertical: 16,
+                                                            ),
+                                                      ),
+                                                    );
+                                                  default:
+                                                    return ElevatedButton.icon(
+                                                      onPressed:
+                                                          () => requestForJob(
+                                                            context,
+                                                          ),
+                                                      icon: const Icon(
+                                                        Icons.send,
+                                                      ),
+                                                      label: const Text(
+                                                        'Send Request',
+                                                      ),
+                                                      style: ElevatedButton.styleFrom(
+                                                        backgroundColor:
+                                                            Colors.green,
+                                                        foregroundColor:
+                                                            Colors.white,
+                                                        padding:
+                                                            const EdgeInsets.symmetric(
+                                                              vertical: 16,
+                                                            ),
+                                                      ),
+                                                    );
+                                                }
+                                              },
+                                            );
+                                          },
+                                        ),
+                                      ),
+                                      const SizedBox(width: 16),
+                                      Expanded(
+                                        child: FutureBuilder<bool>(
+                                          future: _isJobRequestAccepted(),
+                                          builder: (context, snapshot) {
+                                            final isAccepted =
+                                                snapshot.data ?? false;
+                                            final isLoading =
+                                                snapshot.connectionState ==
+                                                ConnectionState.waiting;
+
+                                            // Debug info
+                                            print(
+                                              '🔍 Navigate button - Status: $isAccepted, Loading: $isLoading',
+                                            );
+
+                                            return ElevatedButton.icon(
+                                              onPressed:
+                                                  isLoading
+                                                      ? null
+                                                      : (isAccepted
+                                                          ? () =>
+                                                              _navigateToJob(
+                                                                context,
+                                                              )
+                                                          : null),
+                                              icon:
+                                                  isLoading
+                                                      ? const SizedBox(
+                                                        width: 20,
+                                                        height: 20,
+                                                        child: CircularProgressIndicator(
+                                                          strokeWidth: 2,
+                                                          valueColor:
+                                                              AlwaysStoppedAnimation<
+                                                                Color
+                                                              >(Colors.white),
+                                                        ),
+                                                      )
+                                                      : Icon(
+                                                        isAccepted
+                                                            ? Icons.directions
+                                                            : Icons.schedule,
+                                                        color:
+                                                            isAccepted
+                                                                ? Colors.white
+                                                                : Colors
+                                                                    .grey
+                                                                    .shade600,
+                                                      ),
+                                              label: Text(
+                                                isLoading
+                                                    ? 'Loading...'
+                                                    : isAccepted
+                                                    ? 'Navigate'
+                                                    : 'Pending Approval',
+                                              ),
+                                              style: ElevatedButton.styleFrom(
+                                                backgroundColor:
+                                                    isAccepted
+                                                        ? Colors.green
+                                                        : Colors.grey.shade400,
+                                                foregroundColor: Colors.white,
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      vertical: 16,
+                                                    ),
+                                              ),
+                                            );
+                                          },
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+            );
+          },
+        ),
+      );
+    }
     return Scaffold(
       appBar: AppBar(
         title: const Text('Job Details'),
@@ -438,14 +954,12 @@ class _JobDetailContentState extends State<_JobDetailContent> {
                             ),
                           ),
                           const SizedBox(height: 32),
-
                           // Portfolio completion warning
                           FutureBuilder<bool>(
-                            future:
-                                Provider.of<HomeProfileProvider>(
-                                  context,
-                                  listen: false,
-                                ).canRequestJobs(),
+                            future: Provider.of<HomeProfileProvider>(
+                              context,
+                              listen: false,
+                            ).canRequestJobs(context),
                             builder: (context, snapshot) {
                               if (snapshot.connectionState ==
                                   ConnectionState.waiting) {
@@ -496,11 +1010,10 @@ class _JobDetailContentState extends State<_JobDetailContent> {
                             children: [
                               Expanded(
                                 child: FutureBuilder<bool>(
-                                  future:
-                                      Provider.of<HomeProfileProvider>(
-                                        context,
-                                        listen: false,
-                                      ).canRequestJobs(),
+                                  future: Provider.of<HomeProfileProvider>(
+                                    context,
+                                    listen: false,
+                                  ).canRequestJobs(context),
                                   builder: (context, snapshot) {
                                     final isLoading =
                                         snapshot.connectionState ==

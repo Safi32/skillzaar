@@ -117,69 +117,14 @@ class _SkilledWorkerLoginScreenState extends State<SkilledWorkerLoginScreen> {
                                   const Duration(seconds: 1),
                                 );
 
-                                // Check for any accepted job request for this worker
-                                final skilledWorkerId =
-                                    await JobRequestService.getSkilledWorkerId() ??
-                                    'TEST_SKILLED_WORKER_ID';
-                                final acceptedRequest =
-                                    await JobRequestService.getAcceptedRequestForWorker(
-                                      skilledWorkerId,
-                                    );
-
-                                if (acceptedRequest != null) {
-                                  final jobId =
-                                      acceptedRequest['jobId'] as String;
-                                  final jobData =
-                                      await JobRequestService.getJobDetails(
-                                        jobId,
-                                      ) ??
-                                      {};
-                                  final imageUrl =
-                                      (jobData['ImageUrl'] ??
-                                              jobData['imageUrl'] ??
-                                              '')
-                                          .toString();
-                                  final title =
-                                      (jobData['JobTitle'] ??
-                                              jobData['title'] ??
-                                              'Job')
-                                          .toString();
-                                  final location =
-                                      (jobData['JobAddress'] ??
-                                              jobData['location'] ??
-                                              '')
-                                          .toString();
-                                  final description =
-                                      (jobData['Description'] ??
-                                              jobData['description'] ??
-                                              '')
-                                          .toString();
-                                  final jobPosterId =
-                                      (jobData['jobPosterId'] ?? '').toString();
-
-                                  Navigator.of(context).pushReplacement(
-                                    MaterialPageRoute(
-                                      builder:
-                                          (_) => JobDetailScreen(
-                                            imageUrl: imageUrl,
-                                            title: title,
-                                            location: location,
-                                            date: null,
-                                            description: description,
-                                            jobId: jobId,
-                                            jobPosterId: jobPosterId,
-                                          ),
-                                    ),
-                                  );
-                                } else {
-                                  Navigator.of(context).pushReplacement(
-                                    MaterialPageRoute(
-                                      builder:
-                                          (_) =>
-                                              const SkilledWorkerHomeScreen(),
-                                    ),
-                                  );
-                                }
+                                // Check for active job and navigate accordingly
+                                final skilledWorkerProvider =
+                                    context.read<SkilledWorkerProvider>();
+                                await skilledWorkerProvider.checkJobOnLogin(
+                                  skilledWorkerProvider.loggedInPhoneNumber ??
+                                      '',
+                                  context,
+                                );
                               },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.green,

@@ -3,7 +3,10 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/utils/permission_handler.dart';
+import '../../../core/services/job_request_service.dart';
+
 
 String formatPhoneNumber(String input) {
   input = input.trim().replaceAll(' ', '');
@@ -13,20 +16,223 @@ String formatPhoneNumber(String input) {
     return '+92' + input.substring(1);
   }
   if (input.length == 10 && input.startsWith('3')) {
-    // e.g. 3115798273 (no leading zero)
-    return '+92' + input;
+    return '+92$input';
   }
   return input;
 }
 
-// Removed test numbers - using real Firebase authentication only
-
 class SkilledWorkerProvider with ChangeNotifier {
-  /// Verifies the OTP using Firebase authentication
+  static const List<String> _allowedTestNumbers = [
+    '03115798273',
+    '03092939350',
+  ];
+
+  static const String _testOtp = '123456';
+
+  // User session management
+  bool _isLoggedIn = false;
+  String? _loggedInUserId;
+  String? _loggedInPhoneNumber;
+
+  bool get isLoggedIn => _isLoggedIn;
+  String? get loggedInUserId => _loggedInUserId;
+  String? get loggedInPhoneNumber => _loggedInPhoneNumber;
+
+  /// Login method for skilled workers
+  Future<bool> login(String phoneNumber, String otp) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    print('🔐 Skilled Worker Login: $phoneNumber');
+
+    try {
+      // Verify phone number is allowed
+      if (!_allowedTestNumbers.contains(phoneNumber.trim())) {
+        _error = 'Only the two test numbers are allowed for login.';
+        _isLoading = false;
+        notifyListeners();
+        return false;
+      }
+
+      // Verify OTP
+      if (otp != _testOtp) {
+        _error = 'Invalid OTP code. Please use 123456.';
+        _isLoading = false;
+        notifyListeners();
+        return false;
+      }
+
+      // Simulate successful login
+      _isLoggedIn = true;
+      _loggedInUserId = 'SKILLED_WORKER_${phoneNumber.replaceAll('0', '')}';
+      _loggedInPhoneNumber = phoneNumber;
+      _currentPhoneNumber = phoneNumber;
+
+      print('✅ Skilled Worker login successful: $_loggedInUserId');
+
+      // Check for active job and set SharedPreferences flags
+      await _checkAndSetActiveJobFlags();
+
+      _isLoading = false;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      print('❌ Login error: $e');
+      _error = 'Login failed: ${e.toString()}';
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  /// Check for active job and set SharedPreferences flags for immediate redirect
+  Future<void> _checkAndSetActiveJobFlags() async {
+    if (_loggedInUserId == null) return;
+
+    try {
+      print('🔍 Checking for active job for worker: $_loggedInUserId');
+      final active = await JobRequestService.getActiveRequestForWorker(
+        _loggedInUserId!,
+        skilledWorkerPhone: _loggedInPhoneNumber,
+      );
+
+      if (active != null) {
+        final jobId = active['jobId'] as String?;
+        if (jobId != null && jobId.isNotEmpty) {
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setBool('active_job_$_loggedInUserId', true);
+          await prefs.setString('active_job_${_loggedInUserId}_jobId', jobId);
+          print(
+            '✅ Found active job on login: jobId=$jobId, set SharedPrefs flags',
+          );
+        }
+      } else {
+        print('ℹ️ No active job found for worker: $_loggedInUserId');
+      }
+    } catch (e) {
+      print('❌ Error checking active job on login: $e');
+    }
+  }
+
+  /// Simple job check on login - direct navigation approach
+  Future<void> checkJobOnLogin(String phoneNumber, BuildContext context) async {
+    try {
+      print(
+        '🔍 checkJobOnLogin: Checking for active job for phone: $phoneNumber',
+      );
+
+      // First, let's check what's actually in the JobRequests collection
+      print('🔍 Checking JobRequests collection directly...');
+      final allRequests =
+          await FirebaseFirestore.instance
+              .collection('JobRequests')
+              .where('skilledWorkerPhone', isEqualTo: phoneNumber)
+              .get();
+
+      print(
+        '📋 Found ${allRequests.docs.length} JobRequests for phone $phoneNumber',
+      );
+      for (var doc in allRequests.docs) {
+        print('📋 JobRequest: ${doc.id} = ${doc.data()}');
+      }
+
+      // Check for active job request using the service
+      final workerId = 'SKILLED_WORKER_${phoneNumber.replaceAll('0', '')}';
+      print('🔍 Looking for active job with workerId: $workerId');
+
+      final active = await JobRequestService.getActiveRequestForWorker(
+        workerId,
+        skilledWorkerPhone: phoneNumber,
+      );
+
+      print('📋 Active job result: $active');
+
+      if (active != null) {
+        final jobId = active['jobId'] as String?;
+        if (jobId != null && jobId.isNotEmpty) {
+          print('✅ Found active job, getting job details for jobId: $jobId');
+
+          // Get job details
+          final job = await JobRequestService.getJobDetails(jobId);
+          print('📋 Job details: $job');
+
+          if (job != null) {
+            print('✅ Job details found, navigating to job detail');
+            print(
+              '🚀 Calling Navigator.pushNamedAndRemoveUntil with jobId: $jobId',
+            );
+            // Navigate to Job Details screen using named route (same as ActiveWorkGate)
+            Navigator.pushNamedAndRemoveUntil(
+              context,
+              '/skilled-worker-job-detail',
+              (route) => false,
+              arguments: {
+                'imageUrl': job['Image'] ?? '',
+                'title': job['title_en'] ?? job['title_ur'] ?? '',
+                'location': job['Address'] ?? job['Location'] ?? '',
+                'date':
+                    job['createdAt'] != null
+                        ? (job['createdAt'] as Timestamp).toDate()
+                        : null,
+                'description':
+                    job['description_en'] ?? job['description_ur'] ?? '',
+                'jobId': jobId,
+                'jobPosterId': active['jobPosterId'] ?? '',
+                'requestId': active['requestId'],
+              },
+            );
+            print('✅ Navigation call completed');
+            return;
+          } else {
+            print('❌ Job details not found for jobId: $jobId');
+          }
+        } else {
+          print('❌ Active job found but jobId is null or empty');
+        }
+      } else {
+        print('❌ No active job found');
+      }
+
+      print('ℹ️ No active job found, navigating to home');
+      // Go to Home screen using named route
+      Navigator.pushNamedAndRemoveUntil(
+        context,
+        '/skilled-worker-home',
+        (route) => false,
+      );
+    } catch (e) {
+      print('❌ Error in checkJobOnLogin: $e');
+      // Fallback to home on error
+      Navigator.pushNamedAndRemoveUntil(
+        context,
+        '/skilled-worker-home',
+        (route) => false,
+      );
+    }
+  }
+
+  /// Logout method
+  void logout() {
+    _isLoggedIn = false;
+    _loggedInUserId = null;
+    _loggedInPhoneNumber = null;
+    _currentPhoneNumber = null;
+    _verificationId = null;
+    _error = null;
+    _success = null;
+    notifyListeners();
+    print('👋 Skilled Worker logged out');
+  }
+
+  /// Verifies the OTP using test authentication
   Future<bool> verifyOtp(String smsCode) async {
     _isLoading = true;
     _error = null;
     notifyListeners();
+
+    print('🔐 Verifying OTP: $smsCode');
+    print('🔐 Current phone: $_currentPhoneNumber');
 
     try {
       if (_verificationId == null) {
@@ -36,21 +242,21 @@ class SkilledWorkerProvider with ChangeNotifier {
         return false;
       }
 
-      final credential = PhoneAuthProvider.credential(
-        verificationId: _verificationId!,
-        smsCode: smsCode,
-      );
+      // Only allow 6-digit OTP
+      if (smsCode != _testOtp) {
+        _error = 'Invalid OTP code. Please use 123456.';
+        _isLoading = false;
+        notifyListeners();
+        return false;
+      }
 
-      await FirebaseAuth.instance.signInWithCredential(credential);
+      // OTP is valid - simulate successful authentication
+      print('✅ Test OTP verification successful');
       _isLoading = false;
       notifyListeners();
       return true;
-    } on FirebaseAuthException catch (e) {
-      _error = 'Verification failed: ${e.message ?? e.code}';
-      _isLoading = false;
-      notifyListeners();
-      return false;
     } catch (e) {
+      print('❌ General Exception in verifyOtp: $e');
       _error = 'Failed to verify OTP: ${e.toString()}';
       _isLoading = false;
       notifyListeners();
@@ -200,19 +406,25 @@ class SkilledWorkerProvider with ChangeNotifier {
   /// Update location in Firestore
   Future<void> _updateLocationInFirestore() async {
     try {
-      final user = FirebaseAuth.instance.currentUser;
-      if (user != null &&
+      // Use test authentication instead of Firebase Auth
+      if (_isLoggedIn &&
+          _loggedInUserId != null &&
           _currentLatitude != null &&
           _currentLongitude != null) {
         await FirebaseFirestore.instance
             .collection('SkilledWorkers')
-            .doc(user.uid)
+            .doc(_loggedInUserId!)
             .update({
               'currentLatitude': _currentLatitude,
               'currentLongitude': _currentLongitude,
               'currentAddress': _currentAddress,
               'locationUpdatedAt': FieldValue.serverTimestamp(),
             });
+        print('✅ Location updated in Firestore for user: $_loggedInUserId');
+      } else {
+        print(
+          '⚠️ Cannot update location: User not logged in or location not available',
+        );
       }
     } catch (e) {
       print('Error updating location in Firestore: $e');
@@ -249,37 +461,27 @@ class SkilledWorkerProvider with ChangeNotifier {
   void verifyPhone(String phoneNumber) {
     _isLoading = true;
     _error = null;
+    _verificationId = null;
     notifyListeners();
-    final formatted = formatPhoneNumber(phoneNumber);
-    print('📱 Verifying phone: "$formatted"');
 
-    // Use Firebase phone authentication
-    FirebaseAuth.instance.verifyPhoneNumber(
-      phoneNumber: formatted,
-      timeout: const Duration(seconds: 60),
-      verificationCompleted: (PhoneAuthCredential credential) async {
-        print('✅ Auto-verification completed');
-        _isLoading = false;
-        notifyListeners();
-      },
-      verificationFailed: (FirebaseAuthException e) {
-        print('❌ Verification failed: ${e.code} - ${e.message}');
-        _error = 'Verification failed: ${e.message ?? e.code}';
-        _isLoading = false;
-        notifyListeners();
-      },
-      codeSent: (String verificationId, int? resendToken) {
-        print('✅ OTP sent successfully. Verification ID: $verificationId');
-        _verificationId = verificationId;
-        _currentPhoneNumber = formatted;
-        _isLoading = false;
-        notifyListeners();
-      },
-      codeAutoRetrievalTimeout: (String verificationId) {
-        print('⏰ Auto-retrieval timeout. Verification ID: $verificationId');
-        _verificationId = verificationId;
-      },
-    );
+    final input = phoneNumber.trim();
+    print('📱 Verifying phone: "$input"');
+
+    // Only allow the two test numbers
+    if (!_allowedTestNumbers.contains(input)) {
+      _error = 'Only the two test numbers are allowed for login/signup.';
+      _isLoading = false;
+      notifyListeners();
+      return;
+    }
+
+    // Simulate OTP sent
+    _verificationId = 'test_verification_id';
+    _currentPhoneNumber = input;
+    _isLoading = false;
+    notifyListeners();
+
+    print('✅ Test OTP sent to phone: $input');
   }
 
   Future<void> signInWithOTP(String smsCode, VoidCallback onSuccess) async {
@@ -327,35 +529,33 @@ class SkilledWorkerProvider with ChangeNotifier {
     _success = null;
     notifyListeners();
 
-    final user = FirebaseAuth.instance.currentUser;
-
-    // For testing purposes, use a default skilled worker ID if user is not logged in
+    // Use test authentication instead of Firebase Auth
     String skilledWorkerId;
     String phoneNumber;
     String displayName;
 
-    if (user != null) {
-      skilledWorkerId = user.uid;
-      phoneNumber = user.phoneNumber ?? '0000000000';
-      displayName = user.displayName ?? name;
+    if (_isLoggedIn && _loggedInUserId != null) {
+      skilledWorkerId = _loggedInUserId!;
+      phoneNumber = _loggedInPhoneNumber ?? '0000000000';
+      displayName = name;
 
       // Check if skilled worker exists, if not create one
       try {
         final skilledWorkerDoc =
             await FirebaseFirestore.instance
                 .collection('SkilledWorkers')
-                .doc(user.uid)
+                .doc(skilledWorkerId)
                 .get();
 
         if (!skilledWorkerDoc.exists) {
           // Create skilled worker document
           await FirebaseFirestore.instance
               .collection('SkilledWorkers')
-              .doc(user.uid)
+              .doc(skilledWorkerId)
               .set({
-                'userId': user.uid,
-                'phoneNumber': user.phoneNumber ?? '0000000000',
-                'displayName': user.displayName ?? 'Skilled Worker',
+                'userId': skilledWorkerId,
+                'phoneNumber': phoneNumber,
+                'displayName': displayName,
                 'createdAt': FieldValue.serverTimestamp(),
                 'isActive': true,
                 'currentLatitude': _currentLatitude,
@@ -398,7 +598,7 @@ class SkilledWorkerProvider with ChangeNotifier {
     try {
       await FirebaseFirestore.instance
           .collection('SkilledWorkers')
-          .doc(user!.uid)
+          .doc(skilledWorkerId)
           .set(workerData, SetOptions(merge: true));
       _success =
           'Skilled worker registered successfully! Worker ID: $skilledWorkerId';

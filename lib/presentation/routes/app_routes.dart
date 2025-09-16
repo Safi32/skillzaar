@@ -8,6 +8,7 @@ import '../screens/job_poster/post_job_screen.dart';
 import '../screens/job_poster/job_poster_home_screen.dart';
 import '../screens/job_poster/job_requests_screen.dart';
 import '../screens/job_poster/job_poster_profile_screen.dart';
+import '../screens/job_poster/job_poster_detail_screen.dart';
 import '../screens/job_poster/job_poster_ads_screen.dart';
 import '../screens/job_poster/contact_us_screen.dart';
 import '../screens/skilled_worker/signup_screen.dart';
@@ -20,8 +21,10 @@ import '../screens/skilled_worker/jobs_screen.dart';
 import '../screens/skilled_worker/accepted_requests_screen.dart';
 import '../screens/skilled_worker/job_detail_screen.dart' as skilled_worker;
 import '../screens/job_poster/job_detail_screen.dart';
+import '../screens/job_poster/job_accepted_details_screen.dart';
 import '../screens/skilled_worker/navigate_to_job_screen.dart';
 import '../screens/skilled_worker/portfolio_overview_screen.dart';
+import '../screens/test_notification_screen.dart';
 import '../providers/skilled_worker_provider.dart';
 import '../providers/ui_state_provider.dart';
 
@@ -47,6 +50,7 @@ class AppRoutes {
     '/skilled-worker-jobs': (context) => const SkilledWorkerJobsScreen(),
     '/skilled-worker-accepted-requests':
         (context) => const AcceptedRequestsScreen(),
+    '/test-notifications': (context) => const TestNotificationScreen(),
   };
 
   static Route<dynamic>? onGenerateRoute(RouteSettings settings) {
@@ -86,6 +90,7 @@ class AppRoutes {
                   description: args['description'] ?? '',
                   jobId: args['jobId'] ?? '',
                   jobPosterId: args['jobPosterId'] ?? '',
+                  requestId: args['requestId'] ?? '',
                 ),
           );
         }
