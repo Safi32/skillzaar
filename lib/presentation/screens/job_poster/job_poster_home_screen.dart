@@ -57,36 +57,22 @@ class _JobPosterHomeContentState extends State<_JobPosterHomeContent> {
     ];
   }
 
-  Future<void> _maybeRedirectToAccepted() async {
+  // Reserved for future: redirect to accepted/in-progress job if needed
+  /* Future<void> _maybeRedirectToAccepted() async {
     final currentPosterId =
         JobRequestService.getCurrentUserId() ?? 'TEST_POSTER_ID';
     Map<String, dynamic>? req =
         await JobRequestService.getAcceptedRequestForPoster(currentPosterId);
     if (!mounted) return;
     if (req != null && req['status'] == 'accepted') {
-      // Fetch job details
-      final jobDetails = await JobRequestService.getJobDetails(
-        req['jobId'] as String,
-      );
-      // Fetch skilled worker details
-      final skilledWorkerDetails =
-          await JobRequestService.getSkilledWorkerDetails(
-            req['skilledWorkerId'] as String,
-          );
+      final request = req;  
       if (!mounted) return;
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
           builder:
               (_) => JobAcceptedDetailsScreen(
-                jobDetails: jobDetails ?? {},
-                skilledWorkerDetails:
-                    skilledWorkerDetails ??
-                    {
-                      'name': req?['skilledWorkerName'] ?? '-',
-                      'phone': req?['skilledWorkerPhone'] ?? '-',
-                      'email': req?['skilledWorkerEmail'] ?? '-',
-                    },
-                isJobCompleted: false,
+                jobId: (request['jobId'] ?? '').toString(),
+                requestId: (request['requestId'] ?? '').toString(),
               ),
         ),
       );
@@ -97,12 +83,8 @@ class _JobPosterHomeContentState extends State<_JobPosterHomeContent> {
       currentPosterId,
     );
     if (!mounted) return;
-    if (req != null) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const InProgressJobScreen()),
-      );
-    }
-  }
+    // No in-progress screen in current flow. Keep user on home if not accepted.
+  } */
 
   Future<void> _showLocationPermissionPrompt() async {
     if (_hasShownLocationPrompt) return;

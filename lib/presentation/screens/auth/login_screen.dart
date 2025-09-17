@@ -122,21 +122,59 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                         elevation: 0,
                       ),
-                      onPressed: () {
-                        if (phoneController.text.isNotEmpty) {
-                          Navigator.pushNamed(
-                            context,
-                            role == 'skilled_worker'
-                                ? '/skilled-worker-home'
-                                : '/job-poster-home',
-                            arguments: {'phone': phoneController.text},
-                          );
-                        } else {
+                      onPressed: () async {
+                        final input = phoneController.text.trim();
+                        if (input.isEmpty) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
                               content: Text('Please enter your phone number'),
                             ),
                           );
+                          return;
+                        }
+
+                        if (role == 'skilled_worker') {
+                          // Send OTP for skilled worker and navigate to OTP screen
+                          final provider = Provider.of<SkilledWorkerProvider>(
+                            context,
+                            listen: false,
+                          );
+                          provider.verifyPhone(input);
+                          await Future.delayed(
+                            const Duration(milliseconds: 100),
+                          );
+                          if (context.mounted && provider.error == null) {
+                            Navigator.pushNamed(
+                              context,
+                              '/skilled-worker-otp',
+                              arguments: {'phone': input},
+                            );
+                          } else if (context.mounted &&
+                              provider.error != null) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text(provider.error!)),
+                            );
+                          }
+                        } else {
+                          // Send OTP for job poster and navigate to OTP screen
+                          final phoneAuthProvider =
+                              Provider.of<PhoneAuthProvider>(
+                                context,
+                                listen: false,
+                              );
+                          phoneAuthProvider.sendOtp(input, context);
+
+                          // If there was an error, show it
+                          if (context.mounted &&
+                              phoneAuthProvider.error != null) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  phoneAuthProvider.error ?? 'Error',
+                                ),
+                              ),
+                            );
+                          }
                         }
                       },
                       child: const Text(

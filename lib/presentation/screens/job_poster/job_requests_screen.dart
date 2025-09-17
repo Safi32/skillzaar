@@ -18,13 +18,13 @@ class JobRequestsScreen extends StatelessWidget {
       listen: false,
     );
 
-    String jobPosterId;
+    String? jobPosterId;
 
     if (phoneAuthProvider.isLoggedIn &&
         phoneAuthProvider.loggedInUserId != null) {
       jobPosterId = phoneAuthProvider.loggedInUserId!;
     } else {
-      jobPosterId = 'TEST_JOB_POSTER_ID';
+      jobPosterId = null;
     }
 
     print('🔍 Job Requests Screen - Job Poster ID: $jobPosterId');
@@ -32,10 +32,45 @@ class JobRequestsScreen extends StatelessWidget {
       '🔍 Job Requests Screen - Is Logged In: ${phoneAuthProvider.isLoggedIn}',
     );
 
+    if (jobPosterId == null) {
+      return Scaffold(
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.lock_outline, size: 64, color: Colors.grey),
+                const SizedBox(height: 16),
+                const Text(
+                  'Please log in to view your job requests.',
+                  style: TextStyle(fontSize: 18),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 12),
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.pushNamedAndRemoveUntil(
+                      context,
+                      '/job-poster-home',
+                      (route) => false,
+                    );
+                  },
+                  child: const Text('Go to Login'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    final String posterId = jobPosterId;
+
     // Normalize legacy requests on first build
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await JobRequestService.normalizeJobRequestsForPoster(
-        jobPosterId: jobPosterId,
+        jobPosterId: posterId,
         posterPhone: phoneAuthProvider.loggedInPhoneNumber,
       );
     });
@@ -43,7 +78,7 @@ class JobRequestsScreen extends StatelessWidget {
     return Scaffold(
       body: StreamBuilder<QuerySnapshot>(
         // Fetch requests directly by jobPosterId, independent of job list
-        stream: JobRequestService.getJobRequestsForPoster(jobPosterId),
+        stream: JobRequestService.getJobRequestsForPoster(posterId),
         builder: (context, reqSnapshot) {
           if (reqSnapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
@@ -79,7 +114,7 @@ class JobRequestsScreen extends StatelessWidget {
           final byJob = <String, List<QueryDocumentSnapshot>>{};
           for (final doc in reqSnapshot.data!.docs) {
             final data = doc.data() as Map<String, dynamic>;
-            final jobId = data['jobId'] as String? ?? '';
+            final jobId = (data['jobId'] as String? ?? '').trim();
             if (jobId.isEmpty) continue;
             byJob.putIfAbsent(jobId, () => <QueryDocumentSnapshot>[]).add(doc);
           }
@@ -95,7 +130,7 @@ class JobRequestsScreen extends StatelessWidget {
               return FutureBuilder<DocumentSnapshot>(
                 future:
                     FirebaseFirestore.instance
-                        .collection('Job')
+                        .collection('Jobs')
                         .doc(jobId)
                         .get(),
                 builder: (context, jobSnap) {

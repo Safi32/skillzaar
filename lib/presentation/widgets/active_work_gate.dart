@@ -200,11 +200,26 @@ class _ActiveWorkGateState extends State<ActiveWorkGate> {
 
     // Job poster
     if (poster.isLoggedIn && poster.loggedInUserId != null) {
-      final userDoc =
+      // Try by explicit doc id first
+      DocumentSnapshot<Map<String, dynamic>> userDoc =
           await FirebaseFirestore.instance
               .collection('JobPosters')
               .doc(poster.loggedInUserId!)
               .get();
+
+      // Fallback: resolve by phone number if doc doesn't exist
+      if (!userDoc.exists && (poster.loggedInPhoneNumber ?? '').isNotEmpty) {
+        final byPhone =
+            await FirebaseFirestore.instance
+                .collection('JobPosters')
+                .where('userPhone', isEqualTo: poster.loggedInPhoneNumber!)
+                .limit(1)
+                .get();
+        if (byPhone.docs.isNotEmpty) {
+          userDoc = byPhone.docs.first;
+        }
+      }
+
       final activeJobId = userDoc.data()?['activeJobId'] as String?;
       if (!mounted) return;
       if (activeJobId != null && activeJobId.isNotEmpty) {
@@ -258,6 +273,7 @@ class _ActiveWorkGateState extends State<ActiveWorkGate> {
     if (poster.isLoggedIn && poster.loggedInUserId != null) {
       final active = await JobRequestService.getActiveRequestForPoster(
         poster.loggedInUserId!,
+        posterPhone: poster.loggedInPhoneNumber,
       );
       if (!mounted) return;
       if (active != null) {

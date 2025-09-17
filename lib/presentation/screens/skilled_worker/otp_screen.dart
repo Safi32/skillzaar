@@ -229,7 +229,16 @@ class _SkilledWorkerOTPScreenState extends State<SkilledWorkerOTPScreen> {
               // Resend OTP Button
               TextButton(
                 onPressed: () {
-                  // TODO: Implement resend OTP functionality
+                  final args =
+                      ModalRoute.of(context)?.settings.arguments
+                          as Map<String, dynamic>?;
+                  final phone = args?['phone'] as String?;
+                  if (phone != null && phone.isNotEmpty) {
+                    Provider.of<SkilledWorkerProvider>(
+                      context,
+                      listen: false,
+                    ).verifyPhone(phone);
+                  }
                 },
                 child: const Text(
                   'Resend OTP',
@@ -257,6 +266,7 @@ class _SkilledWorkerOTPScreenState extends State<SkilledWorkerOTPScreen> {
                                 ModalRoute.of(context)?.settings.arguments
                                     as Map<String, dynamic>?;
                             final phoneNumber = args?['phone'] ?? '';
+                            final isSignUp = args?['isSignUp'] == true;
 
                             final loginSuccess = await skilledWorkerProvider
                                 .login(phoneNumber, otpCode);
@@ -271,11 +281,18 @@ class _SkilledWorkerOTPScreenState extends State<SkilledWorkerOTPScreen> {
                                 ),
                               );
 
-                              // Check for active job after successful login
-                              await _checkForActiveJob(
-                                context,
-                                skilledWorkerProvider,
-                              );
+                              if (isSignUp) {
+                                Navigator.pushReplacementNamed(
+                                  context,
+                                  '/skilled-worker-cnic',
+                                );
+                              } else {
+                                // Check for active job after successful login
+                                await _checkForActiveJob(
+                                  context,
+                                  skilledWorkerProvider,
+                                );
+                              }
                             } else {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(

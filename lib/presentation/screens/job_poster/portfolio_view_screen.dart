@@ -7,6 +7,7 @@ import '../../widgets/portfolio_bio.dart';
 import '../../widgets/portfolio_images.dart';
 import '../../widgets/portfolio_action_buttons.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../../core/services/job_request_service.dart';
 
 class PortfolioViewScreen extends StatelessWidget {
   final String skilledWorkerId;
@@ -79,11 +80,58 @@ class PortfolioViewScreen extends StatelessWidget {
   }
 
   void _updateRequestStatus(BuildContext context, String status) async {
-    await FirebaseFirestore.instance
-        .collection('JobRequests')
-        .doc(requestId)
-        .update({'status': status, 'isActive': false});
-    Navigator.of(context).pop();
+    try {
+      if (status == 'accepted') {
+        // Use the proper method that creates AcceptedJobs entry
+        final success = await JobRequestService.markRequestAccepted(requestId);
+        if (success) {
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Job request accepted successfully!'),
+                backgroundColor: Colors.green,
+              ),
+            );
+            Navigator.of(context).pop();
+          }
+        } else {
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                  'Failed to accept job request. Please try again.',
+                ),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+        }
+      } else {
+        // For rejected status, just update the JobRequests collection
+        await FirebaseFirestore.instance
+            .collection('JobRequests')
+            .doc(requestId)
+            .update({'status': status, 'isActive': false});
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Job request rejected.'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+          Navigator.of(context).pop();
+        }
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error updating request: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   @override

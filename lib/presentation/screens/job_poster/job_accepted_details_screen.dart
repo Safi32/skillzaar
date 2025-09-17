@@ -93,6 +93,32 @@ class _JobAcceptedDetailsScreenState extends State<JobAcceptedDetailsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Validate that we have valid IDs
+    if (widget.jobId.isEmpty || widget.requestId.isEmpty) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Error')),
+        body: const Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.error_outline, size: 64, color: Colors.red),
+              SizedBox(height: 16),
+              Text(
+                'Invalid Job Data',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              SizedBox(height: 8),
+              Text(
+                'Job ID or Request ID is missing. Please try again.',
+                style: TextStyle(fontSize: 14, color: Colors.grey),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     if (jobCancelled) {
       return Scaffold(
         appBar: AppBar(title: const Text('Job Cancelled')),

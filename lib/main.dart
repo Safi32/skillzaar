@@ -17,7 +17,6 @@ import 'presentation/providers/notification_provider.dart';
 import 'presentation/widgets/splash_and_dialog_gate.dart';
 import 'presentation/widgets/notification_initializer.dart';
 import 'presentation/widgets/provider_connector.dart';
-import 'presentation/widgets/active_work_gate.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();

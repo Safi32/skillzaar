@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:skillzaar/presentation/screens/skilled_worker/skilled_worker_profile.dart';
 import 'package:skillzaar/presentation/widgets/banner.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -33,34 +34,77 @@ class HomeScreen extends StatelessWidget {
               ],
             ),
           ),
-
-          const SizedBox(height: 16),
-
-          // 🔹 Job Cards List
+          const SizedBox(height: 16),          
           Expanded(
-            child: GridView.builder(
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                mainAxisSpacing: 12,
-                crossAxisSpacing: 12,
-                childAspectRatio: 1,
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              itemCount: 6,
-              itemBuilder: (context, index) {
-                return _JobCard(
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => SkilledWorkerProfile(),
-                      ),
+            child: FutureBuilder<QuerySnapshot>(
+              future:
+                  FirebaseFirestore.instance.collection('SkilledWorkers').get(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                if (snapshot.hasError) {
+                  return Center(
+                    child: Text('Failed to load workers: ${snapshot.error}'),
+                  );
+                }
+                final docs = snapshot.data?.docs ?? [];
+                if (docs.isEmpty) {
+                  return const Center(child: Text('No skilled workers found'));
+                }
+
+                return GridView.builder(
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    mainAxisSpacing: 12,
+                    crossAxisSpacing: 12,
+                    childAspectRatio: 1,
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  itemCount: docs.length,
+                  itemBuilder: (context, index) {
+                    final data = docs[index].data() as Map<String, dynamic>;
+                    final imageUrl =
+                        (data['ProfilePicture'] ??
+                                data['profilePicture'] ??
+                                data['image'] ??
+                                '')
+                            .toString();
+                    final name =
+                        (data['Name'] ??
+                                data['name'] ??
+                                data['displayName'] ??
+                                'Skilled Worker')
+                            .toString();
+                    final service =
+                        (data['primaryService'] ??
+                                    data['service'] ??
+                                    data['skills']?.isNotEmpty == true
+                                ? (data['skills'][0]).toString()
+                                : 'Service')
+                            .toString();
+                    final rate =
+                        (data['hourlyRate'] ?? data['rate'] ?? '').toString();
+
+                    return _JobCard(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => SkilledWorkerProfile(),
+                          ),
+                        );
+                      },
+                      title: name,
+                      subtitle: service,
+                      rating: 4.8, // static for now
+                      price: rate.isNotEmpty ? 'Rs $rate' : 'Rate N/A',
+                      imageUrl:
+                          imageUrl.isNotEmpty
+                              ? imageUrl
+                              : "https://via.placeholder.com/600x800.png?text=Worker",
                     );
                   },
-                  title: "Plumbing Service",
-                  subtitle: "Gardener",
-                  rating: 4.8,
-                  price: "\$120",
                 );
               },
             ),

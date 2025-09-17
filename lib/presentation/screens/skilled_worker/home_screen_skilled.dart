@@ -1,70 +1,170 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:provider/provider.dart';
 import 'package:skillzaar/presentation/widgets/banner.dart';
+import '../../providers/skilled_worker_provider.dart';
+import '../../../core/services/job_request_service.dart';
+import 'job_detail_screen.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:skillzaar/presentation/widgets/bottom_bar_widget.dart';
+import '../../widgets/contact_us_dialog.dart';
+import '../../widgets/filter_dialog.dart';
+import '../../widgets/skilled_worker_drawer_header.dart';
+import 'jobs_screen.dart';
+import 'home_profile_screen.dart';
+import 'requests_screen.dart';
 
-class HomeScreenSkilled extends StatelessWidget {
+class HomeScreenSkilled extends StatefulWidget {
   const HomeScreenSkilled({super.key});
 
   @override
+  State<HomeScreenSkilled> createState() => _HomeScreenSkilledState();
+}
+
+class _HomeScreenSkilledState extends State<HomeScreenSkilled> {
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  int _selectedIndex = 0;
+  String _selectedJobType = 'All';
+  double _selectedRadius = 50.0;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _maybeRedirectToActiveJob();
+      // Retry once shortly after initial build to handle late provider init
+      Future.delayed(const Duration(milliseconds: 600), () {
+        if (mounted) {
+          _maybeRedirectToActiveJob();
+        }
+      });
+    });
+  }
+
+  Future<void> _maybeRedirectToActiveJob() async {
+    try {
+      final provider = Provider.of<SkilledWorkerProvider>(
+        context,
+        listen: false,
+      );
+      String? workerId =
+          provider.loggedInUserId ?? FirebaseAuth.instance.currentUser?.uid;
+      final workerPhone = provider.loggedInPhoneNumber;
+
+      // If workerId not available yet, derive it from phone used in test auth
+      if ((workerId == null || workerId.isEmpty) &&
+          workerPhone != null &&
+          workerPhone.isNotEmpty) {
+        final derived = 'SKILLED_WORKER_${workerPhone.replaceAll('0', '')}';
+        workerId = derived;
+      }
+
+      if (workerId == null || workerId.isEmpty) return;
+      final active = await JobRequestService.getActiveRequestForWorker(
+        workerId,
+        skilledWorkerPhone: workerPhone,
+      );
+      if (!mounted || active == null) return;
+      final jobId = active['jobId'] as String?;
+      if (jobId == null || jobId.isEmpty) return;
+      final job = await JobRequestService.getJobDetails(jobId);
+      if (!mounted || job == null) return;
+      Navigator.pushNamedAndRemoveUntil(
+        context,
+        '/skilled-worker-job-detail',
+        (route) => false,
+        arguments: {
+          'imageUrl': job['Image'] ?? job['imageUrl'] ?? '',
+          'title': job['title_en'] ?? job['title_ur'] ?? job['title'] ?? '',
+          'location': job['Address'] ?? job['Location'] ?? '',
+          'date': job['createdAt'],
+          'description': job['description_en'] ?? job['description'] ?? '',
+          'jobId': jobId,
+          'jobPosterId': active['jobPosterId'] ?? '',
+          'requestId': active['requestId'],
+        },
+      );
+    } catch (_) {}
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final List<Widget> pages = [
+      _buildHomeBody(),
+      const SkilledWorkerJobsScreen(),
+      const SkilledWorkerRequestsScreen(),
+      const HomeProfileScreen(),
+    ];
+
     return Scaffold(
-      body: Column(
-        children: [
-          const HireBanner(),
-          const SizedBox(height: 12),
-
-          // 🔹 Categories (Jobs by type)
-          SizedBox(
-            height: 100,
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              children: [
-                _buildChip("Plumbing", 'assets/plumber.png'),
-                _buildChip("Painting", 'assets/painter.png'),
-                _buildChip("Cleaning", 'assets/broom.png'),
-                _buildChip("Gardening", 'assets/gardener.png'),
-                _buildChip("Masonry", 'assets/brickwork.png'),
-                _buildChip("Electric Work", 'assets/electrician.png'),
-              ],
+      key: _scaffoldKey,
+      appBar: AppBar(
+        surfaceTintColor: Colors.white,
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.green,
+        centerTitle: true,
+        elevation: 5,
+        title: Text(
+          _getTitle(_selectedIndex),
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 22),
+        ),
+        leading: IconButton(
+          icon: const Icon(Icons.menu),
+          onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+        ),
+        actions: [
+          if (_selectedIndex == 0)
+            IconButton(
+              icon: const Icon(Icons.filter_list),
+              onPressed: () => _showFilterDialog(context),
             ),
-          ),
-
-          const SizedBox(height: 16),
-
-          // 🔹 Jobs List (for Skilled Worker to browse)
-          Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              itemCount: 6,
-              itemBuilder: (context, index) {
-                return JobCard(
-                  onTap: () {
-                    // Navigator.push(
-                    //   context,
-                    //   MaterialPageRoute(
-                    //     builder: (context) => const JobDetailScreen(),
-                    //   ),
-                    // );
-                  },
-                  title: "Need Plumbing Repair",
-                  company: "Ali Khan",
-                  location: "Islamabad, PK",
-                  salary: "\$100",
-                  rating: 4.7,
-                );
-              },
-            ),
-          ),
         ],
       ),
+      drawer: Drawer(
+        child: ListView(
+          padding: EdgeInsets.zero,
+          children: [
+            const SkilledWorkerDrawerHeader(),
+            ListTile(
+              leading: const Icon(Icons.contact_support, color: Colors.green),
+              title: const Text('Contact Us'),
+              onTap: () {
+                Navigator.pop(context);
+                _showContactUsDialog(context);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.star_rate, color: Colors.amber),
+              title: const Text('Rate Job Poster'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, '/skilled-worker-rate-poster');
+              },
+            ),
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.logout, color: Colors.red),
+              title: const Text('Logout'),
+              onTap: () {
+                Navigator.pop(context);
+                _logout(context);
+              },
+            ),
+          ],
+        ),
+      ),
+      body: pages[_selectedIndex],
+      floatingActionButton: FloatingIslandNavBar(
+        currentIndex: _selectedIndex,
+        onTap: (i) => setState(() => _selectedIndex = i),
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
     );
   }
 
   Widget _buildChip(String label, String assetPath) {
     return GestureDetector(
-      onTap: () {
-        // filter jobs
-      },
+      onTap: () {},
       child: SizedBox(
         width: 80,
         child: Column(
@@ -93,9 +193,237 @@ class HomeScreenSkilled extends StatelessWidget {
       ),
     );
   }
+
+  Widget _buildHomeBody() {
+    return Column(
+      children: [
+        const HireBanner(),
+        const SizedBox(height: 12),
+        SizedBox(
+          height: 100,
+          child: ListView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            children: [
+              _buildChip("Plumbing", 'assets/plumber.png'),
+              _buildChip("Painting", 'assets/painter.png'),
+              _buildChip("Cleaning", 'assets/broom.png'),
+              _buildChip("Gardening", 'assets/gardener.png'),
+              _buildChip("Masonry", 'assets/brickwork.png'),
+              _buildChip("Electric Work", 'assets/electrician.png'),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        Expanded(
+          child: StreamBuilder<QuerySnapshot>(
+            stream: JobRequestService.getApprovedJobs(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(
+                  child: CircularProgressIndicator(color: Colors.green),
+                );
+              }
+              if (snapshot.hasError) {
+                return Center(
+                  child: Text(
+                    'Error: ${snapshot.error}',
+                    style: const TextStyle(color: Colors.red),
+                  ),
+                );
+              }
+              if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                return const Center(
+                  child: Text(
+                    'No approved jobs available yet',
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                );
+              }
+              final docs = snapshot.data!.docs;
+              return ListView.builder(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                itemCount: docs.length,
+                itemBuilder: (context, index) {
+                  final doc = docs[index];
+                  final data = doc.data() as Map<String, dynamic>;
+                  final jobId = doc.id;
+                  final title =
+                      data['title_en'] ??
+                      data['title_ur'] ??
+                      data['Name'] ??
+                      'No Title';
+                  final description =
+                      data['description_en'] ??
+                      data['description_ur'] ??
+                      data['Description'] ??
+                      '';
+                  final imageUrl =
+                      (data['images'] != null &&
+                              data['images'] is List &&
+                              data['images'].isNotEmpty)
+                          ? data['images'][0]
+                          : (data['Image'] ??
+                              'https://via.placeholder.com/120x80?text=Job');
+                  final postedDate =
+                      data['createdAt'] != null
+                          ? (data['createdAt'] as Timestamp).toDate()
+                          : null;
+                  final lat =
+                      data['Latitude'] is double
+                          ? data['Latitude']
+                          : (data['Latitude'] as num?)?.toDouble();
+                  final lng =
+                      data['Longitude'] is double
+                          ? data['Longitude']
+                          : (data['Longitude'] as num?)?.toDouble();
+                  double? distanceKm;
+                  final provider = Provider.of<SkilledWorkerProvider>(
+                    context,
+                    listen: false,
+                  );
+                  if (lat != null &&
+                      lng != null &&
+                      provider.currentLatitude != null &&
+                      provider.currentLongitude != null) {
+                    distanceKm = JobRequestService.calculateDistance(
+                      provider.currentLatitude!,
+                      provider.currentLongitude!,
+                      lat,
+                      lng,
+                    );
+                  }
+                  return JobCard(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder:
+                              (_) => JobDetailScreen(
+                                imageUrl: imageUrl,
+                                title: title,
+                                location:
+                                    data['Address'] ?? data['Location'] ?? '',
+                                date: postedDate,
+                                description: description,
+                                jobId: jobId,
+                                jobPosterId:
+                                    data['jobPosterId'] ?? data['userId'] ?? '',
+                              ),
+                        ),
+                      );
+                    },
+                    title: title,
+                    company: (data['jobPosterName'] ?? 'Job Poster').toString(),
+                    location: data['Address'] ?? data['Location'] ?? '—',
+                    salary:
+                        (data['Budget'] ?? data['budget'] ?? '')
+                                .toString()
+                                .trim()
+                                .isNotEmpty
+                            ? 'PKR ${data['Budget'] ?? data['budget']}'
+                            : (distanceKm != null
+                                ? '${distanceKm.toStringAsFixed(1)} km'
+                                : ''),
+                    rating: 4.7,
+                  );
+                },
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _showContactUsDialog(BuildContext context) {
+    showDialog(context: context, builder: (context) => const ContactUsDialog());
+  }
+
+  void _showFilterDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder:
+          (context) => FilterDialog(
+            selectedJobType: _selectedJobType,
+            selectedRadius: _selectedRadius,
+            onJobTypeChanged: (type) => setState(() => _selectedJobType = type),
+            onRadiusChanged: (value) => setState(() => _selectedRadius = value),
+            onReset: () {
+              setState(() {
+                _selectedJobType = 'All';
+                _selectedRadius = 50.0;
+              });
+              Navigator.of(context).pop();
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Filters reset to default'),
+                  backgroundColor: Colors.orange,
+                  duration: Duration(seconds: 2),
+                ),
+              );
+            },
+            onApply: () {
+              Navigator.of(context).pop();
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    'Filters applied: \${_selectedJobType} jobs within \${_selectedRadius.round()} km',
+                  ),
+                  backgroundColor: Colors.green,
+                  duration: const Duration(seconds: 2),
+                ),
+              );
+            },
+          ),
+    );
+  }
+
+  void _logout(BuildContext context) async {
+    final shouldLogout = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Logout'),
+          content: const Text('Are you sure you want to logout?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+              child: const Text('Logout'),
+            ),
+          ],
+        );
+      },
+    );
+    if (shouldLogout == true) {
+      await FirebaseAuth.instance.signOut();
+      if (mounted) {
+        Navigator.of(context).pushReplacementNamed('/role-selection');
+      }
+    }
+  }
+
+  String _getTitle(int index) {
+    switch (index) {
+      case 0:
+        return 'Home';
+      case 1:
+        return 'All Ads';
+      case 2:
+        return 'Requests';
+      case 3:
+        return 'Profile';
+      default:
+        return 'All Jobs';
+    }
+  }
 }
 
-// 🔹 Job Card (for Skilled Workers)
 class JobCard extends StatelessWidget {
   final String title;
   final String company;
@@ -127,15 +455,12 @@ class JobCard extends StatelessWidget {
         ),
         child: Row(
           children: [
-            // Company/Poster Avatar
             CircleAvatar(
               radius: 28,
               backgroundColor: Colors.green.withOpacity(0.2),
               child: const Icon(Icons.work, color: Colors.green),
             ),
             const SizedBox(width: 12),
-
-            // Job Info
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -160,8 +485,6 @@ class JobCard extends StatelessWidget {
                 ],
               ),
             ),
-
-            // Salary + Rating
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [

@@ -106,6 +106,48 @@ class _JobDetailContentState extends State<_JobDetailContent> {
     }
   }
 
+  Future<void> _navigateToRatingPage(
+    BuildContext context,
+    Map<String, dynamic>? data,
+  ) async {
+    try {
+      // Get job poster details
+      final jobPosterId = data?['jobPosterId'] as String? ?? widget.jobPosterId;
+      final jobPosterDetails = await JobRequestService.getJobPosterDetails(
+        jobPosterId,
+      );
+
+      if (jobPosterDetails != null) {
+        // Navigate to rating page
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          '/skilled-worker-rate-job-poster',
+          (route) => false,
+          arguments: {
+            'jobPosterDetails': jobPosterDetails,
+            'requestId': data?['requestId'] ?? widget.requestId,
+          },
+        );
+      } else {
+        // Fallback: navigate to home if job poster details not found
+        print('❌ Job poster details not found, navigating to home');
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          '/skilled-worker-home',
+          (route) => false,
+        );
+      }
+    } catch (e) {
+      print('❌ Error navigating to rating page: $e');
+      // Fallback: navigate to home on error
+      Navigator.pushNamedAndRemoveUntil(
+        context,
+        '/skilled-worker-home',
+        (route) => false,
+      );
+    }
+  }
+
   Future<void> requestForJob(BuildContext context) async {
     // Check if portfolio is complete first using the new method
     final homeProfileProvider = Provider.of<HomeProfileProvider>(
@@ -127,40 +169,129 @@ class _JobDetailContentState extends State<_JobDetailContent> {
       return;
     }
 
-    // Prefer test-auth provider over FirebaseAuth
-    final swProvider = Provider.of<SkilledWorkerProvider>(
-      context,
-      listen: false,
+    // Check if job has any active requests (in_progress or accepted)
+    final hasActiveRequests = await JobRequestService.hasActiveRequests(
+      widget.jobId,
     );
-    final user = FirebaseAuth.instance.currentUser;
+    if (hasActiveRequests) {
+      // Get active request details to show appropriate message
+      final activeRequest = await JobRequestService.getActiveRequestForJob(
+        widget.jobId,
+      );
+      final status = activeRequest?['status'] ?? 'in progress';
 
+      String message;
+      if (status == 'in_progress') {
+        message =
+            'This job is currently in progress. Cannot send new requests.';
+      } else {
+        message =
+            'This job has already been accepted by another worker. Cannot send new requests.';
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 4),
+        ),
+      );
+      return;
+    }
+
+    // Extract Job Poster ID - try multiple sources
+    String jobPosterId = widget.jobPosterId; // Start with widget parameter
+    try {
+      // First try to get from job document
+      final docJobPosterId = await JobRequestService.getJobPosterId(
+        widget.jobId,
+      );
+      print('🔍 Job Poster ID from job document: $docJobPosterId');
+
+      if (docJobPosterId != null && docJobPosterId.isNotEmpty) {
+        jobPosterId = docJobPosterId;
+      } else {
+        print('🔍 Job Poster ID from widget parameter: $jobPosterId');
+      }
+
+      // Final fallback - try to get from job data if available
+      if (_jobData != null) {
+        final jobDataPosterId = _jobData!['jobPosterId'] as String?;
+        if (jobDataPosterId != null && jobDataPosterId.isNotEmpty) {
+          jobPosterId = jobDataPosterId;
+          print('🔍 Job Poster ID from job data: $jobPosterId');
+        }
+      }
+    } catch (e) {
+      print('❌ Error extracting job poster ID: $e');
+      // jobPosterId already set to widget.jobPosterId
+    }
+
+    // Extract Skilled Worker ID - try multiple sources
     String skilledWorkerId;
     String skilledWorkerName;
     String skilledWorkerPhone;
 
-    if (swProvider.isLoggedIn && swProvider.loggedInUserId != null) {
-      skilledWorkerId = swProvider.loggedInUserId!;
-      skilledWorkerName = 'Skilled Worker';
-      skilledWorkerPhone = swProvider.loggedInPhoneNumber ?? '0000000000';
-    } else if (user != null) {
-      skilledWorkerId =
-          await JobRequestService.getSkilledWorkerId() ?? user.uid;
-      skilledWorkerName = user.displayName ?? 'Skilled Worker';
-      skilledWorkerPhone = user.phoneNumber ?? '0000000000';
-    } else {
+    try {
+      // Prefer test-auth provider over FirebaseAuth
+      final swProvider = Provider.of<SkilledWorkerProvider>(
+        context,
+        listen: false,
+      );
+      final user = FirebaseAuth.instance.currentUser;
+
+      if (swProvider.isLoggedIn && swProvider.loggedInUserId != null) {
+        skilledWorkerId = swProvider.loggedInUserId!;
+        skilledWorkerName = 'Skilled Worker'; // Provider doesn't store name
+        skilledWorkerPhone = swProvider.loggedInPhoneNumber ?? '0000000000';
+        print('🔍 Skilled Worker ID from provider: $skilledWorkerId');
+      } else if (user != null) {
+        skilledWorkerId =
+            await JobRequestService.getSkilledWorkerId() ?? user.uid;
+        skilledWorkerName = user.displayName ?? 'Skilled Worker';
+        skilledWorkerPhone = user.phoneNumber ?? '0000000000';
+        print('🔍 Skilled Worker ID from Firebase Auth: $skilledWorkerId');
+      } else {
+        skilledWorkerId = 'TEST_SKILLED_WORKER_ID';
+        skilledWorkerName = 'Test Skilled Worker';
+        skilledWorkerPhone = '+923115798273';
+        print('🔍 Skilled Worker ID (test fallback): $skilledWorkerId');
+      }
+    } catch (e) {
+      print('❌ Error extracting skilled worker ID: $e');
       skilledWorkerId = 'TEST_SKILLED_WORKER_ID';
       skilledWorkerName = 'Test Skilled Worker';
       skilledWorkerPhone = '+923115798273';
     }
 
-    final actualJobPosterId =
-        await JobRequestService.getJobPosterId(widget.jobId) ??
-        widget.jobPosterId;
+    // Validate that we have both required IDs
+    if (jobPosterId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Unable to identify job poster. Please try again.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
 
-    print('🔍 Job Detail Screen - Job ID: ${widget.jobId}');
-    print('🔍 Job Detail Screen - Actual Job Poster ID: $actualJobPosterId');
-    print('🔍 Job Detail Screen - Skilled Worker ID: $skilledWorkerId');
+    if (skilledWorkerId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Unable to identify skilled worker. Please try again.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
 
+    print('🔍 Final Job ID: ${widget.jobId}');
+    print('🔍 Final Job Poster ID: $jobPosterId');
+    print('🔍 Final Skilled Worker ID: $skilledWorkerId');
+    print('🔍 Skilled Worker Name: $skilledWorkerName');
+    print('🔍 Skilled Worker Phone: $skilledWorkerPhone');
+
+    // Check if user has already requested this job
     final hasRequested = await JobRequestService.hasRequestedJob(
       widget.jobId,
       skilledWorkerId,
@@ -175,9 +306,10 @@ class _JobDetailContentState extends State<_JobDetailContent> {
       return;
     }
 
+    // Create job request with extracted data
     final success = await JobRequestService.createJobRequest(
       jobId: widget.jobId,
-      jobPosterId: actualJobPosterId,
+      jobPosterId: jobPosterId,
       skilledWorkerId: skilledWorkerId,
       skilledWorkerName: skilledWorkerName,
       skilledWorkerPhone: skilledWorkerPhone,
@@ -234,30 +366,48 @@ class _JobDetailContentState extends State<_JobDetailContent> {
     try {
       print('🔍 Getting job request status for job ID: ${widget.jobId}');
 
-      // Simply check if there are any job requests for this job ID
-      final requests =
-          await FirebaseFirestore.instance
-              .collection('JobRequests')
-              .where('jobId', isEqualTo: widget.jobId)
-              .get();
-
-      print(
-        '🔍 Found ${requests.docs.length} total job requests for job ID: ${widget.jobId}',
+      // Check if job has any active requests first
+      final hasActiveRequests = await JobRequestService.hasActiveRequests(
+        widget.jobId,
       );
-
-      if (requests.docs.isEmpty) {
-        print('❌ No job requests found for job ID: ${widget.jobId}');
-        return 'none';
+      if (hasActiveRequests) {
+        final activeRequest = await JobRequestService.getActiveRequestForJob(
+          widget.jobId,
+        );
+        final status = activeRequest?['status'] ?? 'in_progress';
+        print('🔍 Job has active requests with status: $status');
+        return status;
       }
 
-      // Get the first request to check its status
-      final requestData = requests.docs.first.data();
-      final status = requestData['status'] as String? ?? 'pending';
+      // Check if user has already requested this job
+      final swProvider = Provider.of<SkilledWorkerProvider>(
+        context,
+        listen: false,
+      );
+      final user = FirebaseAuth.instance.currentUser;
 
-      print('🔍 Job request status: $status');
-      print('🔍 Full request data: $requestData');
+      String skilledWorkerId;
+      if (swProvider.isLoggedIn && swProvider.loggedInUserId != null) {
+        skilledWorkerId = swProvider.loggedInUserId!;
+      } else if (user != null) {
+        skilledWorkerId =
+            await JobRequestService.getSkilledWorkerId() ?? user.uid;
+      } else {
+        skilledWorkerId = 'TEST_SKILLED_WORKER_ID';
+      }
 
-      return status;
+      final hasRequested = await JobRequestService.hasRequestedJob(
+        widget.jobId,
+        skilledWorkerId,
+      );
+
+      if (hasRequested) {
+        print('🔍 User has already requested this job');
+        return 'pending';
+      }
+
+      print('❌ No job requests found for job ID: ${widget.jobId}');
+      return 'none';
     } catch (e) {
       print('❌ Error getting job request status: $e');
       return 'none';
@@ -340,11 +490,51 @@ class _JobDetailContentState extends State<_JobDetailContent> {
             final data = snapshot.data?.data();
             final status = data?['status'] as String?;
             final isActive = data?['isActive'] as bool?;
+
+            // Handle job completion, cancellation, or deactivation
             if (!_navigatedOnComplete &&
-                (status == 'completed' || isActive == false)) {
+                (status == 'completed' ||
+                    status == 'cancelled' ||
+                    isActive == false)) {
               _navigatedOnComplete = true;
+              print(
+                '🔄 Skilled Worker: Job status changed to $status, isActive: $isActive',
+              );
+              print('🔄 Skilled Worker: Redirecting to home screen...');
+
               WidgetsBinding.instance.addPostFrameCallback((_) {
                 if (!mounted) return;
+
+                // Show appropriate message based on status
+                if (status == 'cancelled') {
+                  print('🔄 Skilled Worker: Showing cancellation message');
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'Job has been cancelled by the job poster. Redirecting to home...',
+                      ),
+                      backgroundColor: Colors.orange,
+                      duration: Duration(seconds: 3),
+                    ),
+                  );
+                } else if (status == 'completed') {
+                  print('🔄 Skilled Worker: Showing completion message');
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'Job has been completed. Please rate the job poster...',
+                      ),
+                      backgroundColor: Colors.green,
+                      duration: Duration(seconds: 3),
+                    ),
+                  );
+
+                  // Navigate to rating page for job poster
+                  _navigateToRatingPage(context, data);
+                  return; // Don't navigate to home, rating page will handle it
+                }
+
+                print('🔄 Skilled Worker: Navigating to /skilled-worker-home');
                 Navigator.pushNamedAndRemoveUntil(
                   context,
                   '/skilled-worker-home',
@@ -700,6 +890,26 @@ class _JobDetailContentState extends State<_JobDetailContent> {
                                                       style: ElevatedButton.styleFrom(
                                                         backgroundColor:
                                                             Colors.green,
+                                                        foregroundColor:
+                                                            Colors.white,
+                                                        padding:
+                                                            const EdgeInsets.symmetric(
+                                                              vertical: 16,
+                                                            ),
+                                                      ),
+                                                    );
+                                                  case 'in_progress':
+                                                    return ElevatedButton.icon(
+                                                      onPressed: null,
+                                                      icon: const Icon(
+                                                        Icons.work,
+                                                      ),
+                                                      label: const Text(
+                                                        'Job In Progress',
+                                                      ),
+                                                      style: ElevatedButton.styleFrom(
+                                                        backgroundColor:
+                                                            Colors.red,
                                                         foregroundColor:
                                                             Colors.white,
                                                         padding:
@@ -1139,6 +1349,22 @@ class _JobDetailContentState extends State<_JobDetailContent> {
                                               ),
                                               style: ElevatedButton.styleFrom(
                                                 backgroundColor: Colors.green,
+                                                foregroundColor: Colors.white,
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      vertical: 16,
+                                                    ),
+                                              ),
+                                            );
+                                          case 'in_progress':
+                                            return ElevatedButton.icon(
+                                              onPressed: null,
+                                              icon: const Icon(Icons.work),
+                                              label: const Text(
+                                                'Job In Progress',
+                                              ),
+                                              style: ElevatedButton.styleFrom(
+                                                backgroundColor: Colors.red,
                                                 foregroundColor: Colors.white,
                                                 padding:
                                                     const EdgeInsets.symmetric(

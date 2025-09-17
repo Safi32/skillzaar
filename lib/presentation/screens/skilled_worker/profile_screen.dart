@@ -48,8 +48,13 @@ class _ProfileContentState extends State<_ProfileContent> {
       setState(() {
         _profileImage = File(picked.path);
       });
+      // Try uploading immediately and persist URL
+      try {
+        await widget.skilledWorkerProvider.uploadProfileImage(_profileImage!);
+      } catch (_) {}
     }
   }
+
   final TextEditingController nameController = TextEditingController();
   final TextEditingController ageController = TextEditingController();
   final TextEditingController cityController = TextEditingController();
@@ -112,29 +117,34 @@ class _ProfileContentState extends State<_ProfileContent> {
                             ),
                             child: ClipRRect(
                               borderRadius: BorderRadius.circular(60),
-                              child: _profileImage != null
-                                  ? Image.file(
-                                      _profileImage!,
-                                      width: 120,
-                                      height: 120,
-                                      fit: BoxFit.cover,
-                                    )
-                                  : Image.network(
-                                      'https://via.placeholder.com/120x120/4CAF50/FFFFFF?text=Profile',
-                                      width: 120,
-                                      height: 120,
-                                      fit: BoxFit.cover,
-                                      errorBuilder: (context, error, stackTrace) {
-                                        return Container(
-                                          color: Colors.grey.shade200,
-                                          child: Icon(
-                                            Icons.person,
-                                            size: 60,
-                                            color: Colors.grey.shade600,
-                                          ),
-                                        );
-                                      },
-                                    ),
+                              child:
+                                  _profileImage != null
+                                      ? Image.file(
+                                        _profileImage!,
+                                        width: 120,
+                                        height: 120,
+                                        fit: BoxFit.cover,
+                                      )
+                                      : Image.network(
+                                        'https://via.placeholder.com/120x120/4CAF50/FFFFFF?text=Profile',
+                                        width: 120,
+                                        height: 120,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (
+                                          context,
+                                          error,
+                                          stackTrace,
+                                        ) {
+                                          return Container(
+                                            color: Colors.grey.shade200,
+                                            child: Icon(
+                                              Icons.person,
+                                              size: 60,
+                                              color: Colors.grey.shade600,
+                                            ),
+                                          );
+                                        },
+                                      ),
                             ),
                           ),
                           Positioned(
@@ -144,28 +154,39 @@ class _ProfileContentState extends State<_ProfileContent> {
                               onTap: () async {
                                 showModalBottomSheet(
                                   context: context,
-                                  builder: (context) => SafeArea(
-                                    child: Wrap(
-                                      children: [
-                                        ListTile(
-                                          leading: const Icon(Icons.camera_alt),
-                                          title: const Text('Take Photo'),
-                                          onTap: () {
-                                            Navigator.pop(context);
-                                            _pickProfileImage(ImageSource.camera);
-                                          },
+                                  builder:
+                                      (context) => SafeArea(
+                                        child: Wrap(
+                                          children: [
+                                            ListTile(
+                                              leading: const Icon(
+                                                Icons.camera_alt,
+                                              ),
+                                              title: const Text('Take Photo'),
+                                              onTap: () {
+                                                Navigator.pop(context);
+                                                _pickProfileImage(
+                                                  ImageSource.camera,
+                                                );
+                                              },
+                                            ),
+                                            ListTile(
+                                              leading: const Icon(
+                                                Icons.photo_library,
+                                              ),
+                                              title: const Text(
+                                                'Choose from Gallery',
+                                              ),
+                                              onTap: () {
+                                                Navigator.pop(context);
+                                                _pickProfileImage(
+                                                  ImageSource.gallery,
+                                                );
+                                              },
+                                            ),
+                                          ],
                                         ),
-                                        ListTile(
-                                          leading: const Icon(Icons.photo_library),
-                                          title: const Text('Choose from Gallery'),
-                                          onTap: () {
-                                            Navigator.pop(context);
-                                            _pickProfileImage(ImageSource.gallery);
-                                          },
-                                        ),
-                                      ],
-                                    ),
-                                  ),
+                                      ),
                                 );
                               },
                               child: Container(
@@ -319,6 +340,9 @@ class _ProfileContentState extends State<_ProfileContent> {
                           name: nameController.text,
                           age: int.parse(ageController.text),
                           city: cityController.text,
+                          workingRadiusKm:
+                              int.tryParse(workingRadiusController.text) ?? 0,
+                          profileImage: _profileImage,
                         );
 
                         // Show success toast instead of SnackBar

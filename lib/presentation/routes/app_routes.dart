@@ -15,7 +15,7 @@ import '../screens/skilled_worker/signup_screen.dart';
 import '../screens/skilled_worker/otp_screen.dart' as skilled_worker_otp;
 import '../screens/skilled_worker/cnic_screen.dart';
 import '../screens/skilled_worker/profile_screen.dart';
-import '../screens/skilled_worker/skilled_worker_home_screen.dart';
+import '../screens/skilled_worker/home_screen_skilled.dart';
 import '../screens/skilled_worker/home_profile_screen.dart';
 import '../screens/skilled_worker/jobs_screen.dart';
 import '../screens/skilled_worker/accepted_requests_screen.dart';
@@ -24,6 +24,8 @@ import '../screens/job_poster/job_detail_screen.dart';
 import '../screens/job_poster/job_accepted_details_screen.dart';
 import '../screens/skilled_worker/navigate_to_job_screen.dart';
 import '../screens/skilled_worker/portfolio_overview_screen.dart';
+import '../screens/skilled_worker/rate_job_poster_screen.dart';
+import '../screens/job_poster/skilled_worker_rate_job_poster_screen.dart';
 import '../screens/test_notification_screen.dart';
 import '../providers/skilled_worker_provider.dart';
 import '../providers/ui_state_provider.dart';
@@ -40,16 +42,17 @@ class AppRoutes {
     '/job-poster-profile': (context) => const JobPosterProfileScreen(),
     '/job-poster-ads': (context) => const JobPosterAdsScreen(),
     '/job-poster-contact': (context) => const ContactUsScreen(),
-    '/job-poster-job-detail': (context) => const JobDetailScreen(),
+    '/job-poster-detail': (context) => const JobPosterDetailScreen(),
     '/skilled-worker-signup': (context) => const SkilledWorkerSignUpScreen(),
     '/skilled-worker-login': (context) => LoginScreen(),
     '/skilled-worker-otp':
         (context) => const skilled_worker_otp.SkilledWorkerOTPScreen(),
     '/skilled-worker-cnic': (context) => const CnicScreen(),
-    '/skilled-worker-home': (context) => const SkilledWorkerHomeScreen(),
+    '/skilled-worker-home': (context) => const HomeScreenSkilled(),
     '/skilled-worker-jobs': (context) => const SkilledWorkerJobsScreen(),
     '/skilled-worker-accepted-requests':
         (context) => const AcceptedRequestsScreen(),
+    '/skilled-worker-rate-poster': (context) => const RateJobPosterScreen(),
     '/test-notifications': (context) => const TestNotificationScreen(),
   };
 
@@ -76,7 +79,29 @@ class AppRoutes {
           builder: (context) => const PortfolioOverviewScreen(),
         );
       case '/job-poster-job-detail':
-        return MaterialPageRoute(builder: (context) => const JobDetailScreen());
+        final args = settings.arguments as Map<String, dynamic>?;
+        return MaterialPageRoute(
+          builder:
+              (context) => JobDetailScreen(
+                jobId: (args?['jobId'] ?? '').toString(),
+                requestId: (args?['requestId'] ?? '').toString(),
+              ),
+        );
+      case '/job-poster-accepted-details':
+        final args = settings.arguments as Map<String, dynamic>?;
+        final jobId = (args?['jobId'] ?? '').toString().trim();
+        final requestId = (args?['requestId'] ?? '').toString().trim();
+
+        // Debug logging
+        print(
+          '🔍 JobAcceptedDetailsScreen - JobId: "$jobId", RequestId: "$requestId"',
+        );
+
+        return MaterialPageRoute(
+          builder:
+              (context) =>
+                  JobAcceptedDetailsScreen(jobId: jobId, requestId: requestId),
+        );
       case '/skilled-worker-job-detail':
         final args = settings.arguments as Map<String, dynamic>?;
         if (args != null) {
@@ -106,6 +131,18 @@ class AppRoutes {
                   jobAddress: args['jobAddress'] ?? '',
                   jobLatitude: args['jobLatitude'] ?? 0.0,
                   jobLongitude: args['jobLongitude'] ?? 0.0,
+                ),
+          );
+        }
+        break;
+      case '/skilled-worker-rate-job-poster':
+        final args = settings.arguments as Map<String, dynamic>?;
+        if (args != null) {
+          return MaterialPageRoute(
+            builder:
+                (context) => SkilledWorkerRateJobPosterScreen(
+                  jobPosterDetails: args['jobPosterDetails'] ?? {},
+                  requestId: args['requestId'],
                 ),
           );
         }

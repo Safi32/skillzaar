@@ -16,14 +16,30 @@ class JobRequestService {
   /// Get job poster ID from job document
   static Future<String?> getJobPosterId(String jobId) async {
     try {
+      print('🔍 Getting job poster ID for job: $jobId');
+
+      // Try legacy 'Job' collection first
       final jobDoc = await _firestore.collection('Job').doc(jobId).get();
       if (jobDoc.exists) {
         final jobData = jobDoc.data() as Map<String, dynamic>;
-        return jobData['jobPosterId'] as String?;
+        final jobPosterId = jobData['jobPosterId'] as String?;
+        print('🔍 Found job poster ID in Job collection: $jobPosterId');
+        return jobPosterId;
       }
+
+      // Try new 'jobs' collection as fallback
+      final newJobDoc = await _firestore.collection('jobs').doc(jobId).get();
+      if (newJobDoc.exists) {
+        final jobData = newJobDoc.data() as Map<String, dynamic>;
+        final jobPosterId = jobData['jobPosterId'] as String?;
+        print('🔍 Found job poster ID in jobs collection: $jobPosterId');
+        return jobPosterId;
+      }
+
+      print('❌ Job not found in any collection');
       return null;
     } catch (e) {
-      print('Error getting job poster ID: $e');
+      print('❌ Error getting job poster ID: $e');
       return null;
     }
   }
@@ -32,20 +48,27 @@ class JobRequestService {
   static Future<String?> getSkilledWorkerId() async {
     final user = _auth.currentUser;
     if (user == null) {
-      // For testing: return a default skilled worker ID
+      print('🔍 No authenticated user, returning test skilled worker ID');
       return 'TEST_SKILLED_WORKER_ID';
     }
 
     try {
+      print('🔍 Getting skilled worker ID for user: ${user.uid}');
+
       final workerDoc =
           await _firestore.collection('SkilledWorkers').doc(user.uid).get();
 
       if (workerDoc.exists) {
+        print(
+          '🔍 Found skilled worker document, returning user ID: ${user.uid}',
+        );
         return user.uid;
       }
+
+      print('❌ Skilled worker document not found for user: ${user.uid}');
       return null;
     } catch (e) {
-      print('Error getting skilled worker ID: $e');
+      print('❌ Error getting skilled worker ID: $e');
       return null;
     }
   }
@@ -67,6 +90,98 @@ class JobRequestService {
     } catch (e) {
       print('Error checking existing request: $e');
       return false;
+    }
+  }
+
+  /// Check if a job has any active requests (in_progress or accepted)
+  static Future<bool> hasActiveRequests(String jobId) async {
+    try {
+      print('🔍 Checking for active requests for job: $jobId');
+
+      // Check for in_progress requests
+      final inProgressRequests =
+          await _firestore
+              .collection('JobRequests')
+              .where('jobId', isEqualTo: jobId)
+              .where('status', isEqualTo: 'in_progress')
+              .where('isActive', isEqualTo: true)
+              .get();
+
+      if (inProgressRequests.docs.isNotEmpty) {
+        print(
+          '🔍 Found ${inProgressRequests.docs.length} in_progress requests',
+        );
+        return true;
+      }
+
+      // Check for accepted requests
+      final acceptedRequests =
+          await _firestore
+              .collection('JobRequests')
+              .where('jobId', isEqualTo: jobId)
+              .where('status', isEqualTo: 'accepted')
+              .where('isActive', isEqualTo: true)
+              .get();
+
+      if (acceptedRequests.docs.isNotEmpty) {
+        print('🔍 Found ${acceptedRequests.docs.length} accepted requests');
+        return true;
+      }
+
+      print('🔍 No active requests found for job: $jobId');
+      return false;
+    } catch (e) {
+      print('❌ Error checking active requests: $e');
+      return false;
+    }
+  }
+
+  /// Get active request details for a job (if any)
+  static Future<Map<String, dynamic>?> getActiveRequestForJob(
+    String jobId,
+  ) async {
+    try {
+      print('🔍 Getting active request details for job: $jobId');
+
+      // Check for in_progress requests first
+      final inProgressRequests =
+          await _firestore
+              .collection('JobRequests')
+              .where('jobId', isEqualTo: jobId)
+              .where('status', isEqualTo: 'in_progress')
+              .where('isActive', isEqualTo: true)
+              .limit(1)
+              .get();
+
+      if (inProgressRequests.docs.isNotEmpty) {
+        final doc = inProgressRequests.docs.first;
+        final data = doc.data();
+        print('🔍 Found in_progress request: ${doc.id}');
+        return {...data, 'requestId': doc.id, 'status': 'in_progress'};
+      }
+
+      // Check for accepted requests
+      final acceptedRequests =
+          await _firestore
+              .collection('JobRequests')
+              .where('jobId', isEqualTo: jobId)
+              .where('status', isEqualTo: 'accepted')
+              .where('isActive', isEqualTo: true)
+              .limit(1)
+              .get();
+
+      if (acceptedRequests.docs.isNotEmpty) {
+        final doc = acceptedRequests.docs.first;
+        final data = doc.data();
+        print('🔍 Found accepted request: ${doc.id}');
+        return {...data, 'requestId': doc.id, 'status': 'accepted'};
+      }
+
+      print('🔍 No active requests found for job: $jobId');
+      return null;
+    } catch (e) {
+      print('❌ Error getting active request for job: $e');
+      return null;
     }
   }
 
@@ -285,25 +400,6 @@ class JobRequestService {
         final data = newDoc.data() as Map<String, dynamic>;
         // Optionally flatten some common fields for UI compatibility
         final details = (data['details'] as Map<String, dynamic>?) ?? {};
-        return {
-          ...data,
-          // Provide best-effort compatibility keys used across UI
-          'title_en': details['title'] ?? data['title_en'] ?? data['title'],
-          'description_en':
-              details['description'] ??
-              data['description_en'] ??
-              data['description'],
-          'Address':
-              details['address'] ??
-              data['Address'] ??
-              data['Location'] ??
-              details['location'],
-          'Location':
-              details['location'] ?? data['Location'] ?? data['Address'],
-          'Image': details['imageUrl'] ?? data['Image'] ?? data['imageUrl'],
-          'createdAt': data['createdAt'] ?? details['createdAt'],
-        };
-        print('✅ Found job in jobs collection: $data');
         final result = {
           ...data,
           // Provide best-effort compatibility keys used across UI
@@ -517,6 +613,47 @@ class JobRequestService {
       final skilledWorkerId = data['skilledWorkerId'] as String?;
       final jobPosterId = data['jobPosterId'] as String?;
       final jobId = data['jobId'] as String?;
+
+      // Snapshot essential job fields into the JobRequests doc for reliable display
+      if (jobId != null && jobId.isNotEmpty) {
+        try {
+          final jobData = await getJobDetails(jobId);
+          if (jobData != null) {
+            await reqRef.set({
+              'jobTitle':
+                  jobData['title_en'] ??
+                  jobData['title_ur'] ??
+                  jobData['title'],
+              'jobDescription':
+                  jobData['description_en'] ??
+                  jobData['description_ur'] ??
+                  jobData['description'],
+              'jobLocation': jobData['Location'] ?? jobData['Address'],
+              'jobBudget': jobData['budget'],
+            }, SetOptions(merge: true));
+          }
+        } catch (e) {
+          // Non-fatal: continue even if job snapshot fails
+          print('warn: could not snapshot job details on accept: $e');
+        }
+      }
+
+      if (jobId != null &&
+          jobId.isNotEmpty &&
+          skilledWorkerId != null &&
+          skilledWorkerId.isNotEmpty) {
+        try {
+          await _createAcceptedJobEntry(
+            jobId: jobId,
+            skilledWorkerId: skilledWorkerId,
+            jobPosterId: jobPosterId,
+            requestId: requestId,
+          );
+        } catch (e) {
+          print('❌ Error creating AcceptedJobs entry: $e');
+          // Don't fail the entire operation if AcceptedJobs creation fails
+        }
+      }
 
       // Set active job for skilled worker
       if (skilledWorkerId != null && skilledWorkerId.isNotEmpty) {
@@ -742,20 +879,77 @@ class JobRequestService {
         );
       }
 
-      // Optional: also mark job document inactive if using unified 'jobs'
+      // Mark job as inactive when completed
       if (jobId != null && jobId.isNotEmpty) {
-        try {
-          await _firestore.collection('jobs').doc(jobId).set({
-            'active': false,
-            'updatedAt': FieldValue.serverTimestamp(),
-          }, SetOptions(merge: true));
-        } catch (_) {
-          // ignore if unified jobs collection not in use
-        }
+        await markJobAsInactive(jobId);
       }
       return true;
     } catch (e) {
       print('Error marking request completed: $e');
+      return false;
+    }
+  }
+
+  /// Mark a job as inactive (completed or no longer available)
+  static Future<bool> markJobAsInactive(String jobId) async {
+    try {
+      print('🔍 Marking job as inactive: $jobId');
+
+      // Mark job as inactive in legacy Job collection
+      await _firestore.collection('Job').doc(jobId).update({
+        'isActive': false,
+        'status': 'completed',
+        'completedAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+
+      // Mark job as inactive in new jobs collection
+      await _firestore.collection('jobs').doc(jobId).set({
+        'active': false,
+        'status': 'completed',
+        'completedAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+
+      print('✅ Job marked as inactive: $jobId');
+      return true;
+    } catch (e) {
+      print('❌ Error marking job as inactive: $e');
+      return false;
+    }
+  }
+
+  /// Check if a job is still active (not completed or cancelled)
+  static Future<bool> isJobActive(String jobId) async {
+    try {
+      print('🔍 Checking if job is active: $jobId');
+
+      // Check legacy Job collection first
+      final jobDoc = await _firestore.collection('Job').doc(jobId).get();
+      if (jobDoc.exists) {
+        final data = jobDoc.data();
+        final isActive = data?['isActive'] as bool? ?? true;
+        final status = data?['status'] as String? ?? 'approved';
+
+        print('🔍 Job collection - isActive: $isActive, status: $status');
+        return isActive && status != 'completed' && status != 'cancelled';
+      }
+
+      // Check new jobs collection as fallback
+      final newJobDoc = await _firestore.collection('jobs').doc(jobId).get();
+      if (newJobDoc.exists) {
+        final data = newJobDoc.data();
+        final isActive = data?['active'] as bool? ?? true;
+        final status = data?['status'] as String? ?? 'approved';
+
+        print('🔍 Jobs collection - isActive: $isActive, status: $status');
+        return isActive && status != 'completed' && status != 'cancelled';
+      }
+
+      print('❌ Job not found in any collection: $jobId');
+      return false;
+    } catch (e) {
+      print('❌ Error checking if job is active: $e');
       return false;
     }
   }
@@ -907,6 +1101,473 @@ class JobRequestService {
     } else {
       final hours = estimatedHours.round();
       return '${hours} hr';
+    }
+  }
+
+  /// Create an entry in AcceptedJobs collection with job and skilled worker details
+  static Future<void> _createAcceptedJobEntry({
+    required String jobId,
+    required String skilledWorkerId,
+    String? jobPosterId,
+    required String requestId,
+  }) async {
+    try {
+      print(
+        '🔍 Creating AcceptedJobs entry for job: $jobId, worker: $skilledWorkerId',
+      );
+
+      // Get complete job details
+      final jobData = await getJobDetails(jobId);
+      if (jobData == null) {
+        print('❌ Job data not found for jobId: $jobId');
+        return;
+      }
+
+      // Get complete skilled worker details
+      final skilledWorkerData = await getSkilledWorkerDetails(skilledWorkerId);
+      if (skilledWorkerData == null) {
+        print('❌ Skilled worker data not found for workerId: $skilledWorkerId');
+        return;
+      }
+
+      // Get job poster details if available
+      Map<String, dynamic>? jobPosterData;
+      if (jobPosterId != null && jobPosterId.isNotEmpty) {
+        jobPosterData = await getJobPosterDetails(jobPosterId);
+      }
+
+      // Create the AcceptedJobs entry
+      final acceptedJobData = {
+        // Basic info
+        'requestId': requestId,
+        'jobId': jobId,
+        'skilledWorkerId': skilledWorkerId,
+        'jobPosterId': jobPosterId,
+        'acceptedAt': FieldValue.serverTimestamp(),
+        'status': 'accepted',
+        'isActive': true,
+
+        // Complete job details
+        'jobDetails': {
+          'jobName':
+              jobData['title_en'] ??
+              jobData['title_ur'] ??
+              jobData['title'] ??
+              'Job Title',
+          'jobLocation':
+              jobData['Location'] ??
+              jobData['Address'] ??
+              'Location not specified',
+          'jobImage':
+              jobData['ImageUrl'] ?? jobData['imageUrl'] ?? jobData['Image'],
+          'jobDescription':
+              jobData['description_en'] ??
+              jobData['description_ur'] ??
+              jobData['description'] ??
+              'No description',
+          // Additional job fields
+          'latitude': jobData['Latitude'],
+          'longitude': jobData['Longitude'],
+          'budget': jobData['budget'],
+          'createdAt': jobData['createdAt'],
+          'category': jobData['category'],
+          'urgency': jobData['urgency'],
+          'estimatedDuration': jobData['estimatedDuration'],
+        },
+
+        // Complete skilled worker details
+        'skilledWorkerDetails': {
+          'skilledWorkerName':
+              skilledWorkerData['Name'] ??
+              skilledWorkerData['name'] ??
+              'Skilled Worker',
+          'skilledWorkerCity':
+              skilledWorkerData['City'] ?? skilledWorkerData['city'],
+          'skilledWorkerDescription':
+              skilledWorkerData['description'] ??
+              skilledWorkerData['Description'] ??
+              skilledWorkerData['bio'] ??
+              skilledWorkerData['Bio'] ??
+              'No description available',
+          'skilledWorkerImage':
+              skilledWorkerData['ProfilePicture'] ??
+              skilledWorkerData['profilePicture'] ??
+              skilledWorkerData['image'] ??
+              skilledWorkerData['Image'],
+          'skilledWorkerExperience':
+              skilledWorkerData['experience'] ??
+              skilledWorkerData['Experience'] ??
+              skilledWorkerData['yearsOfExperience'] ??
+              skilledWorkerData['YearsOfExperience'] ??
+              'Experience not specified',
+          // Additional skilled worker fields
+          'age': skilledWorkerData['Age'] ?? skilledWorkerData['age'],
+          'phoneNumber':
+              skilledWorkerData['phoneNumber'] ?? skilledWorkerData['phone'],
+          'displayName':
+              skilledWorkerData['displayName'] ?? skilledWorkerData['name'],
+          'cnicFront':
+              skilledWorkerData['CNICFront'] ?? skilledWorkerData['cnicFront'],
+          'cnicBack':
+              skilledWorkerData['CNICBack'] ?? skilledWorkerData['cnicBack'],
+          'currentLatitude': skilledWorkerData['currentLatitude'],
+          'currentLongitude': skilledWorkerData['currentLongitude'],
+          'currentAddress': skilledWorkerData['currentAddress'],
+          'locationUpdatedAt': skilledWorkerData['locationUpdatedAt'],
+          'createdAt': skilledWorkerData['createdAt'],
+          'isActive': skilledWorkerData['isActive'],
+        },
+
+        // Job poster details (if available)
+        'jobPosterDetails':
+            jobPosterData != null
+                ? {
+                  'name':
+                      jobPosterData['name'] ??
+                      jobPosterData['Name'] ??
+                      'Job Poster',
+                  'phoneNumber':
+                      jobPosterData['phoneNumber'] ?? jobPosterData['phone'],
+                  'email': jobPosterData['email'],
+                  'address': jobPosterData['address'],
+                  'createdAt': jobPosterData['createdAt'],
+                }
+                : null,
+      };
+
+      // Save to AcceptedJobs collection
+      final docRef = await _firestore
+          .collection('AcceptedJobs')
+          .add(acceptedJobData);
+      print('✅ AcceptedJobs entry created successfully with ID: ${docRef.id}');
+      print('🔍 AcceptedJobs data saved: $acceptedJobData');
+    } catch (e) {
+      print('❌ Error creating AcceptedJobs entry: $e');
+      rethrow;
+    }
+  }
+
+  /// Get all accepted jobs for a skilled worker
+  static Stream<QuerySnapshot> getAcceptedJobsForWorker(
+    String skilledWorkerId,
+  ) {
+    return _firestore
+        .collection('AcceptedJobs')
+        .where('skilledWorkerId', isEqualTo: skilledWorkerId)
+        .where('isActive', isEqualTo: true)
+        .orderBy('acceptedAt', descending: true)
+        .snapshots();
+  }
+
+  /// Get all accepted jobs for a job poster
+  static Stream<QuerySnapshot> getAcceptedJobsForPoster(String jobPosterId) {
+    return _firestore
+        .collection('AcceptedJobs')
+        .where('jobPosterId', isEqualTo: jobPosterId)
+        .where('isActive', isEqualTo: true)
+        .orderBy('acceptedAt', descending: true)
+        .snapshots();
+  }
+
+  /// Get all accepted jobs (admin function)
+  static Stream<QuerySnapshot> getAllAcceptedJobs() {
+    return _firestore
+        .collection('AcceptedJobs')
+        .where('isActive', isEqualTo: true)
+        .orderBy('acceptedAt', descending: true)
+        .snapshots();
+  }
+
+  /// Mark an accepted job as completed
+  static Future<bool> markAcceptedJobCompleted(String acceptedJobId) async {
+    try {
+      await _firestore.collection('AcceptedJobs').doc(acceptedJobId).update({
+        'status': 'completed',
+        'isActive': false,
+        'completedAt': FieldValue.serverTimestamp(),
+      });
+      print('✅ Accepted job marked as completed: $acceptedJobId');
+      return true;
+    } catch (e) {
+      print('❌ Error marking accepted job as completed: $e');
+      return false;
+    }
+  }
+
+  /// Mark an accepted job as in progress
+  static Future<bool> markAcceptedJobInProgress(String acceptedJobId) async {
+    try {
+      await _firestore.collection('AcceptedJobs').doc(acceptedJobId).update({
+        'status': 'in_progress',
+        'inProgressAt': FieldValue.serverTimestamp(),
+      });
+      print('✅ Accepted job marked as in progress: $acceptedJobId');
+      return true;
+    } catch (e) {
+      print('❌ Error marking accepted job as in progress: $e');
+      return false;
+    }
+  }
+
+  /// Cancel a job and clean up all related data
+  static Future<bool> cancelJob({
+    required String jobId,
+    required String requestId,
+    required String jobPosterId,
+    required String skilledWorkerId,
+  }) async {
+    try {
+      print('🔍 Cancelling job - JobId: $jobId, RequestId: $requestId');
+      print('🔍 JobPosterId: $jobPosterId, SkilledWorkerId: $skilledWorkerId');
+
+      // 1. Update job status to cancelled in both collections
+      print('🔄 Step 1: Updating job status to cancelled...');
+      await _updateJobStatus(jobId, 'cancelled');
+
+      // 2. Update job request status to cancelled
+      print('🔄 Step 2: Updating job request status to cancelled...');
+      await _firestore.collection('JobRequests').doc(requestId).update({
+        'status': 'cancelled',
+        'isActive': false,
+        'cancelledAt': FieldValue.serverTimestamp(),
+      });
+
+      // 3. Update AcceptedJobs collection if exists
+      print('🔄 Step 3: Cancelling AcceptedJobs entries...');
+      await _cancelAcceptedJobEntry(jobId, skilledWorkerId);
+
+      // 4. Clear active job flags for both users
+      print('🔄 Step 4: Clearing active job flags...');
+      await _clearActiveJobFlags(jobPosterId, skilledWorkerId);
+
+      // 5. Update user statuses
+      print('🔄 Step 5: Updating user statuses to available...');
+      await _updateUserStatuses(jobPosterId, skilledWorkerId);
+
+      print(
+        '✅ Job cancelled successfully - both users will be redirected to home',
+      );
+      return true;
+    } catch (e) {
+      print('❌ Error cancelling job: $e');
+      return false;
+    }
+  }
+
+  /// Update job status in both legacy and new collections
+  static Future<void> _updateJobStatus(String jobId, String status) async {
+    try {
+      // Update legacy Job collection
+      await _firestore.collection('Job').doc(jobId).update({
+        'status': status,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      print('⚠️ Could not update legacy Job collection: $e');
+    }
+
+    try {
+      // Update new jobs collection
+      await _firestore.collection('jobs').doc(jobId).set({
+        'status': status,
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    } catch (e) {
+      print('⚠️ Could not update jobs collection: $e');
+    }
+  }
+
+  /// Cancel AcceptedJobs entry if it exists
+  static Future<void> _cancelAcceptedJobEntry(
+    String jobId,
+    String skilledWorkerId,
+  ) async {
+    try {
+      final acceptedJobs =
+          await _firestore
+              .collection('AcceptedJobs')
+              .where('jobId', isEqualTo: jobId)
+              .where('skilledWorkerId', isEqualTo: skilledWorkerId)
+              .where('isActive', isEqualTo: true)
+              .get();
+
+      for (final doc in acceptedJobs.docs) {
+        await doc.reference.update({
+          'status': 'cancelled',
+          'isActive': false,
+          'cancelledAt': FieldValue.serverTimestamp(),
+        });
+        print('✅ Cancelled AcceptedJobs entry: ${doc.id}');
+      }
+    } catch (e) {
+      print('⚠️ Could not cancel AcceptedJobs entries: $e');
+    }
+  }
+
+  /// Clear active job flags for both users
+  static Future<void> _clearActiveJobFlags(
+    String jobPosterId,
+    String skilledWorkerId,
+  ) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+
+      // Clear job poster flags
+      await prefs.setBool('active_job_$jobPosterId', false);
+      await prefs.remove('active_job_${jobPosterId}_jobId');
+      await prefs.remove('active_job_${jobPosterId}_requestId');
+
+      // Clear skilled worker flags
+      await prefs.setBool('active_job_$skilledWorkerId', false);
+      await prefs.remove('active_job_${skilledWorkerId}_jobId');
+      await prefs.remove('active_job_${skilledWorkerId}_requestId');
+
+      print('✅ Cleared active job flags for both users');
+    } catch (e) {
+      print('⚠️ Could not clear SharedPreferences flags: $e');
+    }
+  }
+
+  /// Update user statuses to available
+  static Future<void> _updateUserStatuses(
+    String jobPosterId,
+    String skilledWorkerId,
+  ) async {
+    try {
+      // Update job poster status
+      await _firestore.collection('JobPosters').doc(jobPosterId).set({
+        'activeJobId': FieldValue.delete(),
+        'status': 'available',
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+
+      // Update skilled worker status
+      await _firestore.collection('SkilledWorkers').doc(skilledWorkerId).set({
+        'activeJobId': FieldValue.delete(),
+        'status': 'available',
+        'availability': true,
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+
+      print('✅ Updated user statuses to available');
+    } catch (e) {
+      print('⚠️ Could not update user statuses: $e');
+    }
+  }
+
+  /// Submit rating for job poster by skilled worker
+  static Future<bool> submitJobPosterRating({
+    required String jobPosterId,
+    required double rating,
+    required String feedback,
+    String? requestId,
+  }) async {
+    try {
+      print('🔍 Submitting job poster rating:');
+      print('  Job Poster ID: $jobPosterId');
+      print('  Rating: $rating');
+      print('  Feedback: $feedback');
+      print('  Request ID: $requestId');
+
+      final ratingData = {
+        'jobPosterId': jobPosterId,
+        'skilledWorkerId': getCurrentUserId(),
+        'rating': rating,
+        'feedback': feedback,
+        'ratedAt': FieldValue.serverTimestamp(),
+        'requestId': requestId,
+      };
+
+      // Save rating to JobPosterRatings collection
+      await _firestore.collection('JobPosterRatings').add(ratingData);
+
+      // Update job poster's average rating
+      await _updateJobPosterAverageRating(jobPosterId);
+
+      print('✅ Job poster rating submitted successfully');
+      return true;
+    } catch (e) {
+      print('❌ Error submitting job poster rating: $e');
+      return false;
+    }
+  }
+
+  /// Update job poster's average rating
+  static Future<void> _updateJobPosterAverageRating(String jobPosterId) async {
+    try {
+      // Get all ratings for this job poster
+      final ratingsSnapshot =
+          await _firestore
+              .collection('JobPosterRatings')
+              .where('jobPosterId', isEqualTo: jobPosterId)
+              .get();
+
+      if (ratingsSnapshot.docs.isEmpty) return;
+
+      // Calculate average rating
+      double totalRating = 0;
+      int ratingCount = 0;
+
+      for (final doc in ratingsSnapshot.docs) {
+        final data = doc.data();
+        final rating = data['rating'] as double?;
+        if (rating != null) {
+          totalRating += rating;
+          ratingCount++;
+        }
+      }
+
+      if (ratingCount > 0) {
+        final averageRating = totalRating / ratingCount;
+
+        // Update job poster's average rating
+        await _firestore.collection('JobPosters').doc(jobPosterId).update({
+          'averageRating': averageRating,
+          'ratingCount': ratingCount,
+          'lastRatedAt': FieldValue.serverTimestamp(),
+        });
+
+        print(
+          '✅ Updated job poster average rating: $averageRating ($ratingCount ratings)',
+        );
+      }
+    } catch (e) {
+      print('❌ Error updating job poster average rating: $e');
+    }
+  }
+
+  /// Test method to create a sample AcceptedJobs entry (for debugging)
+  static Future<void> createTestAcceptedJobEntry() async {
+    try {
+      final testData = {
+        'requestId': 'TEST_REQUEST_ID',
+        'jobId': 'TEST_JOB_ID',
+        'skilledWorkerId': 'TEST_SKILLED_WORKER_ID',
+        'jobPosterId': 'TEST_JOB_POSTER_ID',
+        'acceptedAt': FieldValue.serverTimestamp(),
+        'status': 'accepted',
+        'isActive': true,
+        'jobDetails': {
+          'title': 'Test Job Title',
+          'description': 'Test Job Description',
+          'location': 'Test Location',
+          'budget': '1000',
+        },
+        'skilledWorkerDetails': {
+          'name': 'Test Worker',
+          'phoneNumber': '+923115798273',
+          'city': 'Test City',
+        },
+        'jobPosterDetails': {
+          'name': 'Test Poster',
+          'phoneNumber': '+923115798273',
+        },
+      };
+
+      final docRef = await _firestore.collection('AcceptedJobs').add(testData);
+      print('✅ Test AcceptedJobs entry created with ID: ${docRef.id}');
+    } catch (e) {
+      print('❌ Error creating test AcceptedJobs entry: $e');
     }
   }
 }

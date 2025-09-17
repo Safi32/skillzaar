@@ -1,9 +1,5 @@
-import 'dart:ffi';
-
-import 'package:skillzaar/presentation/screens/job_poster/home_screen.dart';
 import 'package:skillzaar/presentation/screens/skilled_worker/home_screen_skilled.dart';
 import 'package:skillzaar/presentation/widgets/bottom_bar_widget.dart';
-
 import '../../widgets/contact_us_dialog.dart';
 import '../../widgets/filter_dialog.dart';
 import '../../widgets/skilled_worker_drawer_header.dart';
@@ -15,6 +11,7 @@ import 'jobs_screen.dart';
 import 'home_profile_screen.dart';
 import 'requests_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../../../core/services/job_request_service.dart';
 
 class SkilledWorkerHomeScreen extends StatelessWidget {
   const SkilledWorkerHomeScreen({super.key});
@@ -56,12 +53,64 @@ class _HomeContentState extends State<_HomeContent> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initializeLocationServices();
+      _maybeRedirectToActiveJob();
     });
   }
 
   void _initializeLocationServices() {
     final provider = Provider.of<SkilledWorkerProvider>(context, listen: false);
     provider.initializeLocationServices();
+  }
+
+  Future<void> _maybeRedirectToActiveJob() async {
+    try {
+      final provider = Provider.of<SkilledWorkerProvider>(
+        context,
+        listen: false,
+      );
+
+      // Build a workerId to search by; prefer provider's id
+      String? workerId = provider.loggedInUserId;
+      String? workerPhone = provider.loggedInPhoneNumber;
+
+      // Fallback: try FirebaseAuth uid if available
+      workerId ??= FirebaseAuth.instance.currentUser?.uid;
+
+      if (workerId == null || workerId.isEmpty) {
+        return; // no identity available, skip redirect
+      }
+
+      final active = await JobRequestService.getActiveRequestForWorker(
+        workerId,
+        skilledWorkerPhone: workerPhone,
+      );
+
+      if (!mounted || active == null) return;
+
+      final jobId = active['jobId'] as String?;
+      if (jobId == null || jobId.isEmpty) return;
+
+      final job = await JobRequestService.getJobDetails(jobId);
+      if (!mounted || job == null) return;
+
+      Navigator.pushNamedAndRemoveUntil(
+        context,
+        '/skilled-worker-job-detail',
+        (route) => false,
+        arguments: {
+          'imageUrl': job['Image'] ?? job['imageUrl'] ?? '',
+          'title': job['title_en'] ?? job['title_ur'] ?? job['title'] ?? '',
+          'location': job['Address'] ?? job['Location'] ?? '',
+          'date': job['createdAt'],
+          'description': job['description_en'] ?? job['description'] ?? '',
+          'jobId': jobId,
+          'jobPosterId': active['jobPosterId'] ?? '',
+          'requestId': active['requestId'],
+        },
+      );
+    } catch (_) {
+      // best-effort; ignore failures
+    }
   }
 
   void _onItemTapped(int index) {
@@ -192,6 +241,14 @@ class _HomeContentState extends State<_HomeContent> {
               onTap: () {
                 Navigator.pop(context);
                 _showContactUsDialog(context);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.star_rate, color: Colors.amber),
+              title: const Text('Rate Job Poster'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, '/skilled-worker-rate-poster');
               },
             ),
             const Divider(),

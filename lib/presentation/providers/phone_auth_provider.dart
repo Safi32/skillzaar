@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart' as fb_auth;
 import 'dart:async';
 import '../../core/services/firestore_retry_service.dart';
 import '../../core/services/user_data_service.dart';
@@ -51,13 +52,8 @@ class PhoneAuthProvider with ChangeNotifier {
   final TextEditingController phoneController = TextEditingController();
   final TextEditingController otpController = TextEditingController();
 
-  // Only allow these two test numbers for login/signup
-  static const List<String> _allowedTestNumbers = [
-    '03115798273',
-    '03092939350',
-  ];
-
-  static const String _testOtp = '123456';
+  // Resend token for Firebase phone auth
+  int? _resendToken;
 
   // User session management
   bool _isLoggedIn = false;
@@ -68,50 +64,46 @@ class PhoneAuthProvider with ChangeNotifier {
   String? get loggedInUserId => _loggedInUserId;
   String? get loggedInPhoneNumber => _loggedInPhoneNumber;
 
-  /// Login method for job posters
-  Future<bool> login(String phoneNumber, String otp) async {
+  /// Verify OTP and sign in (job posters)
+  Future<bool> verifyOtp(String smsCode, BuildContext context) async {
     _isLoading = true;
     _error = null;
     notifyListeners();
 
-    print('🔐 Job Poster Login: $phoneNumber');
+    print('🔐 Verifying OTP (job poster)');
 
     try {
-      // Verify phone number is allowed
-      if (!_allowedTestNumbers.contains(phoneNumber.trim())) {
-        _error = 'Only the two test numbers are allowed for login.';
+      if (_verificationId == null) {
+        _error = 'No verification ID. Please request OTP again.';
         _isLoading = false;
         notifyListeners();
         return false;
       }
 
-      // Verify OTP
-      if (otp != _testOtp) {
-        _error = 'Invalid OTP code. Please use 123456.';
-        _isLoading = false;
-        notifyListeners();
-        return false;
-      }
+      final credential = fb_auth.PhoneAuthProvider.credential(
+        verificationId: _verificationId!,
+        smsCode: smsCode,
+      );
 
-      // Simulate successful login
+      final userCred = await fb_auth.FirebaseAuth.instance.signInWithCredential(
+        credential,
+      );
+
+      final pn = _currentPhoneNumber ?? '';
       _isLoggedIn = true;
-      _loggedInUserId = 'JOB_POSTER_${phoneNumber.replaceAll('0', '')}';
-      _loggedInPhoneNumber = phoneNumber;
-      _currentPhoneNumber = phoneNumber;
+      _loggedInUserId = userCred.user?.uid;
+      _loggedInPhoneNumber = pn;
 
-      // Create job poster document in Firebase
       await _createJobPosterDocument();
-
-      // Check for active job and set SharedPreferences flags
       await _checkAndSetActiveJobFlags();
 
-      print('✅ Job Poster login successful: $_loggedInUserId');
+      print('✅ Job Poster OTP verification successful: $_loggedInUserId');
       _isLoading = false;
       notifyListeners();
       return true;
     } catch (e) {
-      print('❌ Login error: $e');
-      _error = 'Login failed: ${e.toString()}';
+      print('❌ OTP verify error: $e');
+      _error = 'Failed to verify OTP: ${e.toString()}';
       _isLoading = false;
       notifyListeners();
       return false;
@@ -135,12 +127,24 @@ class PhoneAuthProvider with ChangeNotifier {
 
       if (active != null) {
         final jobId = active['jobId'] as String?;
-        if (jobId != null && jobId.isNotEmpty) {
+        final requestId = active['requestId'] as String?;
+        if (jobId != null &&
+            jobId.isNotEmpty &&
+            requestId != null &&
+            requestId.isNotEmpty) {
           final prefs = await SharedPreferences.getInstance();
           await prefs.setBool('active_job_$_loggedInUserId', true);
           await prefs.setString('active_job_${_loggedInUserId}_jobId', jobId);
+          await prefs.setString(
+            'active_job_${_loggedInUserId}_requestId',
+            requestId,
+          );
           print(
-            '✅ Found active job on login: jobId=$jobId, set SharedPrefs flags',
+            '✅ Found active job on login: jobId=$jobId, requestId=$requestId, set SharedPrefs flags',
+          );
+        } else {
+          print(
+            '❌ Active job found but jobId or requestId is null/empty - jobId: "$jobId", requestId: "$requestId"',
           );
         }
       } else {
@@ -157,6 +161,9 @@ class PhoneAuthProvider with ChangeNotifier {
       print(
         '🔍 checkJobOnLogin: Checking for active job for job poster phone: $phoneNumber',
       );
+
+      // Note: Removed the isActive check from JobPoster document as it's set to true for all users
+      // and should not be used to determine if there's an active job request
 
       // First, let's check what's actually in the JobRequests collection
       print('🔍 Checking JobRequests collection directly...');
@@ -185,9 +192,14 @@ class PhoneAuthProvider with ChangeNotifier {
 
       if (active != null) {
         final jobId = active['jobId'] as String?;
-        if (jobId != null && jobId.isNotEmpty) {
+        final requestId = active['requestId'] as String?;
+
+        if (jobId != null &&
+            jobId.isNotEmpty &&
+            requestId != null &&
+            requestId.isNotEmpty) {
           print(
-            '✅ Found active job, navigating to job detail for jobId: $jobId',
+            '✅ Found active job, navigating to job detail for jobId: $jobId, requestId: $requestId',
           );
 
           // Navigate to Job Poster Accepted Details screen
@@ -195,12 +207,14 @@ class PhoneAuthProvider with ChangeNotifier {
             context,
             '/job-poster-accepted-details',
             (route) => false,
-            arguments: {'jobId': jobId, 'requestId': active['requestId']},
+            arguments: {'jobId': jobId, 'requestId': requestId},
           );
           print('✅ Navigation call completed');
           return;
         } else {
-          print('❌ Active job found but jobId is null or empty');
+          print(
+            '❌ Active job found but jobId or requestId is null/empty - jobId: "$jobId", requestId: "$requestId"',
+          );
         }
       } else {
         print('❌ No active job found');
@@ -315,120 +329,76 @@ class PhoneAuthProvider with ChangeNotifier {
     super.dispose();
   }
 
-  Future<void> sendOtp(
+  void sendOtp(
     String phoneNumber,
     BuildContext context, {
     bool isUser = false,
-  }) async {
-    // Reset state
+    bool isSignUp = false,
+  }) {
     _isLoading = true;
     _error = null;
     _verificationId = null;
     notifyListeners();
 
-    final input = phoneNumber.trim();
-    _isLoading = true;
-    _error = null;
-    _verificationId = null;
-    notifyListeners();
+    final input = formatPhoneNumber(phoneNumber);
+    print('📱 Sending OTP to: $input');
 
-    // Only allow the two test numbers
-    if (!_allowedTestNumbers.contains(input)) {
-      _error = 'Only the two test numbers are allowed for login/signup.';
-      _isLoading = false;
-      notifyListeners();
-      return;
-    }
-
-    // Simulate OTP sent
-    _verificationId = 'test_verification_id';
-    _currentPhoneNumber = input;
-    _isLoading = false;
-    notifyListeners();
-
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Test OTP sent to your phone number'),
-          backgroundColor: Colors.green,
-        ),
-      );
-      Navigator.pushNamed(
-        context,
-        '/job-poster-otp',
-        arguments: {'phone': input, 'isSignUp': true},
-      );
-    }
-  }
-
-  Future<void> verifyOtp(
-    String smsCode,
-    BuildContext context, {
-    bool isUser = false,
-  }) async {
-    _isLoading = true;
-    _error = null;
-    notifyListeners();
-
-    print('🔐 Verifying OTP: $smsCode');
-    print('🔐 Current phone: $_currentPhoneNumber');
-
-    try {
-      if (_verificationId == null) {
-        _error = 'No verification ID. Please request OTP again.';
-        _isLoading = false;
-        notifyListeners();
-        return;
-      }
-
-      // Only allow 6-digit OTP
-      if (smsCode != _testOtp) {
-        _error = 'Invalid OTP code. Please use 123456.';
-        _isLoading = false;
-        notifyListeners();
-        return;
-      }
-
-      // OTP is valid - simulate successful authentication
-      print('✅ Test OTP verification successful');
-
-      // Try to create Firestore document, but don't fail the entire flow if it fails
-      try {
-        await UserDataService.createJobPoster(
-          userId: _currentPhoneNumber ?? 'unknown',
-          phoneNumber: _currentPhoneNumber ?? 'unknown',
-          displayName: 'Job Poster',
-        );
-        print('✅ Test user profile created successfully');
-      } catch (e) {
-        print('⚠️ Warning: Could not create Firestore document: $e');
-        print('📱 User is authenticated but profile will be created later');
-        if (e is FirebaseException) {
-          final baseMessage = FirestoreRetryService.getUserFriendlyErrorMessage(
-            e,
-          );
-          _error =
-              'Your account is verified but profile creation is pending. $baseMessage You can continue and we\'ll create your profile when the service is available.';
-        } else {
-          _error =
-              'Profile creation pending. You can continue and we\'ll create your profile when the service is available.';
+    fb_auth.FirebaseAuth.instance.verifyPhoneNumber(
+      phoneNumber: input,
+      forceResendingToken: _resendToken,
+      verificationCompleted: (fb_auth.PhoneAuthCredential credential) async {
+        // Auto verification may happen on some devices/SIMs. We will sign in the user,
+        // but we will NOT auto-navigate; the UI flow remains consistent.
+        try {
+          final userCred = await fb_auth.FirebaseAuth.instance
+              .signInWithCredential(credential);
+          _currentPhoneNumber = input;
+          final pn = _currentPhoneNumber ?? '';
+          _isLoggedIn = true;
+          _loggedInUserId = userCred.user?.uid;
+          _loggedInPhoneNumber = pn;
+          await _createJobPosterDocument();
+          await _checkAndSetActiveJobFlags();
+          _isLoading = false;
+          notifyListeners();
+          // Do not navigate automatically here; let UI decide next step
+        } catch (e) {
+          _error = 'Auto verification failed: ${e.toString()}';
+          _isLoading = false;
+          notifyListeners();
         }
-      }
-
-      _isLoading = false;
-      notifyListeners();
-    } catch (e) {
-      print('❌ General Exception in verifyOtp: $e');
-      _error = 'Failed to verify OTP: ${e.toString()}';
-      _isLoading = false;
-      notifyListeners();
-    }
+      },
+      verificationFailed: (fb_auth.FirebaseAuthException e) {
+        _error = e.message ?? e.code;
+        _isLoading = false;
+        notifyListeners();
+      },
+      codeSent: (String verificationId, int? resendToken) {
+        _verificationId = verificationId;
+        _resendToken = resendToken;
+        _currentPhoneNumber = input;
+        _isLoading = false;
+        notifyListeners();
+        if (context.mounted) {
+          Navigator.pushNamed(
+            context,
+            '/job-poster-otp',
+            arguments: {'phone': input, 'isSignUp': isSignUp},
+          );
+        }
+      },
+      codeAutoRetrievalTimeout: (String verificationId) {
+        _verificationId = verificationId;
+        _isLoading = false;
+        notifyListeners();
+      },
+    );
   }
 
   // Method to create job poster in Firebase (called from OTP screen)
   Future<void> createJobPosterInFirebase(BuildContext context) async {
     try {
-      // Use test authentication instead of Firebase Auth
+      // Ensure we have a real authenticated session
       if (_isLoggedIn && _loggedInUserId != null) {
         await UserDataService.createJobPoster(
           userId: _loggedInUserId!,
@@ -486,7 +456,7 @@ class PhoneAuthProvider with ChangeNotifier {
   // Method to retry profile creation if it failed earlier
   Future<void> retryProfileCreation() async {
     try {
-      // Use test authentication instead of Firebase Auth
+      // Ensure we have a real authenticated session
       if (_isLoggedIn && _loggedInUserId != null) {
         await FirestoreRetryService.retryOperation(() async {
           final jobPosterDoc = FirebaseFirestore.instance

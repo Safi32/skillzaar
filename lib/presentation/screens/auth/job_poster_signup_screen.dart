@@ -133,9 +133,10 @@ class _JobPosterSignUpScreenState extends State<JobPosterSignUpScreen> {
                                       return;
                                     }
                                     // Send OTP - navigation will happen in the callback
-                                    await phoneAuthProvider.sendOtp(
+                                    phoneAuthProvider.sendOtp(
                                       phone,
                                       context,
+                                      isSignUp: true,
                                     );
                                   },
                           child:

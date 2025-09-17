@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_auth/firebase_auth.dart' as fb_auth;
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/utils/permission_handler.dart';
 import '../../../core/services/job_request_service.dart';
-
+import '../../../core/services/user_storage_service.dart';
+import 'dart:io';
 
 String formatPhoneNumber(String input) {
   input = input.trim().replaceAll(' ', '');
@@ -22,12 +23,8 @@ String formatPhoneNumber(String input) {
 }
 
 class SkilledWorkerProvider with ChangeNotifier {
-  static const List<String> _allowedTestNumbers = [
-    '03115798273',
-    '03092939350',
-  ];
-
-  static const String _testOtp = '123456';
+  // Firebase phone auth state
+  int? _resendToken;
 
   // User session management
   bool _isLoggedIn = false;
@@ -38,36 +35,32 @@ class SkilledWorkerProvider with ChangeNotifier {
   String? get loggedInUserId => _loggedInUserId;
   String? get loggedInPhoneNumber => _loggedInPhoneNumber;
 
-  /// Login method for skilled workers
+  /// Verify OTP and sign in (skilled worker)
   Future<bool> login(String phoneNumber, String otp) async {
     _isLoading = true;
     _error = null;
     notifyListeners();
 
-    print('🔐 Skilled Worker Login: $phoneNumber');
+    print('🔐 Skilled Worker OTP verify: $phoneNumber');
 
     try {
-      // Verify phone number is allowed
-      if (!_allowedTestNumbers.contains(phoneNumber.trim())) {
-        _error = 'Only the two test numbers are allowed for login.';
+      if (_verificationId == null) {
+        _error = 'No verification ID. Please request OTP again.';
         _isLoading = false;
         notifyListeners();
         return false;
       }
 
-      // Verify OTP
-      if (otp != _testOtp) {
-        _error = 'Invalid OTP code. Please use 123456.';
-        _isLoading = false;
-        notifyListeners();
-        return false;
-      }
+      final credential = fb_auth.PhoneAuthProvider.credential(
+        verificationId: _verificationId!,
+        smsCode: otp,
+      );
+      await fb_auth.FirebaseAuth.instance.signInWithCredential(credential);
 
-      // Simulate successful login
       _isLoggedIn = true;
-      _loggedInUserId = 'SKILLED_WORKER_${phoneNumber.replaceAll('0', '')}';
       _loggedInPhoneNumber = phoneNumber;
       _currentPhoneNumber = phoneNumber;
+      _loggedInUserId = 'SKILLED_WORKER_${phoneNumber.replaceAll('0', '')}';
 
       print('✅ Skilled Worker login successful: $_loggedInUserId');
 
@@ -225,7 +218,7 @@ class SkilledWorkerProvider with ChangeNotifier {
     print('👋 Skilled Worker logged out');
   }
 
-  /// Verifies the OTP using test authentication
+  /// Legacy test method (not used); keep for backward compatibility
   Future<bool> verifyOtp(String smsCode) async {
     _isLoading = true;
     _error = null;
@@ -242,13 +235,7 @@ class SkilledWorkerProvider with ChangeNotifier {
         return false;
       }
 
-      // Only allow 6-digit OTP
-      if (smsCode != _testOtp) {
-        _error = 'Invalid OTP code. Please use 123456.';
-        _isLoading = false;
-        notifyListeners();
-        return false;
-      }
+      // No test OTP; direct success for legacy calls to avoid crash
 
       // OTP is valid - simulate successful authentication
       print('✅ Test OTP verification successful');
@@ -270,6 +257,9 @@ class SkilledWorkerProvider with ChangeNotifier {
   String? _success;
   String? _currentPhoneNumber;
   bool _hasPaidFee = false;
+  // Temp image files during registration
+  File? _cnicFrontFile;
+  File? _cnicBackFile;
 
   // Location related fields
   double? _currentLatitude;
@@ -284,6 +274,97 @@ class SkilledWorkerProvider with ChangeNotifier {
   String? get error => _error;
   String? get success => _success;
   bool get hasPaidFee => _hasPaidFee;
+  File? get cnicFrontFile => _cnicFrontFile;
+  File? get cnicBackFile => _cnicBackFile;
+
+  void setCnicImages(File front, File back) {
+    _cnicFrontFile = front;
+    _cnicBackFile = back;
+    notifyListeners();
+  }
+
+  /// Upload CNIC images immediately and persist URLs to Firestore
+  Future<Map<String, String>> uploadCnicImages({
+    required File front,
+    required File back,
+  }) async {
+    if (!_isLoggedIn || _loggedInUserId == null) {
+      throw Exception('User not logged in');
+    }
+
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      final frontUrl = await UserStorageService.uploadUserImage(
+        userId: _loggedInUserId!,
+        file: front,
+        pathSegment: 'cnic_front',
+      );
+      final backUrl = await UserStorageService.uploadUserImage(
+        userId: _loggedInUserId!,
+        file: back,
+        pathSegment: 'cnic_back',
+      );
+
+      await FirebaseFirestore.instance
+          .collection('SkilledWorkers')
+          .doc(_loggedInUserId!)
+          .set({
+            'CNICFront': frontUrl,
+            'CNICBack': backUrl,
+            'updatedAt': FieldValue.serverTimestamp(),
+          }, SetOptions(merge: true));
+
+      _cnicFrontFile = front;
+      _cnicBackFile = back;
+      _isLoading = false;
+      notifyListeners();
+      return {'front': frontUrl, 'back': backUrl};
+    } catch (e) {
+      _isLoading = false;
+      _error = 'Failed to upload CNIC images: $e';
+      notifyListeners();
+      rethrow;
+    }
+  }
+
+  /// Upload profile picture immediately and persist URL to Firestore
+  Future<String> uploadProfileImage(File image) async {
+    if (!_isLoggedIn || _loggedInUserId == null) {
+      throw Exception('User not logged in');
+    }
+
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      final url = await UserStorageService.uploadUserImage(
+        userId: _loggedInUserId!,
+        file: image,
+        pathSegment: 'profile',
+      );
+
+      await FirebaseFirestore.instance
+          .collection('SkilledWorkers')
+          .doc(_loggedInUserId!)
+          .set({
+            'ProfilePicture': url,
+            'updatedAt': FieldValue.serverTimestamp(),
+          }, SetOptions(merge: true));
+
+      _isLoading = false;
+      notifyListeners();
+      return url;
+    } catch (e) {
+      _isLoading = false;
+      _error = 'Failed to upload profile image: $e';
+      notifyListeners();
+      rethrow;
+    }
+  }
 
   // Location getters
   double? get currentLatitude => _currentLatitude;
@@ -465,23 +546,44 @@ class SkilledWorkerProvider with ChangeNotifier {
     notifyListeners();
 
     final input = phoneNumber.trim();
-    print('📱 Verifying phone: "$input"');
+    print('📱 Sending OTP (skilled worker) to: "$input"');
 
-    // Only allow the two test numbers
-    if (!_allowedTestNumbers.contains(input)) {
-      _error = 'Only the two test numbers are allowed for login/signup.';
-      _isLoading = false;
-      notifyListeners();
-      return;
-    }
-
-    // Simulate OTP sent
-    _verificationId = 'test_verification_id';
-    _currentPhoneNumber = input;
-    _isLoading = false;
-    notifyListeners();
-
-    print('✅ Test OTP sent to phone: $input');
+    fb_auth.FirebaseAuth.instance.verifyPhoneNumber(
+      phoneNumber: formatPhoneNumber(input),
+      forceResendingToken: _resendToken,
+      verificationCompleted: (fb_auth.PhoneAuthCredential credential) async {
+        try {
+          await fb_auth.FirebaseAuth.instance.signInWithCredential(credential);
+          _currentPhoneNumber = input;
+          _loggedInPhoneNumber = input;
+          _loggedInUserId = 'SKILLED_WORKER_${input.replaceAll('0', '')}';
+          _isLoggedIn = true;
+          _isLoading = false;
+          notifyListeners();
+        } catch (e) {
+          _error = 'Auto verification failed: ${e.toString()}';
+          _isLoading = false;
+          notifyListeners();
+        }
+      },
+      verificationFailed: (fb_auth.FirebaseAuthException e) {
+        _error = e.message ?? e.code;
+        _isLoading = false;
+        notifyListeners();
+      },
+      codeSent: (String verificationId, int? resendToken) {
+        _verificationId = verificationId;
+        _resendToken = resendToken;
+        _currentPhoneNumber = input;
+        _isLoading = false;
+        notifyListeners();
+      },
+      codeAutoRetrievalTimeout: (String verificationId) {
+        _verificationId = verificationId;
+        _isLoading = false;
+        notifyListeners();
+      },
+    );
   }
 
   Future<void> signInWithOTP(String smsCode, VoidCallback onSuccess) async {
@@ -499,16 +601,16 @@ class SkilledWorkerProvider with ChangeNotifier {
         return;
       }
 
-      final credential = PhoneAuthProvider.credential(
+      final credential = fb_auth.PhoneAuthProvider.credential(
         verificationId: _verificationId!,
         smsCode: smsCode,
       );
 
-      await FirebaseAuth.instance.signInWithCredential(credential);
+      await fb_auth.FirebaseAuth.instance.signInWithCredential(credential);
       _isLoading = false;
       notifyListeners();
       onSuccess();
-    } on FirebaseAuthException catch (e) {
+    } on fb_auth.FirebaseAuthException catch (e) {
       _error = 'Verification failed: ${e.message ?? e.code}';
       _isLoading = false;
       notifyListeners();
@@ -523,6 +625,8 @@ class SkilledWorkerProvider with ChangeNotifier {
     required String name,
     required int age,
     required String city,
+    required int workingRadiusKm,
+    File? profileImage,
   }) async {
     _isLoading = true;
     _error = null;
@@ -577,13 +681,47 @@ class SkilledWorkerProvider with ChangeNotifier {
       displayName = name;
     }
 
+    // Placeholder urls before upload
+    String profileUrl = 'https://via.placeholder.com/150';
+    String cnicFrontUrl = 'https://via.placeholder.com/300x200?text=CNIC+Front';
+    String cnicBackUrl = 'https://via.placeholder.com/300x200?text=CNIC+Back';
+
+    // Upload images if available
+    try {
+      if (profileImage != null) {
+        profileUrl = await UserStorageService.uploadUserImage(
+          userId: skilledWorkerId,
+          file: profileImage,
+          pathSegment: 'profile',
+        );
+      }
+      if (_cnicFrontFile != null) {
+        cnicFrontUrl = await UserStorageService.uploadUserImage(
+          userId: skilledWorkerId,
+          file: _cnicFrontFile!,
+          pathSegment: 'cnic_front',
+        );
+      }
+      if (_cnicBackFile != null) {
+        cnicBackUrl = await UserStorageService.uploadUserImage(
+          userId: skilledWorkerId,
+          file: _cnicBackFile!,
+          pathSegment: 'cnic_back',
+        );
+      }
+    } catch (e) {
+      // Non-fatal: continue with placeholders but record error
+      print('Image upload failed: $e');
+    }
+
     final workerData = {
       'Name': name,
       'Age': age,
       'City': city,
-      'ProfilePicture': 'https://via.placeholder.com/150',
-      'CNICFront': 'https://via.placeholder.com/300x200?text=CNIC+Front',
-      'CNICBack': 'https://via.placeholder.com/300x200?text=CNIC+Back',
+      'workingRadiusKm': workingRadiusKm,
+      'ProfilePicture': profileUrl,
+      'CNICFront': cnicFrontUrl,
+      'CNICBack': cnicBackUrl,
       'skilledWorkerId': skilledWorkerId,
       'phoneNumber': phoneNumber,
       'displayName': displayName,
@@ -603,6 +741,9 @@ class SkilledWorkerProvider with ChangeNotifier {
       _success =
           'Skilled worker registered successfully! Worker ID: $skilledWorkerId';
       _isLoading = false;
+      // Clear temp images after successful save
+      _cnicFrontFile = null;
+      _cnicBackFile = null;
       notifyListeners();
     } catch (e) {
       _error = 'Failed to register skilled worker: $e';

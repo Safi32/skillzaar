@@ -3,9 +3,6 @@ import 'package:provider/provider.dart';
 import '../../providers/skilled_worker_provider.dart';
 import '../../providers/ui_state_provider.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/services/job_request_service.dart';
-import 'job_detail_screen.dart';
-import 'skilled_worker_home_screen.dart';
 
 class SkilledWorkerLoginScreen extends StatefulWidget {
   const SkilledWorkerLoginScreen({super.key});
@@ -100,31 +97,22 @@ class _SkilledWorkerLoginScreenState extends State<SkilledWorkerLoginScreen> {
                                   return;
                                 }
 
-                                // For now, directly navigate to home screen
-                                // In real app, you would verify the phone number first
+                                // Send OTP to allowed test numbers and navigate to OTP screen
+                                skilledWorkerProvider.verifyPhone(rawInput);
 
-                                // Show success toast
-                                context
-                                    .read<UIStateProvider>()
-                                    .showSuccessToast(
-                                      context,
-                                      'Welcome Back!',
-                                      'Successfully logged in to your account.',
-                                    );
-
-                                // Wait a bit for user to read the toast
+                                // Give provider a moment to update state
                                 await Future.delayed(
-                                  const Duration(seconds: 1),
+                                  const Duration(milliseconds: 100),
                                 );
 
-                                // Check for active job and navigate accordingly
-                                final skilledWorkerProvider =
-                                    context.read<SkilledWorkerProvider>();
-                                await skilledWorkerProvider.checkJobOnLogin(
-                                  skilledWorkerProvider.loggedInPhoneNumber ??
-                                      '',
-                                  context,
-                                );
+                                if (mounted &&
+                                    skilledWorkerProvider.error == null) {
+                                  Navigator.pushNamed(
+                                    context,
+                                    '/skilled-worker-otp',
+                                    arguments: {'phone': rawInput},
+                                  );
+                                }
                               },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.green,

@@ -12,15 +12,47 @@ class JobPosterAdsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
-    final jobPosterId = user?.uid ?? 'TEST_JOB_POSTER_ID';
+    final String? jobPosterId = user?.uid;
+
+    if (myAdsOnly && jobPosterId == null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.lock_outline, size: 64, color: Colors.grey),
+              const SizedBox(height: 16),
+              const Text(
+                'Please log in to view your ads.',
+                style: TextStyle(fontSize: 18),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 12),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pushNamedAndRemoveUntil(
+                    context,
+                    '/job-poster-home',
+                    (route) => false,
+                  );
+                },
+                child: const Text('Go to Login'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
 
     final Query<Map<String, dynamic>> baseQuery = FirebaseFirestore.instance
         .collection('Job')
         .orderBy('createdAt', descending: true);
 
-    final Query<Map<String, dynamic>> query = myAdsOnly
-        ? baseQuery.where('jobPosterId', isEqualTo: jobPosterId)
-        : baseQuery;
+    final Query<Map<String, dynamic>> query =
+        myAdsOnly && jobPosterId != null
+            ? baseQuery.where('jobPosterId', isEqualTo: jobPosterId)
+            : baseQuery;
 
     return StreamBuilder<QuerySnapshot>(
       stream: query.snapshots(),

@@ -54,23 +54,23 @@ class JobProvider with ChangeNotifier {
     _success = null;
     notifyListeners();
 
-    // Get job poster info from test authentication
+    // Require authenticated job poster
     final phoneAuthProvider = Provider.of<auth_provider.PhoneAuthProvider>(
       context,
       listen: false,
     );
-    String jobPosterId;
-    String posterPhone;
 
-    if (phoneAuthProvider.isLoggedIn &&
-        phoneAuthProvider.loggedInUserId != null) {
-      jobPosterId = phoneAuthProvider.loggedInUserId!;
-      posterPhone = phoneAuthProvider.loggedInPhoneNumber ?? '0000000000';
-    } else {
-      // For testing: use a default job poster ID
-      jobPosterId = 'TEST_JOB_POSTER_ID';
-      posterPhone = '+923115798273';
+    if (!(phoneAuthProvider.isLoggedIn &&
+        phoneAuthProvider.loggedInUserId != null)) {
+      _isLoading = false;
+      _error = 'Please log in and verify your phone to post a job.';
+      notifyListeners();
+      return;
     }
+
+    final String jobPosterId = phoneAuthProvider.loggedInUserId!;
+    final String posterPhone =
+        phoneAuthProvider.loggedInPhoneNumber ?? 'unknown';
 
     print('🔍 Posting Job:');
     print('  Job Poster ID: $jobPosterId');
@@ -91,8 +91,7 @@ class JobProvider with ChangeNotifier {
       'jobPosterId': jobPosterId,
       'posterPhone': posterPhone,
       'createdAt': FieldValue.serverTimestamp(),
-      'status':
-          'pending', // Jobs require admin approval before being visible to skilled workers
+      'status': 'pending',
       'isActive': true,
     };
 

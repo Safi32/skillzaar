@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:skillzaar/presentation/screens/splash_screen.dart';
 import 'package:skillzaar/presentation/widgets/fee_dialog.dart';
+import 'package:skillzaar/presentation/widgets/active_work_gate.dart';
+import 'package:skillzaar/presentation/screens/role_selection_screen.dart';
 
 class SplashAndDialogGate extends StatefulWidget {
   const SplashAndDialogGate({super.key});
@@ -18,7 +20,7 @@ class _SplashAndDialogGateState extends State<SplashAndDialogGate> {
     WidgetsBinding.instance.addPostFrameCallback((_) => _checkActive());
   }
 
-  Future<void> _checkActive() async {    
+  Future<void> _checkActive() async {
     Future.delayed(const Duration(seconds: 2), () {
       if (!mounted || _navigated) return;
       Navigator.of(context).pushReplacement(
@@ -57,7 +59,12 @@ class _FeeDialogScreenState extends State<FeeDialogScreen> {
         );
 
         if (mounted) {
-          Navigator.pushReplacementNamed(context, '/role-selection');
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(
+              builder:
+                  (_) => const ActiveWorkGate(child: RoleSelectionScreen()),
+            ),
+          );
         }
       });
     }

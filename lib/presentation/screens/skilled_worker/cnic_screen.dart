@@ -2,30 +2,41 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import '../../../core/theme/app_theme.dart';
+import 'package:provider/provider.dart';
+import '../../providers/skilled_worker_provider.dart';
 
-class CnicScreen extends StatelessWidget {
+class CnicScreen extends StatefulWidget {
   const CnicScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final size = MediaQuery.of(context).size;
-    File? frontImage;
-    File? backImage;
+  State<CnicScreen> createState() => _CnicScreenState();
+}
 
-    Future<void> pickImage(bool isFront) async {
-      final picker = ImagePicker();
-      final picked = await picker.pickImage(
-        source: ImageSource.gallery,
-        imageQuality: 80,
-      );
-      if (picked != null) {
+class _CnicScreenState extends State<CnicScreen> {
+  File? frontImage;
+  File? backImage;
+  bool isUploading = false;
+
+  Future<void> pickImage(bool isFront) async {
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 80,
+    );
+    if (picked != null) {
+      setState(() {
         if (isFront) {
           frontImage = File(picked.path);
         } else {
           backImage = File(picked.path);
         }
-      }
+      });
     }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final size = MediaQuery.of(context).size;
 
     return Scaffold(
       appBar: AppBar(
@@ -58,10 +69,7 @@ class CnicScreen extends StatelessWidget {
                 const SizedBox(height: 8),
                 const Text(
                   'Upload your National ID (front & back)',
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: Colors.grey,
-                  ),
+                  style: TextStyle(fontSize: 16, color: Colors.grey),
                 ),
                 const SizedBox(height: 32),
                 Row(
@@ -88,12 +96,32 @@ class CnicScreen extends StatelessWidget {
                   width: double.infinity,
                   height: 48,
                   child: ElevatedButton(
-                    onPressed: () {
-                      Navigator.pushNamed(
-                        context,
-                        '/skilled-worker-profile',
-                      );
-                    },
+                    onPressed:
+                        (frontImage == null || backImage == null || isUploading)
+                            ? null
+                            : () async {
+                              setState(() => isUploading = true);
+                              try {
+                                // store temp images in provider to upload later
+                                final provider =
+                                    Provider.of<SkilledWorkerProvider>(
+                                      context,
+                                      listen: false,
+                                    );
+                                // Upload immediately and store URLs
+                                await provider.uploadCnicImages(
+                                  front: frontImage!,
+                                  back: backImage!,
+                                );
+                                Navigator.pushNamed(
+                                  context,
+                                  '/skilled-worker-profile',
+                                );
+                              } finally {
+                                if (mounted)
+                                  setState(() => isUploading = false);
+                              }
+                            },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.green,
                       shape: RoundedRectangleBorder(
@@ -101,14 +129,19 @@ class CnicScreen extends StatelessWidget {
                       ),
                       elevation: 1,
                     ),
-                    child: const Text(
-                      'Next',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
+                    child:
+                        isUploading
+                            ? const CircularProgressIndicator(
+                              color: Colors.white,
+                            )
+                            : const Text(
+                              'Next',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                   ),
                 ),
               ],

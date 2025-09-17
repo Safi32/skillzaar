@@ -1,22 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:skillzaar/core/services/job_request_service.dart';
 
-class SkilledWorkerRateJobPosterScreen extends StatefulWidget {
-  final Map<String, dynamic> jobPosterDetails;
-  final String? requestId;
-  const SkilledWorkerRateJobPosterScreen({
-    Key? key,
-    required this.jobPosterDetails,
-    this.requestId,
-  }) : super(key: key);
+class RateJobPosterScreen extends StatefulWidget {
+  const RateJobPosterScreen({super.key});
 
   @override
-  State<SkilledWorkerRateJobPosterScreen> createState() =>
-      _SkilledWorkerRateJobPosterScreenState();
+  State<RateJobPosterScreen> createState() => _RateJobPosterScreenState();
 }
 
-class _SkilledWorkerRateJobPosterScreenState
-    extends State<SkilledWorkerRateJobPosterScreen> {
+class _RateJobPosterScreenState extends State<RateJobPosterScreen> {
   double rating = 4.0;
   final List<String> defaultTexts = [
     'Excellent work',
@@ -28,6 +19,14 @@ class _SkilledWorkerRateJobPosterScreenState
   String? selectedText;
   final TextEditingController _customController = TextEditingController();
   bool _isSubmitting = false;
+
+  // Static job poster details for demo
+  final Map<String, dynamic> jobPosterDetails = {
+    'name': 'Ahmed Ali',
+    'phone': '+923001234567',
+    'email': 'ahmed.ali@example.com',
+    'address': '123 Main Street, Karachi',
+  };
 
   void _onRatingChanged(double value) {
     setState(() {
@@ -43,17 +42,10 @@ class _SkilledWorkerRateJobPosterScreenState
     });
 
     try {
-      // Submit rating to backend
-      final success = await JobRequestService.submitJobPosterRating(
-        jobPosterId:
-            widget.jobPosterDetails['id'] ??
-            widget.jobPosterDetails['jobPosterId'],
-        rating: rating,
-        feedback: selectedText ?? _customController.text,
-        requestId: widget.requestId,
-      );
+      // Simulate API call delay
+      await Future.delayed(const Duration(seconds: 2));
 
-      if (success) {
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
@@ -70,25 +62,22 @@ class _SkilledWorkerRateJobPosterScreenState
           '/skilled-worker-home',
           (route) => false,
         );
-      } else {
+      }
+    } catch (e) {
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Failed to submit rating. Please try again.'),
+          SnackBar(
+            content: Text('Error: ${e.toString()}'),
             backgroundColor: Colors.red,
           ),
         );
       }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error: ${e.toString()}'),
-          backgroundColor: Colors.red,
-        ),
-      );
     } finally {
-      setState(() {
-        _isSubmitting = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isSubmitting = false;
+        });
+      }
     }
   }
 
@@ -175,22 +164,22 @@ class _SkilledWorkerRateJobPosterScreenState
                         _buildInfoRow(
                           Icons.person,
                           'Name',
-                          widget.jobPosterDetails['name'] ?? '-',
+                          jobPosterDetails['name'],
                         ),
                         _buildInfoRow(
                           Icons.phone,
                           'Phone',
-                          widget.jobPosterDetails['phone'] ?? '-',
+                          jobPosterDetails['phone'],
                         ),
                         _buildInfoRow(
                           Icons.email,
                           'Email',
-                          widget.jobPosterDetails['email'] ?? '-',
+                          jobPosterDetails['email'],
                         ),
                         _buildInfoRow(
                           Icons.location_on,
                           'Address',
-                          widget.jobPosterDetails['address'] ?? '-',
+                          jobPosterDetails['address'],
                         ),
                       ],
                     ),

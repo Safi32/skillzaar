@@ -36,25 +36,13 @@ class UserRegistrationScreen extends StatelessWidget {
                     : ElevatedButton(
                       onPressed: () async {
                         uiProvider.startLoading();
-                        await phoneAuthProvider.sendOtp(
+                        phoneAuthProvider.sendOtp(
                           phoneAuthProvider.phoneController.text.trim(),
                           context,
                           isUser: true,
                         );
 
-                        if (phoneAuthProvider.error == null &&
-                            phoneAuthProvider.verificationId != null) {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder:
-                                  (_) => UserOtpScreen(
-                                    phoneNumber:
-                                        phoneAuthProvider.phoneController.text
-                                            .trim(),
-                                  ),
-                            ),
-                          );
-                        } else if (phoneAuthProvider.error != null) {
+                        if (phoneAuthProvider.error != null) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(content: Text(phoneAuthProvider.error!)),
                           );
@@ -106,7 +94,6 @@ class UserOtpScreen extends StatelessWidget {
                         await phoneAuthProvider.verifyOtp(
                           phoneAuthProvider.otpController.text.trim(),
                           context,
-                          isUser: true,
                         );
 
                         if (phoneAuthProvider.error == null) {

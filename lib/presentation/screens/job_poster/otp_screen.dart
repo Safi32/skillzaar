@@ -71,6 +71,10 @@ class _JobPosterOTPScreenState extends State<JobPosterOTPScreen> {
   @override
   Widget build(BuildContext context) {
     final phoneAuthProvider = Provider.of<PhoneAuthProvider>(context);
+    final args =
+        ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+    final String phoneNumber = (args?['phone'] ?? '').toString();
+    final bool isSignUp = (args?['isSignUp'] ?? false) == true;
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -106,43 +110,15 @@ class _JobPosterOTPScreenState extends State<JobPosterOTPScreen> {
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 12),
-                  const Text(
-                    'We have sent a 6-digit code to your phone number.',
+                  Text(
+                    phoneNumber.isNotEmpty
+                        ? 'We have sent a 6-digit code to\n$phoneNumber'
+                        : 'We have sent a 6-digit code to your phone number.',
                     style: TextStyle(fontSize: 15, color: Colors.black87),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 16),
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.blue.shade50,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.blue.shade200),
-                    ),
-                    child: Column(
-                      children: [
-                        const Text(
-                          'Test Credentials:',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.blue,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        const Text(
-                          'Phone: 03115798273 | OTP: 123456',
-                          style: TextStyle(fontSize: 14, color: Colors.black87),
-                        ),
-                        const SizedBox(height: 4),
-                        const Text(
-                          'Phone: 03092939350 | OTP: 123456',
-                          style: TextStyle(fontSize: 14, color: Colors.black87),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 32),
+                  const SizedBox(height: 24),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: List.generate(
@@ -190,7 +166,13 @@ class _JobPosterOTPScreenState extends State<JobPosterOTPScreen> {
                   ),
                   const SizedBox(height: 32),
                   TextButton(
-                    onPressed: () {},
+                    onPressed: () {
+                      if (phoneNumber.isEmpty) return;
+                      Provider.of<PhoneAuthProvider>(
+                        context,
+                        listen: false,
+                      ).sendOtp(phoneNumber, context, isSignUp: isSignUp);
+                    },
                     child: const Text(
                       'Resend code',
                       style: TextStyle(
@@ -215,21 +197,16 @@ class _JobPosterOTPScreenState extends State<JobPosterOTPScreen> {
                           );
                           return;
                         }
-                        // Get phone number from arguments
-                        final args =
-                            ModalRoute.of(context)?.settings.arguments
-                                as Map<String, dynamic>?;
-                        final phoneNumber =
-                            args?['phone'] ??
-                            phoneAuthProvider.currentPhoneNumber ??
-                            '';
-
-                        // Use the new login method
-                        final loginSuccess = await phoneAuthProvider.login(
-                          phoneNumber,
+                        final phoneAuthProvider =
+                            Provider.of<PhoneAuthProvider>(
+                              context,
+                              listen: false,
+                            );
+                        final success = await phoneAuthProvider.verifyOtp(
                           otpCode,
+                          context,
                         );
-                        if (loginSuccess) {
+                        if (success) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
                               content: Text(
@@ -239,18 +216,31 @@ class _JobPosterOTPScreenState extends State<JobPosterOTPScreen> {
                               duration: Duration(seconds: 3),
                             ),
                           );
-
-                          // Check for active job after successful login using the new method
-                          await phoneAuthProvider.checkJobOnLogin(
-                            phoneNumber,
-                            context,
-                          );
+                          if (isSignUp) {
+                            // New sign-up: go to home directly
+                            if (mounted) {
+                              Navigator.pushNamedAndRemoveUntil(
+                                context,
+                                '/job-poster-home',
+                                (route) => false,
+                                arguments: {
+                                  'userId': phoneAuthProvider.loggedInUserId,
+                                },
+                              );
+                            }
+                          } else {
+                            // Login: redirect based on active job
+                            await phoneAuthProvider.checkJobOnLogin(
+                              phoneAuthProvider.currentPhoneNumber ?? '',
+                              context,
+                            );
+                          }
                         } else {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               content: Text(
                                 phoneAuthProvider.error ??
-                                    '❌ Login failed. Use 123456 for testing.',
+                                    '❌ Verification failed.',
                               ),
                               backgroundColor: Colors.red,
                               duration: Duration(seconds: 3),
