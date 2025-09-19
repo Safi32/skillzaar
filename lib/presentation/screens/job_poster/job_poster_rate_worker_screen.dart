@@ -42,49 +42,80 @@ class _JobPosterRateWorkerScreenState extends State<JobPosterRateWorkerScreen> {
     });
 
     try {
-      // If requestId is provided, mark the job as completed
+      // 1) Submit rating for skilled worker
+      final String skilledWorkerId =
+          (widget.skilledWorkerDetails['id'] ??
+                  widget.skilledWorkerDetails['skilledWorkerId'] ??
+                  widget.skilledWorkerDetails['uid'] ??
+                  '')
+              .toString();
+
+      print(
+        '🔍 Rating screen - Skilled worker details: ${widget.skilledWorkerDetails}',
+      );
+      print('🔍 Rating screen - Extracted skilled worker ID: $skilledWorkerId');
+
+      if (skilledWorkerId.isEmpty || skilledWorkerId == 'UNKNOWN_ID') {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Skilled worker not identified. Details: ${widget.skilledWorkerDetails}',
+            ),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+        return;
+      }
+
+      final submitted = await JobRequestService.submitSkilledWorkerRating(
+        skilledWorkerId: skilledWorkerId,
+        rating: rating,
+        feedback: selectedText ?? _customController.text,
+        requestId: widget.requestId,
+      );
+
+      if (!submitted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to submit rating. Please try again.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+
+      // 2) If requestId is provided, mark the job request completed
       if (widget.requestId != null && widget.requestId!.isNotEmpty) {
         final success = await JobRequestService.markRequestCompleted(
           widget.requestId!,
         );
-        if (success) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Job completed successfully!'),
-              backgroundColor: Colors.green,
-            ),
-          );
-
-          // Navigate back to home screen
-          Navigator.pushNamedAndRemoveUntil(
-            context,
-            '/job-poster-home',
-            (route) => false,
-          );
-        } else {
+        if (!success) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Failed to complete job. Please try again.'),
               backgroundColor: Colors.red,
             ),
           );
+          return;
         }
-      } else {
-        // Just show success message if no requestId
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Rating submitted successfully!'),
-            backgroundColor: Colors.green,
-          ),
-        );
-
-        // Navigate back to home screen
-        Navigator.pushNamedAndRemoveUntil(
-          context,
-          '/job-poster-home',
-          (route) => false,
-        );
       }
+
+      // 3) Success message and navigate home
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Rating submitted! (${rating.toStringAsFixed(1)} stars)',
+          ),
+          backgroundColor: Colors.green,
+        ),
+      );
+
+      Navigator.pushNamedAndRemoveUntil(
+        context,
+        '/job-poster-home',
+        (route) => false,
+      );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(

@@ -18,6 +18,9 @@ class HomeProfileProvider with ChangeNotifier {
   bool _hasSkills = false;
   bool _hasExperience = false;
   bool _hasBio = false;
+  bool _hasServiceType = false;
+
+  String? _selectedServiceType;
 
   final List<String> allCategories = [
     'Plumbing',
@@ -25,6 +28,29 @@ class HomeProfileProvider with ChangeNotifier {
     'Carpentry',
     'Cleaning',
     'Other',
+  ];
+
+  // Service types from job posting (same as SimpleServiceDropdown)
+  static const List<String> serviceTypes = [
+    'Cleaning Services',
+    'Plumbing Services',
+    'Carpentry & Furniture',
+    'Painting & Finishing',
+    'Masonry & Metalwork',
+    'Roofing Services',
+    'Glass & Installation',
+    'Outdoor & Gardening',
+    'Electrical Services',
+    'Appliance Deep Cleaning',
+    'Labour & Moving',
+    'Car Care Services',
+    'Water & Utility',
+    'Catering & Events',
+    'Residential & Commercial Construction',
+    'Design & Planning',
+    'Renovation & Finishing',
+    'Specialized Works',
+    'Outdoor Construction',
   ];
 
   // Getters
@@ -35,7 +61,9 @@ class HomeProfileProvider with ChangeNotifier {
   bool get hasSkills => _hasSkills;
   bool get hasExperience => _hasExperience;
   bool get hasBio => _hasBio;
+  bool get hasServiceType => _hasServiceType;
   bool get hasPortfolioImages => _portfolioImages.isNotEmpty;
+  String? get selectedServiceType => _selectedServiceType;
 
   // Portfolio image management
   void addPortfolioImage() {
@@ -73,15 +101,28 @@ class HomeProfileProvider with ChangeNotifier {
     }
   }
 
+  // Service type selection
+  void selectServiceType(String? serviceType) {
+    _selectedServiceType = serviceType;
+    notifyListeners();
+    _updateProfileCompletion();
+  }
+
   // Update profile completion status
   void _updateProfileCompletion() {
     _hasBasicInfo = true; // Always true when this provider is used
     _hasSkills = _selectedCategories.isNotEmpty;
     _hasExperience = experienceController.text.isNotEmpty;
     _hasBio = bioController.text.isNotEmpty && bioController.text.length >= 20;
+    _hasServiceType =
+        _selectedServiceType != null && _selectedServiceType!.isNotEmpty;
 
     _isProfileComplete =
-        _hasBasicInfo && _hasSkills && _hasExperience && _hasBio;
+        _hasBasicInfo &&
+        _hasSkills &&
+        _hasExperience &&
+        _hasBio &&
+        _hasServiceType;
     notifyListeners();
   }
 
@@ -94,17 +135,20 @@ class HomeProfileProvider with ChangeNotifier {
     return _selectedCategories.isNotEmpty &&
         experienceController.text.isNotEmpty &&
         bioController.text.isNotEmpty &&
-        bioController.text.length >= 20;
+        bioController.text.length >= 20 &&
+        _selectedServiceType != null &&
+        _selectedServiceType!.isNotEmpty;
   }
 
   double get profileCompletionPercentage {
     int completedFields = 0;
-    int totalFields = 4;
+    int totalFields = 5; // Updated to include service type
 
     if (_hasBasicInfo) completedFields++;
     if (_hasSkills) completedFields++;
     if (_hasExperience) completedFields++;
     if (_hasBio) completedFields++;
+    if (_hasServiceType) completedFields++;
 
     return completedFields / totalFields;
   }
@@ -738,12 +782,18 @@ class HomeProfileProvider with ChangeNotifier {
 
       print('👤 Saving portfolio for user: $userId');
       print('📱 Phone number: $phoneNumber');
+      print('📋 Selected categories: $_selectedCategories');
+      print('💼 Experience: ${experienceController.text}');
+      print('💰 Rate: ${hourlyRateController.text}');
+      print('📝 Description: ${bioController.text}');
+      print('🖼️ Images: $_portfolioImages');
 
       // Save portfolio data with user ID
       final portfolioData = {
         'userId': userId, // Use the logged in user ID
         'userPhone': phoneNumber, // Phone number for searching
         'categories': _selectedCategories,
+        'serviceType': _selectedServiceType, // Add service type
         'experience': experienceController.text.trim(),
         'rate': hourlyRateController.text.trim(),
         'availability': availabilityController.text.trim(),
@@ -813,6 +863,12 @@ class HomeProfileProvider with ChangeNotifier {
           _selectedCategories.clear();
           _selectedCategories.addAll(List<String>.from(data['categories']));
           print('Loaded skills: $_selectedCategories');
+        }
+
+        // Load service type
+        if (data['serviceType'] != null) {
+          _selectedServiceType = data['serviceType'];
+          print('Loaded service type: $_selectedServiceType');
         }
 
         // Load experience

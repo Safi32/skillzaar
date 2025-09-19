@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb_auth;
+import 'package:skillzaar/core/examples/services/recaptcha_service.dart';
+import 'package:skillzaar/core/examples/services/user_data_service.dart';
 import 'dart:async';
 import '../../core/services/firestore_retry_service.dart';
-import '../../core/services/user_data_service.dart';
+
 import '../../core/services/job_request_service.dart';
+
 import 'package:shared_preferences/shared_preferences.dart';
 
 String formatPhoneNumber(String input) {
@@ -64,8 +67,22 @@ class PhoneAuthProvider with ChangeNotifier {
   String? get loggedInUserId => _loggedInUserId;
   String? get loggedInPhoneNumber => _loggedInPhoneNumber;
 
+  /// Set logged in state for direct login (without OTP)
+  void setLoggedInState({required String userId, required String phoneNumber}) {
+    _isLoggedIn = true;
+    _loggedInUserId = userId;
+    _loggedInPhoneNumber = phoneNumber;
+    _currentPhoneNumber = phoneNumber;
+    notifyListeners();
+    print('✅ Job Poster logged in state set: $userId, $phoneNumber');
+  }
+
   /// Verify OTP and sign in (job posters)
-  Future<bool> verifyOtp(String smsCode, BuildContext context) async {
+  Future<bool> verifyOtp(
+    String smsCode,
+    BuildContext context, {
+    bool isSignUp = false,
+  }) async {
     _isLoading = true;
     _error = null;
     notifyListeners();
@@ -100,6 +117,23 @@ class PhoneAuthProvider with ChangeNotifier {
       print('✅ Job Poster OTP verification successful: $_loggedInUserId');
       _isLoading = false;
       notifyListeners();
+
+      // Navigate to appropriate screen after successful verification
+      if (context.mounted) {
+        if (isSignUp) {
+          // For signup, go to home screen
+          Navigator.pushNamedAndRemoveUntil(
+            context,
+            '/job-poster-home',
+            (route) => false,
+            arguments: {'userId': _loggedInUserId},
+          );
+        } else {
+          // For login, check for active jobs
+          await checkJobOnLogin(pn, context);
+        }
+      }
+
       return true;
     } catch (e) {
       print('❌ OTP verify error: $e');
@@ -334,7 +368,7 @@ class PhoneAuthProvider with ChangeNotifier {
     BuildContext context, {
     bool isUser = false,
     bool isSignUp = false,
-  }) {
+  }) async {
     _isLoading = true;
     _error = null;
     _verificationId = null;
@@ -343,6 +377,45 @@ class PhoneAuthProvider with ChangeNotifier {
     final input = formatPhoneNumber(phoneNumber);
     print('📱 Sending OTP to: $input');
 
+    // Check if reCAPTCHA is required
+    if (ReCaptchaService.isRecaptchaRequired) {
+      try {
+        await ReCaptchaService.verifyWithReCaptcha(
+          phoneNumber: input,
+          onSuccess: () {
+            print('✅ reCAPTCHA verification successful');
+            _proceedWithPhoneVerification(input, context, isSignUp);
+          },
+          onError: (error) {
+            print('❌ reCAPTCHA verification failed: $error');
+            _error = 'reCAPTCHA verification failed: $error';
+            _isLoading = false;
+            notifyListeners();
+          },
+          onExpired: () {
+            print('⏰ reCAPTCHA verification expired');
+            _error = 'reCAPTCHA verification expired. Please try again.';
+            _isLoading = false;
+            notifyListeners();
+          },
+        );
+      } catch (e) {
+        print('❌ reCAPTCHA error: $e');
+        _error = 'reCAPTCHA verification failed: $e';
+        _isLoading = false;
+        notifyListeners();
+      }
+    } else {
+      // For mobile platforms, proceed directly with phone verification
+      _proceedWithPhoneVerification(input, context, isSignUp);
+    }
+  }
+
+  void _proceedWithPhoneVerification(
+    String input,
+    BuildContext context,
+    bool isSignUp,
+  ) {
     fb_auth.FirebaseAuth.instance.verifyPhoneNumber(
       phoneNumber: input,
       forceResendingToken: _resendToken,
@@ -373,19 +446,15 @@ class PhoneAuthProvider with ChangeNotifier {
         _isLoading = false;
         notifyListeners();
       },
-      codeSent: (String verificationId, int? resendToken) {
+      codeSent: (String verificationId, int? resendToken) async {
         _verificationId = verificationId;
         _resendToken = resendToken;
         _currentPhoneNumber = input;
         _isLoading = false;
         notifyListeners();
-        if (context.mounted) {
-          Navigator.pushNamed(
-            context,
-            '/job-poster-otp',
-            arguments: {'phone': input, 'isSignUp': isSignUp},
-          );
-        }
+
+        // OTP verification removed - direct login/registration
+        // This code is no longer used as we bypass OTP verification
       },
       codeAutoRetrievalTimeout: (String verificationId) {
         _verificationId = verificationId;

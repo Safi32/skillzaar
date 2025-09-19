@@ -12,7 +12,10 @@ class JobPosterAdsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
-    final String? jobPosterId = user?.uid;
+    String? jobPosterId = user?.uid;
+
+    print('🔍 Job Poster Ads Screen - User ID: $jobPosterId');
+    print('🔍 Job Poster Ads Screen - My Ads Only: $myAdsOnly');
 
     if (myAdsOnly && jobPosterId == null) {
       return Center(
@@ -45,14 +48,12 @@ class JobPosterAdsScreen extends StatelessWidget {
       );
     }
 
-    final Query<Map<String, dynamic>> baseQuery = FirebaseFirestore.instance
-        .collection('Job')
-        .orderBy('createdAt', descending: true);
-
     final Query<Map<String, dynamic>> query =
         myAdsOnly && jobPosterId != null
-            ? baseQuery.where('jobPosterId', isEqualTo: jobPosterId)
-            : baseQuery;
+            ? FirebaseFirestore.instance
+                .collection('Job')
+                .where('jobPosterId', isEqualTo: jobPosterId)
+            : FirebaseFirestore.instance.collection('Job');
 
     return StreamBuilder<QuerySnapshot>(
       stream: query.snapshots(),
@@ -63,7 +64,18 @@ class JobPosterAdsScreen extends StatelessWidget {
         if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
           return const JobAdsEmptyState();
         }
-        final docs = snapshot.data!.docs;
+        // Client-side sort by createdAt desc to avoid composite index
+        final docs = [...snapshot.data!.docs];
+        docs.sort((a, b) {
+          final aTs =
+              (a.data() as Map<String, dynamic>)['createdAt'] as Timestamp?;
+          final bTs =
+              (b.data() as Map<String, dynamic>)['createdAt'] as Timestamp?;
+          if (aTs == null && bTs == null) return 0;
+          if (aTs == null) return 1;
+          if (bTs == null) return -1;
+          return bTs.compareTo(aTs);
+        });
         return ListView.builder(
           padding: const EdgeInsets.all(16),
           itemCount: docs.length,

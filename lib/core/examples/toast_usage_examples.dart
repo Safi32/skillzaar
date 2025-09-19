@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:skillzaar/core/examples/services/toast_service.dart';
 import '../../presentation/providers/ui_state_provider.dart';
-import '../services/toast_service.dart';
+
 import '../widgets/animated_toast.dart';
 
 class ToastUsageExamples extends StatelessWidget {

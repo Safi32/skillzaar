@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import '../widgets/animated_toast.dart';
+import 'package:skillzaar/core/widgets/animated_toast.dart';
+
 
 class ToastService {
   static final ToastService _instance = ToastService._internal();

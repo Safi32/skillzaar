@@ -1,10 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:skillzaar/core/examples/services/recaptcha_service.dart';
 import '../../providers/skilled_worker_provider.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/services/job_request_service.dart';
+import '../../widgets/recaptcha_widget.dart';
+
 import 'package:shared_preferences/shared_preferences.dart';
+
+/// Helper function to safely convert Timestamp to DateTime
+DateTime? _safeConvertToDateTime(dynamic value) {
+  if (value == null) return null;
+  if (value is DateTime) return value;
+  if (value is Timestamp) return value.toDate();
+  if (value is String) return DateTime.tryParse(value);
+  return null;
+}
 
 class SkilledWorkerOTPScreen extends StatefulWidget {
   const SkilledWorkerOTPScreen({super.key});
@@ -72,9 +85,7 @@ class _SkilledWorkerOTPScreenState extends State<SkilledWorkerOTPScreen> {
               'imageUrl': job['Image'] ?? '',
               'title': job['title_en'] ?? job['title_ur'] ?? '',
               'location': job['Address'] ?? job['Location'] ?? '',
-              'date': DateTime.tryParse(
-                (job['createdAt']?.toDate()?.toString()) ?? '',
-              ),
+              'date': _safeConvertToDateTime(job['createdAt']),
               'description':
                   job['description_en'] ?? job['description_ur'] ?? '',
               'jobId': spJobId,
@@ -104,9 +115,7 @@ class _SkilledWorkerOTPScreenState extends State<SkilledWorkerOTPScreen> {
               'imageUrl': job['Image'] ?? '',
               'title': job['title_en'] ?? job['title_ur'] ?? '',
               'location': job['Address'] ?? job['Location'] ?? '',
-              'date': DateTime.tryParse(
-                (job['createdAt']?.toDate()?.toString()) ?? '',
-              ),
+              'date': _safeConvertToDateTime(job['createdAt']),
               'description':
                   job['description_en'] ?? job['description_ur'] ?? '',
               'jobId': active['jobId'],
@@ -140,6 +149,10 @@ class _SkilledWorkerOTPScreenState extends State<SkilledWorkerOTPScreen> {
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
     final skilledWorkerProvider = Provider.of<SkilledWorkerProvider>(context);
+
+    // Get arguments from route
+    final args =
+        ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -178,6 +191,36 @@ class _SkilledWorkerOTPScreenState extends State<SkilledWorkerOTPScreen> {
                 style: TextStyle(fontSize: 16, color: Colors.black54),
               ),
               const SizedBox(height: 40),
+
+              // reCAPTCHA Widget (for web platforms)
+              if (ReCaptchaService.isRecaptchaRequired)
+                ReCaptchaWidget(
+                  phoneNumber: args?['phone'] ?? '',
+                  onSuccess: () {
+                    print('✅ reCAPTCHA completed for skilled worker');
+                  },
+                  onError: (error) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('reCAPTCHA verification failed: $error'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  },
+                  onExpired: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          'reCAPTCHA verification expired. Please try again.',
+                        ),
+                        backgroundColor: Colors.orange,
+                      ),
+                    );
+                  },
+                ),
+
+              if (ReCaptchaService.isRecaptchaRequired)
+                const SizedBox(height: 20),
 
               // OTP Input Fields
               Row(
@@ -229,9 +272,6 @@ class _SkilledWorkerOTPScreenState extends State<SkilledWorkerOTPScreen> {
               // Resend OTP Button
               TextButton(
                 onPressed: () {
-                  final args =
-                      ModalRoute.of(context)?.settings.arguments
-                          as Map<String, dynamic>?;
                   final phone = args?['phone'] as String?;
                   if (phone != null && phone.isNotEmpty) {
                     Provider.of<SkilledWorkerProvider>(
@@ -262,19 +302,29 @@ class _SkilledWorkerOTPScreenState extends State<SkilledWorkerOTPScreen> {
                           ? () async {
                             setState(() {});
                             // Get phone number from arguments
-                            final args =
-                                ModalRoute.of(context)?.settings.arguments
-                                    as Map<String, dynamic>?;
                             final phoneNumber = args?['phone'] ?? '';
                             final isSignUp = args?['isSignUp'] == true;
 
-                            final loginSuccess = await skilledWorkerProvider
-                                .login(phoneNumber, otpCode);
-                            if (loginSuccess) {
+                            bool success;
+                            if (isSignUp) {
+                              success = await skilledWorkerProvider.signup(
+                                phoneNumber,
+                                otpCode,
+                              );
+                            } else {
+                              success = await skilledWorkerProvider.login(
+                                phoneNumber,
+                                otpCode,
+                              );
+                            }
+
+                            if (success) {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
+                                SnackBar(
                                   content: Text(
-                                    '✅ Login successful! Welcome back.',
+                                    isSignUp
+                                        ? '✅ Signup successful! Welcome to Skillzaar.'
+                                        : '✅ Login successful! Welcome back.',
                                   ),
                                   backgroundColor: Colors.green,
                                   duration: Duration(seconds: 3),
@@ -298,7 +348,9 @@ class _SkilledWorkerOTPScreenState extends State<SkilledWorkerOTPScreen> {
                                 SnackBar(
                                   content: Text(
                                     skilledWorkerProvider.error ??
-                                        '❌ Login failed. Use 123456 for testing.',
+                                        (isSignUp
+                                            ? '❌ Signup failed. Please try again.'
+                                            : '❌ Login failed. Please try again.'),
                                   ),
                                   backgroundColor: Colors.red,
                                   duration: Duration(seconds: 3),

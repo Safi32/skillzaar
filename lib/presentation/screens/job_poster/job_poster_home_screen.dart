@@ -11,6 +11,8 @@ import 'package:skillzaar/presentation/widgets/job_poster_drawer.dart';
 import 'package:skillzaar/presentation/widgets/location_permission_dialog.dart';
 import 'package:skillzaar/presentation/widgets/location_settings_dialog.dart';
 import 'package:skillzaar/presentation/widgets/logout_dialog.dart';
+import '../../providers/phone_auth_provider.dart';
+import '../../../core/services/job_request_service.dart';
 
 class JobPosterHomeScreen extends StatelessWidget {
   const JobPosterHomeScreen({super.key});
@@ -46,8 +48,7 @@ class _JobPosterHomeContentState extends State<_JobPosterHomeContent> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _showLocationPermissionPrompt();
-      // Active job redirect is now handled in OTP screen
-      // _maybeRedirectToAccepted();
+      _maybeRedirectToActiveJob();
     });
     _pages = [
       HomeScreen(),
@@ -55,6 +56,63 @@ class _JobPosterHomeContentState extends State<_JobPosterHomeContent> {
       const JobRequestsScreen(),
       const JobPosterProfileScreen(),
     ];
+  }
+
+  Future<void> _maybeRedirectToActiveJob() async {
+    try {
+      // Get job poster ID from provider
+      final phoneAuthProvider = Provider.of<PhoneAuthProvider>(
+        context,
+        listen: false,
+      );
+      final jobPosterId = phoneAuthProvider.loggedInUserId;
+      final jobPosterPhone = phoneAuthProvider.loggedInPhoneNumber;
+
+      if (jobPosterId == null || jobPosterId.isEmpty) return;
+
+      print(
+        '[JobPosterHome] Checking for active job - JobPosterId: $jobPosterId',
+      );
+
+      // Check for active job
+      final active = await JobRequestService.getActiveRequestForPoster(
+        jobPosterId,
+        posterPhone: jobPosterPhone,
+      );
+
+      if (!mounted || active == null) return;
+
+      final jobId = active['jobId'] as String?;
+      final requestId = active['requestId'] as String?;
+      final status = active['status'] as String?;
+
+      if (jobId == null || jobId.isEmpty) return;
+
+      print(
+        '[JobPosterHome] Found active job - JobId: $jobId, Status: $status',
+      );
+
+      // Redirect based on job status
+      if (status == 'in_progress') {
+        // In progress jobs go to job detail screen
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          '/job-poster-job-detail',
+          (route) => false,
+          arguments: {'jobId': jobId, 'requestId': requestId},
+        );
+      } else if (status == 'accepted') {
+        // Accepted jobs go to accepted details screen
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          '/job-poster-accepted-details',
+          (route) => false,
+          arguments: {'jobId': jobId, 'requestId': requestId},
+        );
+      }
+    } catch (e) {
+      print('[JobPosterHome] Error checking for active job: $e');
+    }
   }
 
   // Reserved for future: redirect to accepted/in-progress job if needed

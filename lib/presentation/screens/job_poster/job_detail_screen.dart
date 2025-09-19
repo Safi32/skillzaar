@@ -23,6 +23,7 @@ class JobDetailScreen extends StatelessWidget {
     String applicantName = "Loading...";
     String applicantEmail = "Loading...";
     String applicantPhone = "Loading...";
+    String skilledWorkerId = "";
 
     return SafeArea(
       child: WillPopScope(
@@ -36,7 +37,11 @@ class JobDetailScreen extends StatelessWidget {
           builder: (context, snapshot) {
             final status = snapshot.data?.data()?['status'] as String?;
             final isActive = snapshot.data?.data()?['isActive'] as bool?;
-            if (status == 'completed' || isActive == false) {
+            // Only redirect to home if job is completed or inactive, not for accepted or in_progress jobs
+            if (status == 'completed' ||
+                (isActive == false &&
+                    status != 'accepted' &&
+                    status != 'in_progress')) {
               WidgetsBinding.instance.addPostFrameCallback((_) {
                 if (!Navigator.of(context).canPop()) {
                   Navigator.pushNamedAndRemoveUntil(
@@ -101,6 +106,7 @@ class JobDetailScreen extends StatelessWidget {
                       String currentApplicantName = applicantName;
                       String currentApplicantPhone = applicantPhone;
                       String currentApplicantEmail = applicantEmail;
+                      String currentSkilledWorkerId = skilledWorkerId;
 
                       if (requestSnap.hasData &&
                           requestSnap.data?.data() != null) {
@@ -111,6 +117,8 @@ class JobDetailScreen extends StatelessWidget {
                         currentApplicantPhone =
                             requestData['skilledWorkerPhone'] ?? 'Unknown';
                         currentApplicantEmail = 'Not available';
+                        currentSkilledWorkerId =
+                            requestData['skilledWorkerId'] ?? '';
                       }
 
                       return _buildDrawer(
@@ -122,6 +130,7 @@ class JobDetailScreen extends StatelessWidget {
                         currentApplicantName,
                         currentApplicantEmail,
                         currentApplicantPhone,
+                        currentSkilledWorkerId,
                       );
                     },
                   ),
@@ -193,6 +202,8 @@ class JobDetailScreen extends StatelessWidget {
                                   'Unknown';
                               applicantEmail =
                                   'Not available'; // Email not stored in current schema
+                              skilledWorkerId =
+                                  requestData['skilledWorkerId'] ?? '';
                             }
 
                             return Column(
@@ -232,6 +243,10 @@ class JobDetailScreen extends StatelessWidget {
                                                   'name': applicantName,
                                                   'email': applicantEmail,
                                                   'phone': applicantPhone,
+                                                  'id': skilledWorkerId,
+                                                  'skilledWorkerId':
+                                                      skilledWorkerId,
+                                                  'uid': skilledWorkerId,
                                                 },
                                                 requestId: requestId,
                                               ),
@@ -305,6 +320,7 @@ class JobDetailScreen extends StatelessWidget {
     String applicantName,
     String applicantEmail,
     String applicantPhone,
+    String skilledWorkerId,
   ) {
     return Drawer(
       child: ListView(
@@ -414,6 +430,9 @@ class JobDetailScreen extends StatelessWidget {
                                   'name': applicantName,
                                   'email': applicantEmail,
                                   'phone': applicantPhone,
+                                  'id': skilledWorkerId,
+                                  'skilledWorkerId': skilledWorkerId,
+                                  'uid': skilledWorkerId,
                                 },
                                 requestId: requestId,
                               ),

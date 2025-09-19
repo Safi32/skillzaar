@@ -113,6 +113,8 @@ class _CnicScreenState extends State<CnicScreen> {
                                   front: frontImage!,
                                   back: backImage!,
                                 );
+
+                                // Redirect to profile screen after CNIC upload
                                 Navigator.pushNamed(
                                   context,
                                   '/skilled-worker-profile',

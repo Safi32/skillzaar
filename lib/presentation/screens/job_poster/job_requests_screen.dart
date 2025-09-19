@@ -31,6 +31,9 @@ class JobRequestsScreen extends StatelessWidget {
     print(
       '🔍 Job Requests Screen - Is Logged In: ${phoneAuthProvider.isLoggedIn}',
     );
+    print(
+      '🔍 Job Requests Screen - Phone Number: ${phoneAuthProvider.loggedInPhoneNumber}',
+    );
 
     if (jobPosterId == null) {
       return Scaffold(
@@ -77,8 +80,13 @@ class JobRequestsScreen extends StatelessWidget {
 
     return Scaffold(
       body: StreamBuilder<QuerySnapshot>(
-        // Fetch requests directly by jobPosterId, independent of job list
-        stream: JobRequestService.getJobRequestsForPoster(posterId),
+        // Use phone-based search since jobPosterId in requests might be different from user ID
+        stream:
+            phoneAuthProvider.loggedInPhoneNumber != null
+                ? JobRequestService.getJobRequestsForPosterByJobPosterId(
+                  phoneAuthProvider.loggedInPhoneNumber!,
+                )
+                : JobRequestService.getJobRequestsForPoster(posterId),
         builder: (context, reqSnapshot) {
           if (reqSnapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
@@ -110,86 +118,87 @@ class JobRequestsScreen extends StatelessWidget {
             return const JobRequestsEmptyState();
           }
 
-          // Group requests by jobId
-          final byJob = <String, List<QueryDocumentSnapshot>>{};
-          for (final doc in reqSnapshot.data!.docs) {
-            final data = doc.data() as Map<String, dynamic>;
-            final jobId = (data['jobId'] as String? ?? '').trim();
-            if (jobId.isEmpty) continue;
-            byJob.putIfAbsent(jobId, () => <QueryDocumentSnapshot>[]).add(doc);
-          }
-
-          final jobIds = byJob.keys.toList();
-
-          return ListView.builder(
-            itemCount: jobIds.length,
-            itemBuilder: (context, index) {
-              final jobId = jobIds[index];
-              final requests = byJob[jobId]!;
-
-              return FutureBuilder<DocumentSnapshot>(
-                future:
-                    FirebaseFirestore.instance
-                        .collection('Jobs')
-                        .doc(jobId)
-                        .get(),
-                builder: (context, jobSnap) {
-                  final jobTitle = () {
-                    if (jobSnap.hasData && jobSnap.data!.exists) {
-                      final d = jobSnap.data!.data() as Map<String, dynamic>;
-                      return d['title_en'] ??
-                          d['title_ur'] ??
-                          d['Name'] ??
-                          'No Title';
-                    }
-                    return 'Job';
-                  }();
-
-                  final sorted =
-                      requests.toList()..sort((a, b) {
-                        final aData = a.data() as Map<String, dynamic>;
-                        final bData = b.data() as Map<String, dynamic>;
-                        final aTime = aData['requestedAt'];
-                        final bTime = bData['requestedAt'];
-                        if (aTime == null && bTime == null) return 0;
-                        if (aTime == null) return 1;
-                        if (bTime == null) return -1;
-                        return bTime.compareTo(aTime);
-                      });
-
-                  final requestMaps =
-                      sorted
-                          .map((doc) => doc.data() as Map<String, dynamic>)
-                          .toList();
-                  final requestIds = sorted.map((doc) => doc.id).toList();
-
-                  return JobRequestCard(
-                    jobTitle: jobTitle,
-                    jobId: jobId,
-                    requests: requestMaps,
-                    requestIds: requestIds,
-                    onPortfolioTap: (req, requestId) {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder:
-                              (context) => PortfolioViewScreen(
-                                skilledWorkerId: req['skilledWorkerId'] ?? '',
-                                skilledWorkerName:
-                                    req['skilledWorkerName'] ?? 'Worker',
-                                jobId: jobId,
-                                requestId: requestId,
-                              ),
-                        ),
-                      );
-                    },
-                  );
-                },
-              );
-            },
-          );
+          // Process requests
+          return _buildRequestsList(reqSnapshot.data!.docs);
         },
       ),
+    );
+  }
+
+  Widget _buildRequestsList(List<QueryDocumentSnapshot> docs) {
+    // Group requests by jobId
+    final byJob = <String, List<QueryDocumentSnapshot>>{};
+    for (final doc in docs) {
+      final data = doc.data() as Map<String, dynamic>;
+      final jobId = (data['jobId'] as String? ?? '').trim();
+      if (jobId.isEmpty) continue;
+      byJob.putIfAbsent(jobId, () => <QueryDocumentSnapshot>[]).add(doc);
+    }
+
+    final jobIds = byJob.keys.toList();
+
+    return ListView.builder(
+      itemCount: jobIds.length,
+      itemBuilder: (context, index) {
+        final jobId = jobIds[index];
+        final requests = byJob[jobId]!;
+
+        return FutureBuilder<DocumentSnapshot>(
+          future: FirebaseFirestore.instance.collection('Job').doc(jobId).get(),
+          builder: (context, jobSnap) {
+            final jobTitle = () {
+              if (jobSnap.hasData && jobSnap.data!.exists) {
+                final d = jobSnap.data!.data() as Map<String, dynamic>;
+                return d['title_en'] ??
+                    d['title_ur'] ??
+                    d['Name'] ??
+                    'No Title';
+              }
+              return 'Job';
+            }();
+
+            final sorted =
+                requests.toList()..sort((a, b) {
+                  final aData = a.data() as Map<String, dynamic>;
+                  final bData = b.data() as Map<String, dynamic>;
+                  final aTime = aData['requestedAt'];
+                  final bTime = bData['requestedAt'];
+                  if (aTime == null && bTime == null) return 0;
+                  if (aTime == null) return 1;
+                  if (bTime == null) return -1;
+                  return bTime.compareTo(aTime);
+                });
+
+            final requestMaps =
+                sorted
+                    .map((doc) => doc.data() as Map<String, dynamic>)
+                    .toList();
+            final requestIds = sorted.map((doc) => doc.id).toList();
+
+            return JobRequestCard(
+              jobTitle: jobTitle,
+              jobId: jobId,
+              requests: requestMaps,
+              requestIds: requestIds,
+              onPortfolioTap: (req, requestId) {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder:
+                        (context) => PortfolioViewScreen(
+                          skilledWorkerId: req['skilledWorkerId'] ?? '',
+                          skilledWorkerName:
+                              req['skilledWorkerName'] ?? 'Worker',
+                          jobId: jobId,
+                          requestId: requestId,
+                        ),
+                  ),
+                );
+              },
+            );
+          },
+        );
+      },
     );
   }
 }

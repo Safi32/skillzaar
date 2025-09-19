@@ -1,44 +1,112 @@
 import 'package:flutter/material.dart';
+import 'package:skillzaar/core/examples/services/user_data_service.dart';
 import 'package:skillzaar/presentation/screens/skilled_worker/skilled_worker_profile.dart';
 import 'package:skillzaar/presentation/widgets/banner.dart';
+import 'package:skillzaar/core/services/performance_monitor.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
+
+  // Get all service types from the simple dropdown
+  List<String> _getServiceTypes() {
+    return [
+      'Cleaning Services',
+      'Plumbing Services',
+      'Carpentry & Furniture',
+      'Painting & Finishing',
+      'Masonry & Metalwork',
+      'Roofing Services',
+      'Glass & Installation',
+      'Outdoor & Gardening',
+      'Electrical Services',
+      'Appliance Deep Cleaning',
+      'Labour & Moving',
+      'Car Care Services',
+      'Water & Utility',
+      'Catering & Events',
+      'Residential & Commercial Construction',
+      'Design & Planning',
+      'Renovation & Finishing',
+      'Specialized Works',
+      'Outdoor Construction',
+    ];
+  }
+
+  // Get emoji for each service type
+  String _getServiceEmoji(String serviceType) {
+    switch (serviceType) {
+      case 'Cleaning Services':
+        return '🧹';
+      case 'Plumbing Services':
+        return '🔧';
+      case 'Carpentry & Furniture':
+        return '🪑';
+      case 'Painting & Finishing':
+        return '🎨';
+      case 'Masonry & Metalwork':
+        return '🧱';
+      case 'Roofing Services':
+        return '🏠';
+      case 'Glass & Installation':
+        return '🪟';
+      case 'Outdoor & Gardening':
+        return '🌳';
+      case 'Electrical Services':
+        return '💡';
+      case 'Appliance Deep Cleaning':
+        return '🏠';
+      case 'Labour & Moving':
+        return '👷';
+      case 'Car Care Services':
+        return '🚗';
+      case 'Water & Utility':
+        return '💧';
+      case 'Catering & Events':
+        return '🍴';
+      case 'Residential & Commercial Construction':
+        return '🏗';
+      case 'Design & Planning':
+        return '📐';
+      case 'Renovation & Finishing':
+        return '🛠';
+      case 'Specialized Works':
+        return '⚙';
+      case 'Outdoor Construction':
+        return '🌳';
+      default:
+        return '🛠';
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: Column(
         children: [
-          HireBanner(),
+          const HireBanner(),
           const SizedBox(height: 12),
 
           SizedBox(
-            height: 100,
-            child: ListView(
+            height: 90,
+            child: ListView.builder(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 12),
-              children: [
-                _buildChip("Electrician", 'assets/electrician.png'),
-                _buildChip("Plumber", 'assets/plumber.png'),
-                _buildChip("Cleaning", 'assets/broom.png'),
-                _buildChip("Painter", 'assets/painter.png'),
-                _buildChip("Labour", 'assets/labour-day.png'),
-                _buildChip("Roofing", 'assets/roof.png'),
-                _buildChip("Gardener", 'assets/gardener.png'),
-                _buildChip("Window", 'assets/window-cleaning.png'),
-                _buildChip("Catering", 'assets/catering.png'),
-                _buildChip("Car Wash", 'assets/carwash.png'),
-                _buildChip("Mason", 'assets/brickwork.png'),
-              ],
+              itemCount: _getServiceTypes().length,
+              itemBuilder: (context, index) {
+                final serviceType = _getServiceTypes()[index];
+                return _buildChip(
+                  serviceType,
+                  _getServiceEmoji(serviceType),
+                  serviceType,
+                );
+              },
             ),
           ),
-          const SizedBox(height: 16),          
+          const SizedBox(height: 16),
           Expanded(
             child: FutureBuilder<QuerySnapshot>(
-              future:
-                  FirebaseFirestore.instance.collection('SkilledWorkers').get(),
+              future: UserDataService.getApprovedSkilledWorkers(),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
@@ -53,7 +121,7 @@ class HomeScreen extends StatelessWidget {
                   return const Center(child: Text('No skilled workers found'));
                 }
 
-                return GridView.builder(
+                return PerformanceGridView(
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 2,
                     mainAxisSpacing: 12,
@@ -114,35 +182,43 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildChip(String label, String assetPath) {
-    return GestureDetector(
-      onTap: () {
-        // handle tap
-      },
-      child: SizedBox(
-        width: 80,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: Image.asset(
-                assetPath,
-                width: 40,
-                height: 40,
-                fit: BoxFit.contain,
+  Widget _buildChip(String label, String emoji, String serviceType) {
+    return RepaintBoundary(
+      child: GestureDetector(
+        onTap: () {
+          // TODO: Navigate to filtered workers by service type
+          print('Selected service type: $serviceType');
+        },
+        child: Container(
+          width: 70,
+          margin: const EdgeInsets.only(right: 6),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.grey.shade300),
+                ),
+                child: Text(emoji, style: const TextStyle(fontSize: 24)),
               ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              label,
-              style: TextStyle(
-                color: Colors.black87,
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
+              const SizedBox(height: 4),
+              Text(
+                label,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Colors.black87,
+                  fontSize: 9,
+                  fontWeight: FontWeight.w500,
+                  height: 1.1,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -170,101 +246,106 @@ class _JobCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 16),
-        height: 180,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          image: DecorationImage(
-            image: NetworkImage(imageUrl),
-            fit: BoxFit.cover,
+    return RepaintBoundary(
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 16),
+          height: 180,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            image: DecorationImage(
+              image: NetworkImage(imageUrl),
+              fit: BoxFit.cover,
+            ),
           ),
-        ),
-        child: Stack(
-          children: [
-            // Gradient for readability
-            Positioned.fill(
-              child: Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(16),
-                  gradient: LinearGradient(
-                    begin: Alignment.bottomCenter,
-                    end: Alignment.topCenter,
-                    colors: [
-                      Colors.black.withOpacity(0.6),
-                      Colors.transparent,
-                      Colors.transparent,
+          child: Stack(
+            children: [
+              // Gradient for readability
+              Positioned.fill(
+                child: Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(16),
+                    gradient: LinearGradient(
+                      begin: Alignment.bottomCenter,
+                      end: Alignment.topCenter,
+                      colors: [
+                        Colors.black.withOpacity(0.6),
+                        Colors.transparent,
+                        Colors.transparent,
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              Align(
+                alignment: Alignment.topRight,
+                child: Container(
+                  margin: const EdgeInsets.all(4),
+                  padding: const EdgeInsets.all(4.0),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.5),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.star, color: Colors.amber, size: 16),
+                      const SizedBox(width: 4),
+                      Text(
+                        rating.toStringAsFixed(1),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                        ),
+                      ),
                     ],
                   ),
                 ),
               ),
-            ),
-            Align(
-              alignment: Alignment.topRight,
-              child: Container(
-                margin: const EdgeInsets.all(4),
-                padding: const EdgeInsets.all(4.0),
-                decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.5),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.star, color: Colors.amber, size: 16),
-                    const SizedBox(width: 4),
-                    Text(
-                      rating.toStringAsFixed(1),
-                      style: const TextStyle(color: Colors.white, fontSize: 14),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            // Title, Rating, Price
-            Align(
-              alignment: Alignment.bottomLeft,
-              child: Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      title,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
+              // Title, Rating, Price
+              Align(
+                alignment: Alignment.bottomLeft,
+                child: Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        title,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-                    ),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          subtitle,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            subtitle,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                            ),
                           ),
-                        ),
-                        Text(
-                          price,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 13,
+                          Text(
+                            price,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 13,
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
-                  ],
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

@@ -97,6 +97,21 @@ class RoleSelectionScreen extends StatelessWidget {
                     ),
                   ),
                 ),
+                const SizedBox(height: 32),
+                // Admin access button (for testing)
+                TextButton(
+                  onPressed: () {
+                    Navigator.pushNamed(context, '/admin-worker-approval');
+                  },
+                  child: const Text(
+                    'Admin Panel (Worker Approval)',
+                    style: TextStyle(
+                      color: Colors.grey,
+                      fontSize: 14,
+                      decoration: TextDecoration.underline,
+                    ),
+                  ),
+                ),
               ],
             ),
           ),

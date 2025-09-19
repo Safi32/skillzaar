@@ -6,6 +6,15 @@ import '../providers/phone_auth_provider.dart' as poster_auth;
 import '../providers/skilled_worker_provider.dart' as worker_auth;
 import 'package:shared_preferences/shared_preferences.dart';
 
+/// Helper function to safely convert Timestamp to DateTime
+DateTime? _safeConvertToDateTime(dynamic value) {
+  if (value == null) return null;
+  if (value is DateTime) return value;
+  if (value is Timestamp) return value.toDate();
+  if (value is String) return DateTime.tryParse(value);
+  return null;
+}
+
 /// Gate that redirects user to an active job screen if one exists.
 /// For skilled worker: routes to '/skilled-worker-job-detail'.
 /// For job poster: routes to '/job-poster-job-detail'.
@@ -79,9 +88,7 @@ class _ActiveWorkGateState extends State<ActiveWorkGate> {
               'imageUrl': job['Image'] ?? '',
               'title': job['title_en'] ?? job['title_ur'] ?? '',
               'location': job['Address'] ?? job['Location'] ?? '',
-              'date': DateTime.tryParse(
-                (job['createdAt']?.toDate()?.toString()) ?? '',
-              ),
+              'date': _safeConvertToDateTime(job['createdAt']),
               'description':
                   job['description_en'] ?? job['description_ur'] ?? '',
               'jobId': spJobId,
@@ -141,9 +148,7 @@ class _ActiveWorkGateState extends State<ActiveWorkGate> {
               'imageUrl': job['Image'] ?? '',
               'title': job['title_en'] ?? job['title_ur'] ?? '',
               'location': job['Address'] ?? job['Location'] ?? '',
-              'date': DateTime.tryParse(
-                (job['createdAt']?.toDate()?.toString()) ?? '',
-              ),
+              'date': _safeConvertToDateTime(job['createdAt']),
               'description':
                   job['description_en'] ?? job['description_ur'] ?? '',
               'jobId': activeJobId,
@@ -183,9 +188,7 @@ class _ActiveWorkGateState extends State<ActiveWorkGate> {
               'imageUrl': job['Image'] ?? '',
               'title': job['title_en'] ?? job['title_ur'] ?? '',
               'location': job['Address'] ?? job['Location'] ?? '',
-              'date': DateTime.tryParse(
-                (job['createdAt']?.toDate()?.toString()) ?? '',
-              ),
+              'date': _safeConvertToDateTime(job['createdAt']),
               'description':
                   job['description_en'] ?? job['description_ur'] ?? '',
               'jobId': active['jobId'],
@@ -223,9 +226,47 @@ class _ActiveWorkGateState extends State<ActiveWorkGate> {
       final activeJobId = userDoc.data()?['activeJobId'] as String?;
       if (!mounted) return;
       if (activeJobId != null && activeJobId.isNotEmpty) {
+        // Check job status to determine which screen to redirect to
+        try {
+          final active = await JobRequestService.getActiveRequestForPoster(
+            poster.loggedInUserId!,
+            posterPhone: poster.loggedInPhoneNumber,
+          );
+          if (active != null) {
+            final status = active['status'] as String?;
+            if (status == 'in_progress') {
+              // In progress jobs go to job detail screen
+              Navigator.pushNamedAndRemoveUntil(
+                context,
+                '/job-poster-job-detail',
+                (route) => false,
+                arguments: {
+                  'jobId': activeJobId,
+                  'requestId': active['requestId'],
+                },
+              );
+            } else {
+              // Accepted jobs go to accepted details screen
+              Navigator.pushNamedAndRemoveUntil(
+                context,
+                '/job-poster-accepted-details',
+                (route) => false,
+                arguments: {
+                  'jobId': activeJobId,
+                  'requestId': active['requestId'],
+                },
+              );
+            }
+            return;
+          }
+        } catch (e) {
+          print('Error checking job status: $e');
+        }
+
+        // Fallback: redirect to accepted details screen
         Navigator.pushNamedAndRemoveUntil(
           context,
-          '/job-poster-job-detail',
+          '/job-poster-accepted-details',
           (route) => false,
           arguments: {
             'jobId': activeJobId,
@@ -254,9 +295,7 @@ class _ActiveWorkGateState extends State<ActiveWorkGate> {
               'imageUrl': job['Image'] ?? '',
               'title': job['title_en'] ?? job['title_ur'] ?? '',
               'location': job['Address'] ?? job['Location'] ?? '',
-              'date': DateTime.tryParse(
-                (job['createdAt']?.toDate()?.toString()) ?? '',
-              ),
+              'date': _safeConvertToDateTime(job['createdAt']),
               'description':
                   job['description_en'] ?? job['description_ur'] ?? '',
               'jobId': active['jobId'],
@@ -277,14 +316,29 @@ class _ActiveWorkGateState extends State<ActiveWorkGate> {
       );
       if (!mounted) return;
       if (active != null) {
-        Navigator.pushReplacementNamed(
-          context,
-          '/job-poster-job-detail',
-          arguments: {
-            'jobId': active['jobId'],
-            'requestId': active['requestId'],
-          },
-        );
+        final status = active['status'] as String?;
+        // For job posters, redirect based on job status
+        if (status == 'in_progress') {
+          // In progress jobs go to job detail screen
+          Navigator.pushReplacementNamed(
+            context,
+            '/job-poster-job-detail',
+            arguments: {
+              'jobId': active['jobId'],
+              'requestId': active['requestId'],
+            },
+          );
+        } else {
+          // Accepted jobs go to accepted details screen
+          Navigator.pushReplacementNamed(
+            context,
+            '/job-poster-accepted-details',
+            arguments: {
+              'jobId': active['jobId'],
+              'requestId': active['requestId'],
+            },
+          );
+        }
         return;
       }
     }

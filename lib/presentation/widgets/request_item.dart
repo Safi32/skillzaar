@@ -48,7 +48,9 @@ class RequestItem extends StatelessWidget {
             const SizedBox(width: 8),
             Text(
               req['requestedAt'] != null
-                  ? 'Requested: ${(req['requestedAt'] as Timestamp).toDate().toString().split(' ').first}'
+                  ? 'Requested: ${req['requestedAt'] is Timestamp 
+                      ? (req['requestedAt'] as Timestamp).toDate().toString().split(' ').first
+                      : req['requestedAt'].toString().split(' ').first}'
                   : 'Unknown date',
               style: const TextStyle(fontSize: 12, color: Colors.grey),
             ),

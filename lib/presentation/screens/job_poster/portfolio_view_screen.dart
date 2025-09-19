@@ -92,7 +92,14 @@ class PortfolioViewScreen extends StatelessWidget {
                 backgroundColor: Colors.green,
               ),
             );
-            Navigator.of(context).pop();
+
+            // Redirect to job poster accepted details screen for accepted jobs
+            Navigator.pushNamedAndRemoveUntil(
+              context,
+              '/job-poster-accepted-details',
+              (route) => false,
+              arguments: {'jobId': jobId, 'requestId': requestId},
+            );
           }
         } else {
           if (context.mounted) {

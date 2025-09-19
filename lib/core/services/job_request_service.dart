@@ -242,11 +242,197 @@ class JobRequestService {
 
   /// Get job requests for a job poster
   static Stream<QuerySnapshot> getJobRequestsForPoster(String jobPosterId) {
-    return _firestore
-        .collection('JobRequests')
-        .where('jobPosterId', isEqualTo: jobPosterId)
-        .where('isActive', isEqualTo: true)
-        .snapshots();
+    print('🔍 JobRequestService.getJobRequestsForPoster:');
+    print('👤 Job Poster ID: $jobPosterId');
+
+    final stream =
+        _firestore
+            .collection('JobRequests')
+            .where('jobPosterId', isEqualTo: jobPosterId)
+            .where('isActive', isEqualTo: true)
+            .snapshots();
+
+    // Add listener to debug
+    stream.listen((snapshot) {
+      print('📊 Job Requests found: ${snapshot.docs.length}');
+      for (var doc in snapshot.docs) {
+        print('📄 Request ID: ${doc.id}');
+        print('📄 Request Data: ${doc.data()}');
+      }
+    });
+
+    return stream;
+  }
+
+  static Stream<QuerySnapshot> getJobRequestsForPosterByPhone(
+    String phoneNumber,
+  ) {
+    print('🔍 JobRequestService.getJobRequestsForPosterByPhone:');
+    print('📱 Phone Number: $phoneNumber');
+
+    // Generate multiple phone number formats to search for
+    final phoneVariants = <String>{phoneNumber};
+    if (phoneNumber.startsWith('+92') && phoneNumber.length == 13) {
+      phoneVariants.add('0${phoneNumber.substring(3)}');
+      phoneVariants.add(phoneNumber.substring(3));
+    } else if (phoneNumber.startsWith('0') && phoneNumber.length == 11) {
+      phoneVariants.add('+92${phoneNumber.substring(1)}');
+      phoneVariants.add(phoneNumber.substring(1));
+    } else if (phoneNumber.length == 10 && phoneNumber.startsWith('3')) {
+      phoneVariants.add('+92$phoneNumber');
+      phoneVariants.add('0$phoneNumber');
+    }
+
+    print('📱 Phone variants to search: $phoneVariants');
+
+    // First, get all jobs created by this phone number
+    final jobsStream =
+        _firestore
+            .collection('Job')
+            .where('posterPhone', whereIn: phoneVariants.toList())
+            .snapshots();
+
+    return jobsStream.asyncMap((jobsSnapshot) async {
+      if (jobsSnapshot.docs.isEmpty) {
+        print('📊 No jobs found for phone: $phoneNumber');
+        // Return an empty QuerySnapshot by querying for non-existent data
+        return await _firestore
+            .collection('JobRequests')
+            .where('jobId', isEqualTo: 'NON_EXISTENT_JOB_ID')
+            .where('isActive', isEqualTo: true)
+            .get();
+      }
+
+      final jobIds = jobsSnapshot.docs.map((doc) => doc.id).toList();
+      final jobPosterIds =
+          jobsSnapshot.docs
+              .map((doc) {
+                final data = doc.data();
+                return data['jobPosterId'] as String?;
+              })
+              .where((id) => id != null && id.isNotEmpty)
+              .toList();
+
+      print('📊 Found ${jobIds.length} jobs for phone: $phoneNumber');
+      print('📊 Job IDs: $jobIds');
+      print('📊 Job Poster IDs: $jobPosterIds');
+
+      // Debug: Print job details to see what phone numbers are stored
+      for (var doc in jobsSnapshot.docs) {
+        final data = doc.data();
+        print(
+          '📊 Job ${doc.id} - posterPhone: ${data['posterPhone']}, jobPosterId: ${data['jobPosterId']}',
+        );
+      }
+
+      // Get all requests for these jobs
+      final requestsSnapshot =
+          await _firestore
+              .collection('JobRequests')
+              .where('jobId', whereIn: jobIds)
+              .where('isActive', isEqualTo: true)
+              .get();
+
+      print('📊 Found ${requestsSnapshot.docs.length} requests for these jobs');
+      for (var doc in requestsSnapshot.docs) {
+        print('📄 Request ID: ${doc.id}');
+        print('📄 Request Data: ${doc.data()}');
+      }
+
+      return requestsSnapshot;
+    }).asBroadcastStream();
+  }
+
+  /// Get job requests for a job poster by jobPosterId from job documents (fallback)
+  static Stream<QuerySnapshot> getJobRequestsForPosterByJobPosterId(
+    String phoneNumber,
+  ) {
+    print('🔍 JobRequestService.getJobRequestsForPosterByJobPosterId:');
+    print('📱 Phone Number: $phoneNumber');
+
+    // Generate multiple phone number formats to search for
+    final phoneVariants = <String>{phoneNumber};
+    if (phoneNumber.startsWith('+92') && phoneNumber.length == 13) {
+      phoneVariants.add('0${phoneNumber.substring(3)}');
+      phoneVariants.add(phoneNumber.substring(3));
+    } else if (phoneNumber.startsWith('0') && phoneNumber.length == 11) {
+      phoneVariants.add('+92${phoneNumber.substring(1)}');
+      phoneVariants.add(phoneNumber.substring(1));
+    } else if (phoneNumber.length == 10 && phoneNumber.startsWith('3')) {
+      phoneVariants.add('+92$phoneNumber');
+      phoneVariants.add('0$phoneNumber');
+    }
+
+    print('📱 Phone variants to search: $phoneVariants');
+
+    // First, get all jobs created by this phone number and extract their jobPosterIds
+    final jobsStream =
+        _firestore
+            .collection('Job')
+            .where('posterPhone', whereIn: phoneVariants.toList())
+            .snapshots();
+
+    return jobsStream.asyncMap((jobsSnapshot) async {
+      if (jobsSnapshot.docs.isEmpty) {
+        print('📊 No jobs found for phone: $phoneNumber');
+        // Return an empty QuerySnapshot by querying for non-existent data
+        return await _firestore
+            .collection('JobRequests')
+            .where('jobId', isEqualTo: 'NON_EXISTENT_JOB_ID')
+            .where('isActive', isEqualTo: true)
+            .get();
+      }
+
+      // Extract jobPosterIds from job documents
+      final jobPosterIds =
+          jobsSnapshot.docs
+              .map((doc) {
+                final data = doc.data();
+                return data['jobPosterId'] as String?;
+              })
+              .where((id) => id != null && id.isNotEmpty)
+              .toList();
+
+      print(
+        '📊 Found ${jobPosterIds.length} unique job poster IDs for phone: $phoneNumber',
+      );
+      print('📊 Job Poster IDs: $jobPosterIds');
+
+      // Debug: Print job details to see what phone numbers are stored
+      for (var doc in jobsSnapshot.docs) {
+        final data = doc.data();
+        print(
+          '📊 Job ${doc.id} - posterPhone: ${data['posterPhone']}, jobPosterId: ${data['jobPosterId']}',
+        );
+      }
+
+      if (jobPosterIds.isEmpty) {
+        print('📊 No job poster IDs found in job documents');
+        return await _firestore
+            .collection('JobRequests')
+            .where('jobId', isEqualTo: 'NON_EXISTENT_JOB_ID')
+            .where('isActive', isEqualTo: true)
+            .get();
+      }
+
+      // Get all requests for these job poster IDs
+      final requestsSnapshot =
+          await _firestore
+              .collection('JobRequests')
+              .where('jobPosterId', whereIn: jobPosterIds)
+              .where('isActive', isEqualTo: true)
+              .get();
+
+      print(
+        '📊 Found ${requestsSnapshot.docs.length} requests for these job poster IDs',
+      );
+      for (var doc in requestsSnapshot.docs) {
+        print('📄 Request ID: ${doc.id}');
+        print('📄 Request Data: ${doc.data()}');
+      }
+
+      return requestsSnapshot;
+    }).asBroadcastStream();
   }
 
   /// Best-effort normalization to rewrite legacy JobRequests with a
@@ -1251,11 +1437,11 @@ class JobRequestService {
   static Stream<QuerySnapshot> getAcceptedJobsForWorker(
     String skilledWorkerId,
   ) {
+    // Remove orderBy to avoid composite index; sort client-side where consumed
     return _firestore
         .collection('AcceptedJobs')
         .where('skilledWorkerId', isEqualTo: skilledWorkerId)
         .where('isActive', isEqualTo: true)
-        .orderBy('acceptedAt', descending: true)
         .snapshots();
   }
 
@@ -1265,7 +1451,6 @@ class JobRequestService {
         .collection('AcceptedJobs')
         .where('jobPosterId', isEqualTo: jobPosterId)
         .where('isActive', isEqualTo: true)
-        .orderBy('acceptedAt', descending: true)
         .snapshots();
   }
 
@@ -1274,7 +1459,6 @@ class JobRequestService {
     return _firestore
         .collection('AcceptedJobs')
         .where('isActive', isEqualTo: true)
-        .orderBy('acceptedAt', descending: true)
         .snapshots();
   }
 
@@ -1533,6 +1717,87 @@ class JobRequestService {
       }
     } catch (e) {
       print('❌ Error updating job poster average rating: $e');
+    }
+  }
+
+  /// Submit rating for skilled worker by job poster
+  static Future<bool> submitSkilledWorkerRating({
+    required String skilledWorkerId,
+    required double rating,
+    required String feedback,
+    String? requestId,
+  }) async {
+    try {
+      print('🔍 Submitting skilled worker rating:');
+      print('  Skilled Worker ID: $skilledWorkerId');
+      print('  Rating: $rating');
+      print('  Feedback: $feedback');
+      print('  Request ID: $requestId');
+
+      final ratingData = {
+        'skilledWorkerId': skilledWorkerId,
+        'jobPosterId': getCurrentUserId(),
+        'rating': rating,
+        'feedback': feedback,
+        'ratedAt': FieldValue.serverTimestamp(),
+        'requestId': requestId,
+      };
+
+      // Save rating to SkilledWorkerRatings collection
+      await _firestore.collection('SkilledWorkerRatings').add(ratingData);
+
+      // Update skilled worker's average rating
+      await _updateSkilledWorkerAverageRating(skilledWorkerId);
+
+      print('✅ Skilled worker rating submitted successfully');
+      return true;
+    } catch (e) {
+      print('❌ Error submitting skilled worker rating: $e');
+      return false;
+    }
+  }
+
+  /// Update skilled worker's average rating
+  static Future<void> _updateSkilledWorkerAverageRating(
+    String skilledWorkerId,
+  ) async {
+    try {
+      // Get all ratings for this skilled worker
+      final ratingsSnapshot =
+          await _firestore
+              .collection('SkilledWorkerRatings')
+              .where('skilledWorkerId', isEqualTo: skilledWorkerId)
+              .get();
+
+      if (ratingsSnapshot.docs.isEmpty) return;
+
+      double totalRating = 0;
+      int ratingCount = 0;
+
+      for (final doc in ratingsSnapshot.docs) {
+        final data = doc.data();
+        final r = data['rating'];
+        if (r is num) {
+          totalRating += r.toDouble();
+          ratingCount++;
+        }
+      }
+
+      if (ratingCount > 0) {
+        final averageRating = totalRating / ratingCount;
+
+        await _firestore.collection('SkilledWorkers').doc(skilledWorkerId).set({
+          'averageRating': averageRating,
+          'ratingCount': ratingCount,
+          'lastRatedAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
+
+        print(
+          '✅ Updated skilled worker average rating: $averageRating ($ratingCount ratings)',
+        );
+      }
+    } catch (e) {
+      print('❌ Error updating skilled worker average rating: $e');
     }
   }
 

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../core/services/notification_service.dart';
+import 'package:skillzaar/core/examples/services/notification_service.dart';
+
 
 class NotificationProvider extends ChangeNotifier {
   final NotificationService _notificationService = NotificationService();

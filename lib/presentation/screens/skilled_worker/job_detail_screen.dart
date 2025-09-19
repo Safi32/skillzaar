@@ -445,6 +445,42 @@ class _JobDetailContentState extends State<_JobDetailContent> {
       return;
     }
 
+    // Check if location services are available before navigating
+    final provider = Provider.of<SkilledWorkerProvider>(context, listen: false);
+
+    // Show loading indicator
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Row(
+          children: [
+            SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+              ),
+            ),
+            SizedBox(width: 16),
+            Text('Preparing navigation...'),
+          ],
+        ),
+        backgroundColor: Colors.blue,
+        duration: Duration(seconds: 2),
+      ),
+    );
+
+    // Try to initialize location services if not already available
+    if (provider.currentLatitude == null || provider.currentLongitude == null) {
+      try {
+        await provider.initializeLocationServices();
+        // Wait a moment for location to be fetched
+        await Future.delayed(const Duration(seconds: 2));
+      } catch (e) {
+        print('Error initializing location: $e');
+      }
+    }
+
     Navigator.push(
       context,
       MaterialPageRoute(

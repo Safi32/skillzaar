@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-// import 'package:firebase_storage/firebase_storage.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'dart:io';
 import 'notification_provider.dart';
 import 'package:provider/provider.dart';
@@ -43,40 +43,51 @@ class JobProvider with ChangeNotifier {
     required String description_en,
     required String description_ur,
     required File? image,
+    required double price,
     required String location,
     required String address,
     required double latitude,
     required double longitude,
     required BuildContext context,
+    String? serviceType,
   }) async {
     _isLoading = true;
     _error = null;
     _success = null;
     notifyListeners();
 
-    // Require authenticated job poster
+    // Get the actual logged-in user's ID from phone auth provider
     final phoneAuthProvider = Provider.of<auth_provider.PhoneAuthProvider>(
       context,
       listen: false,
     );
 
-    if (!(phoneAuthProvider.isLoggedIn &&
-        phoneAuthProvider.loggedInUserId != null)) {
-      _isLoading = false;
-      _error = 'Please log in and verify your phone to post a job.';
-      notifyListeners();
-      return;
-    }
-
-    final String jobPosterId = phoneAuthProvider.loggedInUserId!;
+    final String jobPosterId =
+        phoneAuthProvider.loggedInUserId ??
+        'job_poster_${DateTime.now().millisecondsSinceEpoch}';
     final String posterPhone =
-        phoneAuthProvider.loggedInPhoneNumber ?? 'unknown';
+        phoneAuthProvider.loggedInPhoneNumber ?? 'unknown_phone';
 
-    print('🔍 Posting Job:');
+    print('🔍 Posting Job (Logged-in User):');
     print('  Job Poster ID: $jobPosterId');
     print('  Job Poster Phone: $posterPhone');
 
     String imageUrl = "https://via.placeholder.com/150";
+
+    // Upload image to Firebase Storage if provided
+    try {
+      if (image != null) {
+        final String filename =
+            'jobs/$jobPosterId/${DateTime.now().millisecondsSinceEpoch}.jpg';
+        final Reference ref = FirebaseStorage.instance.ref(filename);
+        final UploadTask uploadTask = ref.putFile(image);
+        final TaskSnapshot snapshot = await uploadTask.whenComplete(() {});
+        imageUrl = await snapshot.ref.getDownloadURL();
+      }
+    } catch (e) {
+      // Do not fail the whole job if image upload fails; keep placeholder
+      print('Image upload failed: $e');
+    }
 
     final jobData = {
       'title_en': name_en,
@@ -84,6 +95,8 @@ class JobProvider with ChangeNotifier {
       'description_en': description_en,
       'description_ur': description_ur,
       'Image': imageUrl,
+      'price': price,
+      'currency': 'PKR',
       'Location': location,
       'Address': address,
       'Latitude': latitude,
@@ -93,6 +106,8 @@ class JobProvider with ChangeNotifier {
       'createdAt': FieldValue.serverTimestamp(),
       'status': 'pending',
       'isActive': true,
+      // Service type information
+      'serviceType': serviceType,
     };
 
     try {
@@ -107,7 +122,7 @@ class JobProvider with ChangeNotifier {
           jobDescription: description_en,
           jobId: docRef.id,
           location: location,
-          budget: 0.0, // You might want to add budget field to your job data
+          budget: price,
         );
 
         // Send push notification to job poster (self)

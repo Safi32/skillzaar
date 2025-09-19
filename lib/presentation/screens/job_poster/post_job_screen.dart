@@ -7,6 +7,7 @@ import '../../widgets/job_description_input.dart';
 import '../../widgets/job_location_picker.dart';
 import '../../widgets/job_image_picker.dart';
 import '../../widgets/post_job_button.dart';
+import '../../widgets/simple_service_dropdown.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 
@@ -39,10 +40,12 @@ class _PostJobContent extends StatefulWidget {
 class _PostJobContentState extends State<_PostJobContent> {
   final TextEditingController titleController = TextEditingController();
   final TextEditingController descriptionController = TextEditingController();
+  final TextEditingController priceController = TextEditingController();
   final List<File> images = [];
   String selectedAddress = '';
   double? selectedLatitude;
   double? selectedLongitude;
+  String? selectedServiceType;
 
   Future<void> pickImage() async {
     if (images.length >= 3) return;
@@ -108,6 +111,44 @@ class _PostJobContentState extends State<_PostJobContent> {
               const SizedBox(height: 24),
               JobDescriptionInput(controller: descriptionController),
               const SizedBox(height: 24),
+              SimpleServiceDropdown(
+                selectedService: selectedServiceType,
+                onServiceSelected: (service) {
+                  setState(() {
+                    selectedServiceType = service;
+                  });
+                },
+              ),
+              const SizedBox(height: 24),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Price (PKR)',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: priceController,
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    decoration: InputDecoration(
+                      prefixText: '₨ ',
+                      hintText: 'e.g. 1500',
+                      contentPadding: const EdgeInsets.symmetric(
+                        vertical: 16,
+                        horizontal: 16,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(color: Colors.grey),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
               JobLocationPicker(
                 onLocationSelected: (address, lat, lng) {
                   setState(() {
@@ -132,12 +173,26 @@ class _PostJobContentState extends State<_PostJobContent> {
                         : () async {
                           if (titleController.text.isEmpty ||
                               descriptionController.text.isEmpty ||
-                              selectedAddress.isEmpty) {
+                              selectedAddress.isEmpty ||
+                              priceController.text.isEmpty ||
+                              selectedServiceType == null) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
                                 content: Text(
-                                  'Please fill all required fields',
+                                  'Please fill all required fields including service type',
                                 ),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                            return;
+                          }
+                          final parsedPrice = double.tryParse(
+                            priceController.text.replaceAll(',', ''),
+                          );
+                          if (parsedPrice == null || parsedPrice < 0) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Enter a valid price in PKR'),
                                 backgroundColor: Colors.red,
                               ),
                             );
@@ -151,11 +206,13 @@ class _PostJobContentState extends State<_PostJobContent> {
                               description_en: descriptionController.text,
                               description_ur: descriptionController.text,
                               image: images.isNotEmpty ? images.first : null,
+                              price: parsedPrice,
                               location: selectedAddress,
                               address: selectedAddress,
                               latitude: selectedLatitude ?? 0.0,
                               longitude: selectedLongitude ?? 0.0,
                               context: context,
+                              serviceType: selectedServiceType,
                             );
                             if (widget.jobProvider.success != null) {
                               ScaffoldMessenger.of(context).showSnackBar(
@@ -172,7 +229,9 @@ class _PostJobContentState extends State<_PostJobContent> {
                                 selectedAddress = '';
                                 selectedLatitude = null;
                                 selectedLongitude = null;
+                                selectedServiceType = null;
                               });
+                              priceController.clear();
                               Navigator.of(context).pop();
                             } else if (widget.jobProvider.error != null) {
                               ScaffoldMessenger.of(context).showSnackBar(

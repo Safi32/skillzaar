@@ -94,6 +94,7 @@ class UserOtpScreen extends StatelessWidget {
                         await phoneAuthProvider.verifyOtp(
                           phoneAuthProvider.otpController.text.trim(),
                           context,
+                          isSignUp: true,
                         );
 
                         if (phoneAuthProvider.error == null) {

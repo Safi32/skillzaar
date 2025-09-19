@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:skillzaar/core/examples/services/user_data_service.dart';
 import '../../providers/skilled_worker_provider.dart';
-import '../../providers/ui_state_provider.dart';
 import '../../../core/theme/app_theme.dart';
+
 
 class SkilledWorkerLoginScreen extends StatefulWidget {
   const SkilledWorkerLoginScreen({super.key});
@@ -14,6 +15,69 @@ class SkilledWorkerLoginScreen extends StatefulWidget {
 
 class _SkilledWorkerLoginScreenState extends State<SkilledWorkerLoginScreen> {
   final TextEditingController phoneController = TextEditingController();
+  bool isLoading = false;
+
+  // Phone number validation function
+  bool isValidPhoneNumber(String phone) {
+    // Remove any spaces, dashes, or parentheses
+    String cleanPhone = phone.replaceAll(RegExp(r'[\s\-\(\)]'), '');
+
+    // Check if it's 11 digits (Pakistani number format)
+    if (cleanPhone.length == 11 && cleanPhone.startsWith('0')) {
+      return true;
+    }
+
+    // Check if it's 10 digits (without leading 0)
+    if (cleanPhone.length == 10) {
+      return true;
+    }
+
+    // Check if it's 12 digits starting with 92
+    if (cleanPhone.length == 12 && cleanPhone.startsWith('92')) {
+      return true;
+    }
+
+    // Check if it's 13 digits starting with +92
+    if (cleanPhone.length == 13 && cleanPhone.startsWith('+92')) {
+      return true;
+    }
+
+    return false;
+  }
+
+  // Format phone number to standard format
+  String formatPhoneNumber(String input) {
+    input = input.trim();
+    input = input.replaceAll(RegExp(r'[\s\-\(\)]'), '');
+
+    // If already starts with +, return as is
+    if (input.startsWith('+')) {
+      return input;
+    }
+
+    // If starts with 0 and is 11 digits (Pakistani number)
+    if (input.startsWith('0') && input.length == 11) {
+      return '+92' + input.substring(1);
+    }
+
+    // If starts with 92 and is 12 digits
+    if (input.startsWith('92') && input.length == 12) {
+      return '+' + input;
+    }
+
+    // If 10 digits, assume Pakistani number
+    if (input.length == 10) {
+      return '+92' + input;
+    }
+
+    // If 11 digits without 0, assume Pakistani number
+    if (input.length == 11 && !input.startsWith('0')) {
+      return '+92' + input;
+    }
+
+    // Return as is if no pattern matches
+    return input;
+  }
 
   @override
   void dispose() {
@@ -65,54 +129,175 @@ class _SkilledWorkerLoginScreenState extends State<SkilledWorkerLoginScreen> {
                         labelText: 'Phone Number',
                         hintText: 'Enter your phone number',
                       ),
-                      enabled: !skilledWorkerProvider.isLoading,
+                      enabled: !isLoading,
                     ),
                   ],
                 ),
                 const SizedBox(height: 24),
-                if (skilledWorkerProvider.error != null)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 8.0),
-                    child: Text(
-                      skilledWorkerProvider.error!,
-                      style: const TextStyle(color: Colors.red),
-                    ),
-                  ),
                 Center(
                   child: SizedBox(
                     width: double.infinity,
                     height: 48,
                     child: ElevatedButton(
                       onPressed:
-                          skilledWorkerProvider.isLoading
+                          isLoading
                               ? null
                               : () async {
-                                final rawInput = phoneController.text.trim();
-                                if (rawInput.isEmpty) {
-                                  context.read<UIStateProvider>().showWarningToast(
-                                    context,
-                                    'Phone Required',
-                                    'Please enter a phone number to continue.',
+                                final input = phoneController.text.trim();
+                                if (input.isEmpty) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                        'Please enter your phone number',
+                                      ),
+                                      backgroundColor: Colors.red,
+                                    ),
                                   );
                                   return;
                                 }
 
-                                // Send OTP to allowed test numbers and navigate to OTP screen
-                                skilledWorkerProvider.verifyPhone(rawInput);
-
-                                // Give provider a moment to update state
-                                await Future.delayed(
-                                  const Duration(milliseconds: 100),
-                                );
-
-                                if (mounted &&
-                                    skilledWorkerProvider.error == null) {
-                                  Navigator.pushNamed(
-                                    context,
-                                    '/skilled-worker-otp',
-                                    arguments: {'phone': rawInput},
+                                // Validate phone number length (minimum 11 digits)
+                                if (!isValidPhoneNumber(input)) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                        'Phone number must be at least 11 digits',
+                                      ),
+                                      backgroundColor: Colors.red,
+                                    ),
                                   );
+                                  return;
                                 }
+
+                                setState(() {
+                                  isLoading = true;
+                                });
+
+                                try {
+                                  // Format phone number
+                                  final formattedPhone = formatPhoneNumber(
+                                    input,
+                                  );
+
+                                  // Check if user is already registered
+                                  print(
+                                    '🔍 Checking skilled worker existence:',
+                                  );
+                                  print('📱 Formatted phone: $formattedPhone');
+
+                                  final userExists =
+                                      await UserDataService.userExistsByPhone(
+                                        phoneNumber: formattedPhone,
+                                        userType: 'skilled_worker',
+                                      );
+
+                                  print('✅ Skilled worker exists: $userExists');
+
+                                  if (userExists) {
+                                    print(
+                                      '🏠 Navigating to skilled worker home screen',
+                                    );
+
+                                    // Get user data to get the actual user ID
+                                    final userData =
+                                        await UserDataService.getUserDataByPhone(
+                                          phoneNumber: formattedPhone,
+                                          userType: 'skilled_worker',
+                                        );
+
+                                    String userId;
+                                    if (userData != null && userData.exists) {
+                                      userId = userData.id;
+                                      print(
+                                        '✅ Found existing user with ID: $userId',
+                                      );
+                                    } else {
+                                      // Fallback: generate dynamic user ID
+                                      userId =
+                                          'skilled_worker_${formattedPhone.replaceAll('+', '').replaceAll(' ', '')}_${DateTime.now().millisecondsSinceEpoch}';
+                                    }
+
+                                    // Set authentication state in provider
+                                    skilledWorkerProvider.setLoggedInState(
+                                      userId: userId,
+                                      phoneNumber: formattedPhone,
+                                    );
+
+                                    // Check approval status before redirecting
+                                    final userDataMap =
+                                        userData?.data()
+                                            as Map<String, dynamic>?;
+                                    final approvalStatus =
+                                        userDataMap?['approvalStatus'] ??
+                                        'pending';
+
+                                    if (approvalStatus == 'approved') {
+                                      // User is approved, navigate to home screen
+                                      Navigator.pushNamedAndRemoveUntil(
+                                        context,
+                                        '/skilled-worker-home',
+                                        (route) => false,
+                                      );
+                                    } else {
+                                      // User is not approved, redirect to approval waiting screen
+                                      Navigator.pushNamedAndRemoveUntil(
+                                        context,
+                                        '/skilled-worker-approval-waiting',
+                                        (route) => false,
+                                        arguments: {
+                                          'userId': userId,
+                                          'phoneNumber': formattedPhone,
+                                        },
+                                      );
+                                    }
+                                  } else {
+                                    print(
+                                      '📝 Skilled worker not found, showing register message',
+                                    );
+                                    // User is not registered, show register message
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text(
+                                          'No account found with this phone number. Please register first.',
+                                        ),
+                                        backgroundColor: Colors.red,
+                                        duration: Duration(seconds: 3),
+                                      ),
+                                    );
+                                  }
+                                } catch (e) {
+                                  if (mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          'Error checking account: $e',
+                                        ),
+                                        backgroundColor: Colors.red,
+                                      ),
+                                    );
+                                  }
+                                } finally {
+                                  if (mounted) {
+                                    setState(() {
+                                      isLoading = false;
+                                    });
+                                  }
+                                }
+
+                                // COMMENTED OUT OTP CODE - TO BE USED DURING DEPLOYMENT
+                                /*
+                                // Start verification and navigate immediately so user can enter OTP
+                                skilledWorkerProvider.verifyPhone(rawInput);
+                                if (!mounted) return;
+                                Navigator.pushNamed(
+                                  context,
+                                  '/skilled-worker-otp',
+                                  arguments: {
+                                    'phone': rawInput,
+                                    'isSignUp': false,
+                                  },
+                                );
+                                */
                               },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.green,
@@ -122,7 +307,7 @@ class _SkilledWorkerLoginScreenState extends State<SkilledWorkerLoginScreen> {
                         elevation: 1,
                       ),
                       child:
-                          skilledWorkerProvider.isLoading
+                          isLoading
                               ? const CircularProgressIndicator(
                                 color: Colors.white,
                               )

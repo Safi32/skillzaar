@@ -4,9 +4,12 @@ import 'package:firebase_auth/firebase_auth.dart' as fb_auth;
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:skillzaar/core/examples/services/recaptcha_service.dart';
 import '../../../core/utils/permission_handler.dart';
 import '../../../core/services/job_request_service.dart';
 import '../../../core/services/user_storage_service.dart';
+
+import '../../../core/services/location_tracking_service.dart';
 import 'dart:io';
 
 String formatPhoneNumber(String input) {
@@ -34,6 +37,21 @@ class SkilledWorkerProvider with ChangeNotifier {
   bool get isLoggedIn => _isLoggedIn;
   String? get loggedInUserId => _loggedInUserId;
   String? get loggedInPhoneNumber => _loggedInPhoneNumber;
+  bool get isOtpSent => _verificationId != null;
+
+  /// Set logged in state for direct login (without OTP)
+  void setLoggedInState({required String userId, required String phoneNumber}) {
+    _isLoggedIn = true;
+    _loggedInUserId = userId;
+    _loggedInPhoneNumber = phoneNumber;
+    _currentPhoneNumber = phoneNumber;
+
+    // Start location tracking for the worker
+    LocationTrackingService().startLocationTracking(userId);
+
+    notifyListeners();
+    print('✅ Skilled Worker logged in state set: $userId, $phoneNumber');
+  }
 
   /// Verify OTP and sign in (skilled worker)
   Future<bool> login(String phoneNumber, String otp) async {
@@ -55,17 +73,25 @@ class SkilledWorkerProvider with ChangeNotifier {
         verificationId: _verificationId!,
         smsCode: otp,
       );
-      await fb_auth.FirebaseAuth.instance.signInWithCredential(credential);
+      final userCred = await fb_auth.FirebaseAuth.instance.signInWithCredential(
+        credential,
+      );
 
       _isLoggedIn = true;
       _loggedInPhoneNumber = phoneNumber;
       _currentPhoneNumber = phoneNumber;
-      _loggedInUserId = 'SKILLED_WORKER_${phoneNumber.replaceAll('0', '')}';
+      _loggedInUserId = userCred.user?.uid;
 
       print('✅ Skilled Worker login successful: $_loggedInUserId');
 
       // Check for active job and set SharedPreferences flags
       await _checkAndSetActiveJobFlags();
+
+      // Start location tracking for the worker
+      if (_loggedInUserId != null) {
+        // Fire and forget; service handles permission checks internally
+        LocationTrackingService().startLocationTracking(_loggedInUserId!);
+      }
 
       _isLoading = false;
       notifyListeners();
@@ -76,6 +102,92 @@ class SkilledWorkerProvider with ChangeNotifier {
       _isLoading = false;
       notifyListeners();
       return false;
+    }
+  }
+
+  /// Verify OTP and sign up (skilled worker)
+  Future<bool> signup(String phoneNumber, String otp) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    print('🔐 Skilled Worker OTP signup: $phoneNumber');
+
+    try {
+      if (_verificationId == null) {
+        _error = 'No verification ID. Please request OTP again.';
+        _isLoading = false;
+        notifyListeners();
+        return false;
+      }
+
+      final credential = fb_auth.PhoneAuthProvider.credential(
+        verificationId: _verificationId!,
+        smsCode: otp,
+      );
+      final userCred = await fb_auth.FirebaseAuth.instance.signInWithCredential(
+        credential,
+      );
+
+      _isLoggedIn = true;
+      _loggedInPhoneNumber = phoneNumber;
+      _currentPhoneNumber = phoneNumber;
+      _loggedInUserId = userCred.user?.uid;
+
+      print('✅ Skilled Worker signup successful: $_loggedInUserId');
+
+      // Create skilled worker document
+      await _createSkilledWorkerDocument();
+
+      // Start location tracking for the worker
+      if (_loggedInUserId != null) {
+        LocationTrackingService().startLocationTracking(_loggedInUserId!);
+      }
+
+      _isLoading = false;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      print('❌ Signup error: $e');
+      _error = 'Signup failed: ${e.toString()}';
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  /// Create skilled worker document in Firestore
+  Future<void> _createSkilledWorkerDocument() async {
+    if (_loggedInUserId == null || _loggedInPhoneNumber == null) return;
+
+    try {
+      final skilledWorkerDoc =
+          await FirebaseFirestore.instance
+              .collection('SkilledWorkers')
+              .doc(_loggedInUserId!)
+              .get();
+
+      if (!skilledWorkerDoc.exists) {
+        await FirebaseFirestore.instance
+            .collection('SkilledWorkers')
+            .doc(_loggedInUserId!)
+            .set({
+              'userId': _loggedInUserId!,
+              'phoneNumber': _loggedInPhoneNumber!,
+              'createdAt': FieldValue.serverTimestamp(),
+              'isActive': true,
+              'isApproved': false, // Requires admin approval
+              'approvalStatus': 'pending', // Pending approval
+              'currentLatitude': _currentLatitude,
+              'currentLongitude': _currentLongitude,
+              'currentAddress': _currentAddress,
+              'locationUpdatedAt': FieldValue.serverTimestamp(),
+            });
+        print('✅ Skilled worker document created');
+      }
+    } catch (e) {
+      print('❌ Error creating skilled worker document: $e');
+      _error = 'Failed to create profile: ${e.toString()}';
     }
   }
 
@@ -207,6 +319,12 @@ class SkilledWorkerProvider with ChangeNotifier {
 
   /// Logout method
   void logout() {
+    // Stop location tracking
+    if (_loggedInUserId != null) {
+      LocationTrackingService().setWorkerOffline(_loggedInUserId!);
+      LocationTrackingService().stopLocationTracking();
+    }
+
     _isLoggedIn = false;
     _loggedInUserId = null;
     _loggedInPhoneNumber = null;
@@ -218,37 +336,12 @@ class SkilledWorkerProvider with ChangeNotifier {
     print('👋 Skilled Worker logged out');
   }
 
-  /// Legacy test method (not used); keep for backward compatibility
+  /// Deprecated: Do not use. Enforce real Firebase verification.
   Future<bool> verifyOtp(String smsCode) async {
-    _isLoading = true;
-    _error = null;
+    _error =
+        'Deprecated method verifyOtp() was called. Please use login(phone, code).';
     notifyListeners();
-
-    print('🔐 Verifying OTP: $smsCode');
-    print('🔐 Current phone: $_currentPhoneNumber');
-
-    try {
-      if (_verificationId == null) {
-        _error = 'No verification ID. Please request OTP again.';
-        _isLoading = false;
-        notifyListeners();
-        return false;
-      }
-
-      // No test OTP; direct success for legacy calls to avoid crash
-
-      // OTP is valid - simulate successful authentication
-      print('✅ Test OTP verification successful');
-      _isLoading = false;
-      notifyListeners();
-      return true;
-    } catch (e) {
-      print('❌ General Exception in verifyOtp: $e');
-      _error = 'Failed to verify OTP: ${e.toString()}';
-      _isLoading = false;
-      notifyListeners();
-      return false;
-    }
+    return false;
   }
 
   String? _verificationId;
@@ -539,7 +632,7 @@ class SkilledWorkerProvider with ChangeNotifier {
       _hasLocationPermission &&
       _isLocationServiceEnabled;
 
-  void verifyPhone(String phoneNumber) {
+  void verifyPhone(String phoneNumber) async {
     _isLoading = true;
     _error = null;
     _verificationId = null;
@@ -548,15 +641,51 @@ class SkilledWorkerProvider with ChangeNotifier {
     final input = phoneNumber.trim();
     print('📱 Sending OTP (skilled worker) to: "$input"');
 
+    // Check if reCAPTCHA is required
+    if (ReCaptchaService.isRecaptchaRequired) {
+      try {
+        await ReCaptchaService.verifyWithReCaptcha(
+          phoneNumber: input,
+          onSuccess: () {
+            print('✅ reCAPTCHA verification successful');
+            _proceedWithPhoneVerification(input);
+          },
+          onError: (error) {
+            print('❌ reCAPTCHA verification failed: $error');
+            _error = 'reCAPTCHA verification failed: $error';
+            _isLoading = false;
+            notifyListeners();
+          },
+          onExpired: () {
+            print('⏰ reCAPTCHA verification expired');
+            _error = 'reCAPTCHA verification expired. Please try again.';
+            _isLoading = false;
+            notifyListeners();
+          },
+        );
+      } catch (e) {
+        print('❌ reCAPTCHA error: $e');
+        _error = 'reCAPTCHA verification failed: $e';
+        _isLoading = false;
+        notifyListeners();
+      }
+    } else {
+      // For mobile platforms, proceed directly with phone verification
+      _proceedWithPhoneVerification(input);
+    }
+  }
+
+  void _proceedWithPhoneVerification(String input) {
     fb_auth.FirebaseAuth.instance.verifyPhoneNumber(
       phoneNumber: formatPhoneNumber(input),
       forceResendingToken: _resendToken,
       verificationCompleted: (fb_auth.PhoneAuthCredential credential) async {
         try {
-          await fb_auth.FirebaseAuth.instance.signInWithCredential(credential);
+          final userCred = await fb_auth.FirebaseAuth.instance
+              .signInWithCredential(credential);
           _currentPhoneNumber = input;
           _loggedInPhoneNumber = input;
-          _loggedInUserId = 'SKILLED_WORKER_${input.replaceAll('0', '')}';
+          _loggedInUserId = userCred.user?.uid;
           _isLoggedIn = true;
           _isLoading = false;
           notifyListeners();
@@ -567,11 +696,13 @@ class SkilledWorkerProvider with ChangeNotifier {
         }
       },
       verificationFailed: (fb_auth.FirebaseAuthException e) {
+        print('❌ verificationFailed: ${e.code} - ${e.message}');
         _error = e.message ?? e.code;
         _isLoading = false;
         notifyListeners();
       },
       codeSent: (String verificationId, int? resendToken) {
+        print('✅ codeSent received, verificationId set');
         _verificationId = verificationId;
         _resendToken = resendToken;
         _currentPhoneNumber = input;
@@ -579,6 +710,7 @@ class SkilledWorkerProvider with ChangeNotifier {
         notifyListeners();
       },
       codeAutoRetrievalTimeout: (String verificationId) {
+        print('⏰ codeAutoRetrievalTimeout, verificationId retained');
         _verificationId = verificationId;
         _isLoading = false;
         notifyListeners();
@@ -633,52 +765,50 @@ class SkilledWorkerProvider with ChangeNotifier {
     _success = null;
     notifyListeners();
 
-    // Use test authentication instead of Firebase Auth
-    String skilledWorkerId;
-    String phoneNumber;
-    String displayName;
+    // Enforce real authentication
+    if (!_isLoggedIn || _loggedInUserId == null) {
+      _isLoading = false;
+      _error = 'Please verify your phone number first.';
+      notifyListeners();
+      return;
+    }
 
-    if (_isLoggedIn && _loggedInUserId != null) {
-      skilledWorkerId = _loggedInUserId!;
-      phoneNumber = _loggedInPhoneNumber ?? '0000000000';
-      displayName = name;
+    final String skilledWorkerId = _loggedInUserId!;
+    final String phoneNumber = _loggedInPhoneNumber ?? 'unknown';
+    final String displayName = name;
 
-      // Check if skilled worker exists, if not create one
-      try {
-        final skilledWorkerDoc =
-            await FirebaseFirestore.instance
-                .collection('SkilledWorkers')
-                .doc(skilledWorkerId)
-                .get();
-
-        if (!skilledWorkerDoc.exists) {
-          // Create skilled worker document
+    // Check if skilled worker exists, if not create one
+    try {
+      final skilledWorkerDoc =
           await FirebaseFirestore.instance
               .collection('SkilledWorkers')
               .doc(skilledWorkerId)
-              .set({
-                'userId': skilledWorkerId,
-                'phoneNumber': phoneNumber,
-                'displayName': displayName,
-                'createdAt': FieldValue.serverTimestamp(),
-                'isActive': true,
-                'currentLatitude': _currentLatitude,
-                'currentLongitude': _currentLongitude,
-                'currentAddress': _currentAddress,
-                'locationUpdatedAt': FieldValue.serverTimestamp(),
-              });
-        }
-      } catch (e) {
-        _error = 'Failed to create skilled worker profile: $e';
-        _isLoading = false;
-        notifyListeners();
-        return;
+              .get();
+
+      if (!skilledWorkerDoc.exists) {
+        // Create skilled worker document
+        await FirebaseFirestore.instance
+            .collection('SkilledWorkers')
+            .doc(skilledWorkerId)
+            .set({
+              'userId': skilledWorkerId,
+              'phoneNumber': phoneNumber,
+              'displayName': displayName,
+              'createdAt': FieldValue.serverTimestamp(),
+              'isActive': true,
+              'isApproved': false, // Requires admin approval
+              'approvalStatus': 'pending', // Pending approval
+              'currentLatitude': _currentLatitude,
+              'currentLongitude': _currentLongitude,
+              'currentAddress': _currentAddress,
+              'locationUpdatedAt': FieldValue.serverTimestamp(),
+            });
       }
-    } else {
-      // For testing: use a default skilled worker ID
-      skilledWorkerId = 'TEST_SKILLED_WORKER_ID';
-      phoneNumber = '+923115798273';
-      displayName = name;
+    } catch (e) {
+      _error = 'Failed to create skilled worker profile: $e';
+      _isLoading = false;
+      notifyListeners();
+      return;
     }
 
     // Placeholder urls before upload
@@ -727,6 +857,8 @@ class SkilledWorkerProvider with ChangeNotifier {
       'displayName': displayName,
       'createdAt': FieldValue.serverTimestamp(),
       'isActive': true,
+      'isApproved': false, // Requires admin approval
+      'approvalStatus': 'pending', // Pending approval
       'currentLatitude': _currentLatitude,
       'currentLongitude': _currentLongitude,
       'currentAddress': _currentAddress,

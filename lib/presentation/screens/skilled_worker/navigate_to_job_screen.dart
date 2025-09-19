@@ -64,7 +64,6 @@ class _NavigateToJobContent extends StatefulWidget {
 }
 
 class _NavigateToJobContentState extends State<_NavigateToJobContent> {
-  GoogleMapController? _mapController;
   Set<Marker> _markers = {};
   Set<Polyline> _polylines = {};
   LatLng? _workerLocation;
@@ -78,9 +77,10 @@ class _NavigateToJobContentState extends State<_NavigateToJobContent> {
     _initializeMap();
   }
 
-  void _initializeMap() {
+  Future<void> _initializeMap() async {
     final provider = Provider.of<SkilledWorkerProvider>(context, listen: false);
 
+    // Check if location is already available
     if (provider.currentLatitude != null && provider.currentLongitude != null) {
       _workerLocation = LatLng(
         provider.currentLatitude!,
@@ -89,9 +89,38 @@ class _NavigateToJobContentState extends State<_NavigateToJobContent> {
       _jobLocation = LatLng(widget.jobLatitude, widget.jobLongitude);
       _addMarkers();
       _isLoading = false;
-    } else {
-      _error = 'Worker location not available';
+      setState(() {});
+      return;
+    }
+
+    // Try to initialize location services if not available
+    try {
+      await provider.initializeLocationServices();
+
+      // Wait a moment for location to be fetched
+      await Future.delayed(const Duration(seconds: 2));
+
+      if (provider.currentLatitude != null &&
+          provider.currentLongitude != null) {
+        _workerLocation = LatLng(
+          provider.currentLatitude!,
+          provider.currentLongitude!,
+        );
+        _jobLocation = LatLng(widget.jobLatitude, widget.jobLongitude);
+        _addMarkers();
+        _isLoading = false;
+        setState(() {});
+      } else {
+        _error =
+            provider.locationError ??
+            'Worker location not available. Please enable location services and try again.';
+        _isLoading = false;
+        setState(() {});
+      }
+    } catch (e) {
+      _error = 'Error initializing location: $e';
       _isLoading = false;
+      setState(() {});
     }
   }
 
@@ -173,36 +202,73 @@ class _NavigateToJobContentState extends State<_NavigateToJobContent> {
               ? const Center(child: CircularProgressIndicator())
               : _error != null
               ? Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.error_outline,
-                      size: 64,
-                      color: Colors.red.shade300,
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      _error!,
-                      style: TextStyle(
-                        fontSize: 18,
-                        color: Colors.red.shade600,
-                        fontWeight: FontWeight.bold,
+                child: Padding(
+                  padding: const EdgeInsets.all(24.0),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.location_off,
+                        size: 64,
+                        color: Colors.orange.shade300,
                       ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 16),
-                    ElevatedButton(
-                      onPressed: () {
-                        widget.uiProvider.startLoading();
-                        _isLoading = true;
-                        _error = null;
-                        _initializeMap();
-                        widget.uiProvider.stopLoading();
-                      },
-                      child: const Text('Retry'),
-                    ),
-                  ],
+                      const SizedBox(height: 16),
+                      Text(
+                        'Worker location not available',
+                        style: TextStyle(
+                          fontSize: 20,
+                          color: Colors.orange.shade700,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        _error ??
+                            'Please enable location services to get directions to the job location.',
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: Colors.grey.shade600,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 24),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: [
+                          ElevatedButton.icon(
+                            onPressed: () async {
+                              widget.uiProvider.startLoading();
+                              setState(() {
+                                _isLoading = true;
+                                _error = null;
+                              });
+                              await _initializeMap();
+                              widget.uiProvider.stopLoading();
+                            },
+                            icon: const Icon(Icons.refresh),
+                            label: const Text('Retry'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.orange,
+                              foregroundColor: Colors.white,
+                            ),
+                          ),
+                          ElevatedButton.icon(
+                            onPressed: () {
+                              // Navigate back to job details
+                              Navigator.pop(context);
+                            },
+                            icon: const Icon(Icons.arrow_back),
+                            label: const Text('Go Back'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.grey,
+                              foregroundColor: Colors.white,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               )
               : Column(
@@ -326,7 +392,7 @@ class _NavigateToJobContentState extends State<_NavigateToJobContent> {
                         borderRadius: BorderRadius.circular(12),
                         child: GoogleMap(
                           onMapCreated: (GoogleMapController controller) {
-                            _mapController = controller;
+                            // Map controller not needed for this implementation
                           },
                           initialCameraPosition: CameraPosition(
                             target:

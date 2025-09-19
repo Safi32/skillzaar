@@ -10,9 +10,19 @@ import 'package:skillzaar/presentation/widgets/bottom_bar_widget.dart';
 import '../../widgets/contact_us_dialog.dart';
 import '../../widgets/filter_dialog.dart';
 import '../../widgets/skilled_worker_drawer_header.dart';
+import '../../widgets/approval_gate.dart';
 import 'jobs_screen.dart';
 import 'home_profile_screen.dart';
 import 'requests_screen.dart';
+
+/// Helper function to safely convert Timestamp to DateTime
+DateTime? _safeConvertToDateTime(dynamic value) {
+  if (value == null) return null;
+  if (value is DateTime) return value;
+  if (value is Timestamp) return value.toDate();
+  if (value is String) return DateTime.tryParse(value);
+  return null;
+}
 
 class HomeScreenSkilled extends StatefulWidget {
   const HomeScreenSkilled({super.key});
@@ -32,6 +42,7 @@ class _HomeScreenSkilledState extends State<HomeScreenSkilled> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _maybeRedirectToActiveJob();
+      _setupRequestStatusListener();
       // Retry once shortly after initial build to handle late provider init
       Future.delayed(const Duration(milliseconds: 600), () {
         if (mounted) {
@@ -39,6 +50,57 @@ class _HomeScreenSkilledState extends State<HomeScreenSkilled> {
         }
       });
     });
+  }
+
+  void _setupRequestStatusListener() {
+    final provider = Provider.of<SkilledWorkerProvider>(context, listen: false);
+    if (provider.loggedInUserId != null) {
+      // Listen for changes in the skilled worker's request status
+      FirebaseFirestore.instance
+          .collection('JobRequests')
+          .where('skilledWorkerId', isEqualTo: provider.loggedInUserId)
+          .where('status', isEqualTo: 'accepted')
+          .where('isActive', isEqualTo: true)
+          .snapshots()
+          .listen((snapshot) {
+            if (snapshot.docs.isNotEmpty && mounted) {
+              // Request was accepted, redirect to job detail screen
+              final requestData = snapshot.docs.first.data();
+              final jobId = requestData['jobId'] as String?;
+              if (jobId != null) {
+                _redirectToJobDetail(
+                  jobId,
+                  requestData['requestId'] as String?,
+                );
+              }
+            }
+          });
+    }
+  }
+
+  Future<void> _redirectToJobDetail(String jobId, String? requestId) async {
+    try {
+      final job = await JobRequestService.getJobDetails(jobId);
+      if (job != null && mounted) {
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          '/skilled-worker-job-detail',
+          (route) => false,
+          arguments: {
+            'imageUrl': job['Image'] ?? '',
+            'title': job['title_en'] ?? job['title_ur'] ?? '',
+            'location': job['Address'] ?? job['Location'] ?? '',
+            'date': _safeConvertToDateTime(job['createdAt']),
+            'description': job['description_en'] ?? job['description_ur'] ?? '',
+            'jobId': jobId,
+            'jobPosterId': job['jobPosterId'] ?? '',
+            'requestId': requestId,
+          },
+        );
+      }
+    } catch (e) {
+      print('Error redirecting to job detail: $e');
+    }
   }
 
   Future<void> _maybeRedirectToActiveJob() async {
@@ -89,6 +151,10 @@ class _HomeScreenSkilledState extends State<HomeScreenSkilled> {
 
   @override
   Widget build(BuildContext context) {
+    return ApprovalGate(child: _buildMainContent(context));
+  }
+
+  Widget _buildMainContent(BuildContext context) {
     final List<Widget> pages = [
       _buildHomeBody(),
       const SkilledWorkerJobsScreen(),
@@ -317,14 +383,20 @@ class _HomeScreenSkilledState extends State<HomeScreenSkilled> {
                     company: (data['jobPosterName'] ?? 'Job Poster').toString(),
                     location: data['Address'] ?? data['Location'] ?? '—',
                     salary:
-                        (data['Budget'] ?? data['budget'] ?? '')
-                                .toString()
-                                .trim()
-                                .isNotEmpty
-                            ? 'PKR ${data['Budget'] ?? data['budget']}'
-                            : (distanceKm != null
-                                ? '${distanceKm.toStringAsFixed(1)} km'
-                                : ''),
+                        (() {
+                          final dynamic price =
+                              data['price'] ?? data['Budget'] ?? data['budget'];
+                          if (price != null &&
+                              price.toString().trim().isNotEmpty) {
+                            final currency =
+                                (data['currency'] ?? 'PKR').toString();
+                            return '$currency ${price.toString()}';
+                          }
+                          if (distanceKm != null) {
+                            return '${distanceKm.toStringAsFixed(1)} km';
+                          }
+                          return '';
+                        })(),
                     rating: 4.7,
                   );
                 },

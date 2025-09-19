@@ -348,13 +348,25 @@ class _ProfileContentState extends State<_ProfileContent> {
                         // Show success toast instead of SnackBar
                         context.read<UIStateProvider>().showSuccessToast(
                           context,
-                          'Profile Created!',
-                          'Your profile has been created successfully!',
+                          'Profile Completed!',
+                          'Your profile has been completed successfully! Your application is now under review.',
                         );
 
-                        Navigator.pushReplacementNamed(
+                        // Redirect to approval waiting screen
+                        Navigator.pushNamedAndRemoveUntil(
                           context,
-                          '/skilled-worker-home',
+                          '/skilled-worker-approval-waiting',
+                          (route) => false,
+                          arguments: {
+                            'userId':
+                                widget.skilledWorkerProvider.loggedInUserId ??
+                                '',
+                            'phoneNumber':
+                                widget
+                                    .skilledWorkerProvider
+                                    .loggedInPhoneNumber ??
+                                '',
+                          },
                         );
                       } catch (e) {
                         // Show error toast instead of SnackBar

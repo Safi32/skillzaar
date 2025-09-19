@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:skillzaar/core/services/job_request_service.dart';
 import 'job_poster_rate_worker_screen.dart';
+import '../../routes/app_routes.dart';
 
 class JobAcceptedDetailsScreen extends StatefulWidget {
   final String jobId;
@@ -21,10 +22,31 @@ class JobAcceptedDetailsScreen extends StatefulWidget {
 class _JobAcceptedDetailsScreenState extends State<JobAcceptedDetailsScreen> {
   bool jobCompleted = false;
   bool jobCancelled = false;
+  String? _skilledWorkerId;
 
   @override
   void initState() {
     super.initState();
+    _loadWorkerId();
+  }
+
+  Future<void> _loadWorkerId() async {
+    try {
+      final requestDoc =
+          await FirebaseFirestore.instance
+              .collection('JobRequests')
+              .doc(widget.requestId)
+              .get();
+
+      if (requestDoc.exists) {
+        final requestData = requestDoc.data();
+        setState(() {
+          _skilledWorkerId = requestData?['skilledWorkerId'];
+        });
+      }
+    } catch (e) {
+      print('Error loading worker ID: $e');
+    }
   }
 
   void _onJobCompleted() async {
@@ -41,11 +63,13 @@ class _JobAcceptedDetailsScreenState extends State<JobAcceptedDetailsScreen> {
       String applicantName = 'Unknown';
       String applicantPhone = 'Unknown';
       String applicantEmail = 'Not available';
+      String skilledWorkerId = '';
 
       if (requestData != null) {
         applicantName = requestData['skilledWorkerName'] ?? 'Unknown';
         applicantPhone = requestData['skilledWorkerPhone'] ?? 'Unknown';
         applicantEmail = 'Not available'; // Email not stored in current schema
+        skilledWorkerId = requestData['skilledWorkerId'] ?? '';
       }
 
       if (mounted) {
@@ -57,6 +81,9 @@ class _JobAcceptedDetailsScreenState extends State<JobAcceptedDetailsScreen> {
                     'name': applicantName,
                     'phone': applicantPhone,
                     'email': applicantEmail,
+                    'id': skilledWorkerId,
+                    'skilledWorkerId': skilledWorkerId,
+                    'uid': skilledWorkerId,
                   },
                   requestId: widget.requestId,
                 ),
@@ -75,6 +102,9 @@ class _JobAcceptedDetailsScreenState extends State<JobAcceptedDetailsScreen> {
                     'name': 'Unknown',
                     'phone': 'Unknown',
                     'email': 'Not available',
+                    'id': 'UNKNOWN_ID',
+                    'skilledWorkerId': 'UNKNOWN_ID',
+                    'uid': 'UNKNOWN_ID',
                   },
                   requestId: widget.requestId,
                 ),
@@ -293,7 +323,48 @@ class _JobAcceptedDetailsScreenState extends State<JobAcceptedDetailsScreen> {
                           },
                         ),
 
-                        const SizedBox(height: 30),
+                        const SizedBox(height: 20),
+                        // Track Worker Button
+                        if (_skilledWorkerId != null)
+                          Container(
+                            width: double.infinity,
+                            margin: const EdgeInsets.only(bottom: 16),
+                            child: ElevatedButton.icon(
+                              onPressed: () {
+                                Navigator.pushNamed(
+                                  context,
+                                  '/worker-tracking',
+                                  arguments: {
+                                    'jobId': widget.jobId,
+                                    'workerId': _skilledWorkerId,
+                                  },
+                                );
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.blue,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 20,
+                                  vertical: 12,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              icon: const Icon(
+                                Icons.location_on,
+                                color: Colors.white,
+                              ),
+                              label: const Text(
+                                'Track Worker Location',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ),
+
+                        const SizedBox(height: 10),
                         Row(
                           children: [
                             Expanded(

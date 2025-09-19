@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../providers/skilled_worker_provider.dart';
+import 'package:skillzaar/core/examples/services/user_data_service.dart';
+
+import '../../../core/services/job_request_service.dart';
 import '../../providers/phone_auth_provider.dart';
+import '../../providers/skilled_worker_provider.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -12,6 +15,69 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController phoneController = TextEditingController();
+  bool isLoading = false;
+
+  // Phone number validation function
+  bool isValidPhoneNumber(String phone) {
+    // Remove any spaces, dashes, or parentheses
+    String cleanPhone = phone.replaceAll(RegExp(r'[\s\-\(\)]'), '');
+
+    // Check if it's 11 digits (Pakistani number format)
+    if (cleanPhone.length == 11 && cleanPhone.startsWith('0')) {
+      return true;
+    }
+
+    // Check if it's 10 digits (without leading 0)
+    if (cleanPhone.length == 10) {
+      return true;
+    }
+
+    // Check if it's 12 digits starting with 92
+    if (cleanPhone.length == 12 && cleanPhone.startsWith('92')) {
+      return true;
+    }
+
+    // Check if it's 13 digits starting with +92
+    if (cleanPhone.length == 13 && cleanPhone.startsWith('+92')) {
+      return true;
+    }
+
+    return false;
+  }
+
+  // Format phone number to standard format
+  String formatPhoneNumber(String input) {
+    input = input.trim();
+    input = input.replaceAll(RegExp(r'[\s\-\(\)]'), '');
+
+    // If already starts with +, return as is
+    if (input.startsWith('+')) {
+      return input;
+    }
+
+    // If starts with 0 and is 11 digits (Pakistani number)
+    if (input.startsWith('0') && input.length == 11) {
+      return '+92' + input.substring(1);
+    }
+
+    // If starts with 92 and is 12 digits
+    if (input.startsWith('92') && input.length == 12) {
+      return '+' + input;
+    }
+
+    // If 10 digits, assume Pakistani number
+    if (input.length == 10) {
+      return '+92' + input;
+    }
+
+    // If 11 digits without 0, assume Pakistani number
+    if (input.length == 11 && !input.startsWith('0')) {
+      return '+92' + input;
+    }
+
+    // Return as is if no pattern matches
+    return input;
+  }
 
   @override
   void dispose() {
@@ -122,17 +188,163 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                         elevation: 0,
                       ),
-                      onPressed: () async {
-                        final input = phoneController.text.trim();
-                        if (input.isEmpty) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Please enter your phone number'),
-                            ),
-                          );
-                          return;
-                        }
+                      onPressed:
+                          isLoading
+                              ? null
+                              : () async {
+                                final input = phoneController.text.trim();
+                                if (input.isEmpty) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                        'Please enter your phone number',
+                                      ),
+                                      backgroundColor: Colors.red,
+                                    ),
+                                  );
+                                  return;
+                                }
 
+                                // Validate phone number length (minimum 11 digits)
+                                if (!isValidPhoneNumber(input)) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                        'Phone number must be at least 11 digits',
+                                      ),
+                                      backgroundColor: Colors.red,
+                                    ),
+                                  );
+                                  return;
+                                }
+
+                                setState(() {
+                                  isLoading = true;
+                                });
+
+                                try {
+                                  // Format phone number
+                                  final formattedPhone = formatPhoneNumber(
+                                    input,
+                                  );
+
+                                  // Check if user is already registered
+                                  final userType =
+                                      role == 'skilled_worker'
+                                          ? 'skilled_worker'
+                                          : 'job_poster';
+
+                                  print('🔍 Checking user existence:');
+                                  print('📱 Formatted phone: $formattedPhone');
+                                  print('👤 User type: $userType');
+
+                                  final userExists =
+                                      await UserDataService.userExistsByPhone(
+                                        phoneNumber: formattedPhone,
+                                        userType: userType,
+                                      );
+
+                                  print('✅ User exists: $userExists');
+                                  print(
+                                    '📱 Checking for user with phone: $formattedPhone in collection: $userType',
+                                  );
+
+                                  if (userExists) {
+                                    print(
+                                      '🏠 Navigating to home screen for $userType',
+                                    );
+
+                                    // Get user data to get the actual user ID
+                                    final userData =
+                                        await UserDataService.getUserDataByPhone(
+                                          phoneNumber: formattedPhone,
+                                          userType: userType,
+                                        );
+
+                                    String userId;
+                                    if (userData != null && userData.exists) {
+                                      userId = userData.id;
+                                      print(
+                                        '✅ Found existing user with ID: $userId',
+                                      );
+                                    } else {
+                                      // Fallback: generate dynamic user ID
+                                      userId =
+                                          '${userType}_${formattedPhone.replaceAll('+', '').replaceAll(' ', '')}_${DateTime.now().millisecondsSinceEpoch}';
+                                    }
+
+                                    // Set authentication state in providers
+                                    if (role == 'skilled_worker') {
+                                      final skilledWorkerProvider =
+                                          Provider.of<SkilledWorkerProvider>(
+                                            context,
+                                            listen: false,
+                                          );
+                                      // Set logged in state for skilled worker
+                                      skilledWorkerProvider.setLoggedInState(
+                                        userId: userId,
+                                        phoneNumber: formattedPhone,
+                                      );
+
+                                      Navigator.pushNamedAndRemoveUntil(
+                                        context,
+                                        '/skilled-worker-home',
+                                        (route) => false,
+                                      );
+                                    } else {
+                                      final phoneAuthProvider =
+                                          Provider.of<PhoneAuthProvider>(
+                                            context,
+                                            listen: false,
+                                          );
+                                      // Set logged in state for job poster
+                                      phoneAuthProvider.setLoggedInState(
+                                        userId: userId,
+                                        phoneNumber: formattedPhone,
+                                      );
+
+                                      // Check for active job after successful login
+                                      await _checkForActiveJobPoster(
+                                        context,
+                                        phoneAuthProvider,
+                                      );
+                                    }
+                                  } else {
+                                    print(
+                                      '📝 User not found, showing register message',
+                                    );
+                                    // User is not registered, show register message
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          'No account found with this phone number. Please register first.',
+                                        ),
+                                        backgroundColor: Colors.red,
+                                        duration: Duration(seconds: 3),
+                                      ),
+                                    );
+                                  }
+                                } catch (e) {
+                                  if (mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          'Error checking account: $e',
+                                        ),
+                                        backgroundColor: Colors.red,
+                                      ),
+                                    );
+                                  }
+                                } finally {
+                                  if (mounted) {
+                                    setState(() {
+                                      isLoading = false;
+                                    });
+                                  }
+                                }
+
+                                // COMMENTED OUT OTP CODE - TO BE USED DURING DEPLOYMENT
+                                /*
                         if (role == 'skilled_worker') {
                           // Send OTP for skilled worker and navigate to OTP screen
                           final provider = Provider.of<SkilledWorkerProvider>(
@@ -176,14 +388,25 @@ class _LoginScreenState extends State<LoginScreen> {
                             );
                           }
                         }
-                      },
-                      child: const Text(
-                        'Continue',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 18,
-                        ),
-                      ),
+                        */
+                              },
+                      child:
+                          isLoading
+                              ? const SizedBox(
+                                width: 24,
+                                height: 24,
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 2,
+                                ),
+                              )
+                              : const Text(
+                                'Continue',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 18,
+                                ),
+                              ),
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -230,5 +453,84 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _checkForActiveJobPoster(
+    BuildContext context,
+    PhoneAuthProvider phoneAuthProvider,
+  ) async {
+    try {
+      print('[Login Screen] Checking for active job after job poster login...');
+
+      final jobPosterId = phoneAuthProvider.loggedInUserId;
+      final jobPosterPhone = phoneAuthProvider.loggedInPhoneNumber;
+
+      if (jobPosterId == null || jobPosterId.isEmpty) {
+        // No user ID, go to home screen
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          '/job-poster-home',
+          (route) => false,
+        );
+        return;
+      }
+
+      // Check for active job
+      final active = await JobRequestService.getActiveRequestForPoster(
+        jobPosterId,
+        posterPhone: jobPosterPhone,
+      );
+
+      print('[Login Screen] Active job result: $active');
+
+      if (active != null) {
+        final jobId = active['jobId'] as String?;
+        final requestId = active['requestId'] as String?;
+        final status = active['status'] as String?;
+
+        if (jobId != null && jobId.isNotEmpty) {
+          print(
+            '[Login Screen] Found active job - JobId: $jobId, Status: $status',
+          );
+
+          // Redirect based on job status
+          if (status == 'in_progress') {
+            // In progress jobs go to job detail screen
+            Navigator.pushNamedAndRemoveUntil(
+              context,
+              '/job-poster-job-detail',
+              (route) => false,
+              arguments: {'jobId': jobId, 'requestId': requestId},
+            );
+            return;
+          } else if (status == 'accepted') {
+            // Accepted jobs go to accepted details screen
+            Navigator.pushNamedAndRemoveUntil(
+              context,
+              '/job-poster-accepted-details',
+              (route) => false,
+              arguments: {'jobId': jobId, 'requestId': requestId},
+            );
+            return;
+          }
+        }
+      }
+
+      // No active job found, proceed to home screen
+      print('[Login Screen] No active job found, going to home screen');
+      Navigator.pushNamedAndRemoveUntil(
+        context,
+        '/job-poster-home',
+        (route) => false,
+      );
+    } catch (e) {
+      print('[Login Screen] Error checking for active job: $e');
+      // On error, proceed to home screen
+      Navigator.pushNamedAndRemoveUntil(
+        context,
+        '/job-poster-home',
+        (route) => false,
+      );
+    }
   }
 }

@@ -1,7 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:skillzaar/core/services/job_request_service.dart';
 
 class RateJobPosterScreen extends StatefulWidget {
-  const RateJobPosterScreen({super.key});
+  final Map<String, dynamic> jobPosterDetails;
+  final String? requestId;
+  const RateJobPosterScreen({
+    Key? key,
+    required this.jobPosterDetails,
+    this.requestId,
+  }) : super(key: key);
 
   @override
   State<RateJobPosterScreen> createState() => _RateJobPosterScreenState();
@@ -20,14 +27,6 @@ class _RateJobPosterScreenState extends State<RateJobPosterScreen> {
   final TextEditingController _customController = TextEditingController();
   bool _isSubmitting = false;
 
-  // Static job poster details for demo
-  final Map<String, dynamic> jobPosterDetails = {
-    'name': 'Ahmed Ali',
-    'phone': '+923001234567',
-    'email': 'ahmed.ali@example.com',
-    'address': '123 Main Street, Karachi',
-  };
-
   void _onRatingChanged(double value) {
     setState(() {
       rating = value;
@@ -42,10 +41,17 @@ class _RateJobPosterScreenState extends State<RateJobPosterScreen> {
     });
 
     try {
-      // Simulate API call delay
-      await Future.delayed(const Duration(seconds: 2));
+      // Submit rating to backend
+      final success = await JobRequestService.submitJobPosterRating(
+        jobPosterId:
+            widget.jobPosterDetails['id'] ??
+            widget.jobPosterDetails['jobPosterId'],
+        rating: rating,
+        feedback: selectedText ?? _customController.text,
+        requestId: widget.requestId,
+      );
 
-      if (mounted) {
+      if (success) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
@@ -62,22 +68,25 @@ class _RateJobPosterScreenState extends State<RateJobPosterScreen> {
           '/skilled-worker-home',
           (route) => false,
         );
-      }
-    } catch (e) {
-      if (mounted) {
+      } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: ${e.toString()}'),
+          const SnackBar(
+            content: Text('Failed to submit rating. Please try again.'),
             backgroundColor: Colors.red,
           ),
         );
       }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
     } finally {
-      if (mounted) {
-        setState(() {
-          _isSubmitting = false;
-        });
-      }
+      setState(() {
+        _isSubmitting = false;
+      });
     }
   }
 
@@ -164,22 +173,22 @@ class _RateJobPosterScreenState extends State<RateJobPosterScreen> {
                         _buildInfoRow(
                           Icons.person,
                           'Name',
-                          jobPosterDetails['name'],
+                          widget.jobPosterDetails['name'] ?? '-',
                         ),
                         _buildInfoRow(
                           Icons.phone,
                           'Phone',
-                          jobPosterDetails['phone'],
+                          widget.jobPosterDetails['phone'] ?? '-',
                         ),
                         _buildInfoRow(
                           Icons.email,
                           'Email',
-                          jobPosterDetails['email'],
+                          widget.jobPosterDetails['email'] ?? '-',
                         ),
                         _buildInfoRow(
                           Icons.location_on,
                           'Address',
-                          jobPosterDetails['address'],
+                          widget.jobPosterDetails['address'] ?? '-',
                         ),
                       ],
                     ),

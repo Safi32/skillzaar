@@ -29,6 +29,10 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        
+        // reCAPTCHA Enterprise configuration
+        // Replace YOUR_RECAPTCHA_SITE_KEY with your actual site key from Firebase Console
+        resValue("string", "recaptcha_site_key", "YOUR_RECAPTCHA_SITE_KEY_HERE")
     }
 
     buildTypes {
