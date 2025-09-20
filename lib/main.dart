@@ -1,5 +1,4 @@
 import 'package:firebase_core/firebase_core.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:skillzaar/firebase_options.dart';
 import 'package:skillzaar/presentation/providers/skilled_worker_provider.dart';
@@ -18,8 +17,6 @@ import 'presentation/providers/notification_provider.dart';
 import 'presentation/widgets/splash_and_dialog_gate.dart';
 import 'presentation/widgets/notification_initializer.dart';
 import 'presentation/widgets/provider_connector.dart';
-
-import 'core/services/performance_monitor.dart' as perf;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -54,18 +51,15 @@ class MyApp extends StatelessWidget {
   const MyApp({super.key});
   @override
   Widget build(BuildContext context) {
-    return perf.PerformanceOverlay(
-      enabled: kDebugMode,
-      child: MaterialApp(
-        debugShowCheckedModeBanner: false,
-        theme: AppTheme.themeData,
-        home: const SplashAndDialogGate(),
-        routes: {
-          '/role-selection': (context) => const RoleSelectionScreen(),
-          ...AppRoutes.routes,
-        },
-        onGenerateRoute: AppRoutes.onGenerateRoute,
-      ),
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      theme: AppTheme.themeData,
+      home: const SplashAndDialogGate(),
+      routes: {
+        '/role-selection': (context) => const RoleSelectionScreen(),
+        ...AppRoutes.routes,
+      },
+      onGenerateRoute: AppRoutes.onGenerateRoute,
     );
   }
 }

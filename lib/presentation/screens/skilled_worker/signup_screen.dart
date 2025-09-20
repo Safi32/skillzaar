@@ -4,7 +4,6 @@ import 'package:skillzaar/core/examples/services/user_data_service.dart';
 import '../../providers/skilled_worker_provider.dart';
 import '../../../core/theme/app_theme.dart';
 
-
 class SkilledWorkerSignUpScreen extends StatefulWidget {
   const SkilledWorkerSignUpScreen({super.key});
 

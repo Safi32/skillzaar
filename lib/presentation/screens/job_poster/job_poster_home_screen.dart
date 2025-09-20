@@ -242,8 +242,8 @@ class _JobPosterHomeContentState extends State<_JobPosterHomeContent> {
   void _switchAdsView({required bool myAds}) {
     setState(() {
       _showMyAdsOnly = myAds;
-      _pages[0] = JobPosterAdsScreen(myAdsOnly: _showMyAdsOnly);
-      _selectedIndex = 0;
+      _pages[1] = JobPosterAdsScreen(myAdsOnly: _showMyAdsOnly);
+      _selectedIndex = 1;
     });
     Navigator.pop(context);
   }
@@ -253,8 +253,6 @@ class _JobPosterHomeContentState extends State<_JobPosterHomeContent> {
     return Scaffold(
       drawer: JobPosterDrawer(
         onPostJob: () => Navigator.pushNamed(context, '/job-poster-post-job'),
-        onJobPosterDetail:
-            () => Navigator.pushNamed(context, '/job-poster-detail'),
         onAllAds: () => _switchAdsView(myAds: false),
         onMyAds: () => _switchAdsView(myAds: true),
         onLogout: () => _showLogoutDialog(context),

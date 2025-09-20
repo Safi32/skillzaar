@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class AppColors {
   static const Color green = Color(0xFF13B94B);
@@ -11,6 +12,7 @@ class AppTheme {
       primary: AppColors.green,
       secondary: AppColors.green,
     ),
+    textTheme: GoogleFonts.poppinsTextTheme(),
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
         backgroundColor: AppColors.green,

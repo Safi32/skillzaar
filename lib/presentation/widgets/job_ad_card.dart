@@ -14,11 +14,11 @@ class AdCard extends StatelessWidget {
     final postDate = DateTime(date.year, date.month, date.day);
 
     if (postDate == today) {
-      return 'Posted today (${date.month}/${date.day}/${date.year})';
+      return 'Posted today';
     } else if (postDate == yesterday) {
-      return 'Posted yesterday (${date.month}/${date.day}/${date.year})';
+      return 'Posted yesterday';
     } else {
-      return 'Posted on ${date.month}/${date.day}/${date.year}';
+      return '${date.day}/${date.month}/${date.year}';
     }
   }
 
@@ -35,80 +35,107 @@ class AdCard extends StatelessWidget {
         ts != null ? _formatDate(ts.toDate().toLocal()) : '';
     final bool isActive = status.toString().toLowerCase() == 'active';
 
+    final theme = Theme.of(context);
+    final green = Colors.green;
+
     return Card(
-      margin: const EdgeInsets.only(bottom: 16.0),
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      elevation: 4,
+      margin: const EdgeInsets.only(bottom: 20),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(18.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            /// Header Row
             Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(
                   child: Text(
                     title,
-                    style: const TextStyle(
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
                       fontSize: 18,
-                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
                     ),
                   ),
                 ),
                 Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
+                    horizontal: 10,
+                    vertical: 6,
                   ),
                   decoration: BoxDecoration(
-                    color: isActive ? Colors.green : Colors.grey,
-                    borderRadius: BorderRadius.circular(12),
+                    color:
+                        isActive ? green.withOpacity(0.15) : Colors.grey[300],
+                    borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
                     status,
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      fontWeight: FontWeight.w600,
                       fontSize: 12,
-                      fontWeight: FontWeight.w500,
+                      color: isActive ? green : Colors.grey[700],
                     ),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 8),
+
+            const SizedBox(height: 10),
+
+            /// Description
             Text(
               description,
-              style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+              style: theme.textTheme.bodyMedium?.copyWith(
+                fontSize: 14,
+                color: Colors.grey[700],
+                height: 1.4,
+              ),
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
             ),
-            const SizedBox(height: 12),
+
+            const SizedBox(height: 16),
+
+            /// Location & Date
             Row(
               children: [
-                Icon(Icons.location_on, size: 16, color: Colors.grey[600]),
-                const SizedBox(width: 4),
+                Icon(
+                  Icons.location_on_outlined,
+                  size: 18,
+                  color: Colors.grey[600],
+                ),
+                const SizedBox(width: 6),
                 Expanded(
                   child: Text(
                     location,
-                    style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: Colors.grey[600],
+                    ),
                     overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Icon(
+                  Icons.calendar_today_outlined,
+                  size: 16,
+                  color: Colors.grey[600],
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  dateText,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: Colors.grey[600],
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Icon(Icons.calendar_today, size: 16, color: Colors.grey[600]),
-                const SizedBox(width: 4),
-                Expanded(
-                  child: Text(
-                    dateText,
-                    style: TextStyle(fontSize: 14, color: Colors.grey[600]),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
+
+            const SizedBox(height: 20),
+
+            /// Buttons
             Row(
               children: [
                 Expanded(
@@ -121,18 +148,22 @@ class AdCard extends StatelessWidget {
                       );
                     },
                     style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: Colors.green),
+                      side: BorderSide(color: green, width: 1.4),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(10),
                       ),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
                     ),
-                    child: const Text(
+                    child: Text(
                       'Edit',
-                      style: TextStyle(color: Colors.green),
+                      style: TextStyle(
+                        color: green,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 10),
                 Expanded(
                   child: ElevatedButton(
                     onPressed: () {
@@ -143,33 +174,43 @@ class AdCard extends StatelessWidget {
                       );
                     },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green,
+                      backgroundColor: green,
                       foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(10),
                       ),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      elevation: 0,
                     ),
-                    child: const Text('Requests'),
+                    child: const Text(
+                      'Requests',
+                      style: TextStyle(fontWeight: FontWeight.w600),
+                    ),
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 10),
                 Expanded(
                   child: ElevatedButton(
                     onPressed: () {
                       Navigator.pushNamed(
                         context,
                         '/job-poster-job-detail',
-                        arguments: null,
+                        arguments: {'jobId': adId, 'requestId': adId},
                       );
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.blue,
                       foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(10),
                       ),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      elevation: 0,
                     ),
-                    child: const Text('View Details'),
+                    child: const Text(
+                      'View Details',
+                      style: TextStyle(fontWeight: FontWeight.w600),
+                    ),
                   ),
                 ),
               ],

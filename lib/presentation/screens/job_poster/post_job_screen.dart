@@ -1,4 +1,6 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import '../../providers/job_provider.dart';
 import '../../providers/ui_state_provider.dart';
@@ -8,8 +10,6 @@ import '../../widgets/job_location_picker.dart';
 import '../../widgets/job_image_picker.dart';
 import '../../widgets/post_job_button.dart';
 import '../../widgets/simple_service_dropdown.dart';
-import 'package:image_picker/image_picker.dart';
-import 'dart:io';
 
 class PostJobScreen extends StatelessWidget {
   const PostJobScreen({super.key});
@@ -42,13 +42,22 @@ class _PostJobContentState extends State<_PostJobContent> {
   final TextEditingController descriptionController = TextEditingController();
   final TextEditingController priceController = TextEditingController();
   final List<File> images = [];
+
   String selectedAddress = '';
   double? selectedLatitude;
   double? selectedLongitude;
   String? selectedServiceType;
 
   Future<void> pickImage() async {
-    if (images.length >= 3) return;
+    if (images.length >= 3) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('You can upload a maximum of 3 images'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
 
     try {
       final picker = ImagePicker();
@@ -78,186 +87,300 @@ class _PostJobContentState extends State<_PostJobContent> {
     });
   }
 
+  Future<void> _submitJob() async {
+    if (titleController.text.isEmpty ||
+        descriptionController.text.isEmpty ||
+        selectedAddress.isEmpty ||
+        priceController.text.isEmpty ||
+        selectedServiceType == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Please fill all required fields including service type',
+          ),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    final parsedPrice = double.tryParse(
+      priceController.text.replaceAll(',', ''),
+    );
+    if (parsedPrice == null || parsedPrice < 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Enter a valid price in PKR'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    widget.uiProvider.setLoading(true);
+    try {
+      await widget.jobProvider.postJob(
+        name_en: titleController.text,
+        name_ur: titleController.text,
+        description_en: descriptionController.text,
+        description_ur: descriptionController.text,
+        image: images.isNotEmpty ? images.first : null,
+        price: parsedPrice,
+        location: selectedAddress,
+        address: selectedAddress,
+        latitude: selectedLatitude ?? 0.0,
+        longitude: selectedLongitude ?? 0.0,
+        context: context,
+        serviceType: selectedServiceType,
+      );
+
+      if (widget.jobProvider.success != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(widget.jobProvider.success!),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+        titleController.clear();
+        descriptionController.clear();
+        priceController.clear();
+        setState(() {
+          images.clear();
+          selectedAddress = '';
+          selectedLatitude = null;
+          selectedLongitude = null;
+          selectedServiceType = null;
+        });
+        Navigator.of(context).pop();
+      } else if (widget.jobProvider.error != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(widget.jobProvider.error!),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error posting job: $e'),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 4),
+        ),
+      );
+    } finally {
+      widget.uiProvider.setLoading(false);
+    }
+  }
+
+  Widget _buildCard({required Widget child}) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 20),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.green.withOpacity(0.08),
+            blurRadius: 16,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: child,
+    );
+  }
+
+  InputDecoration _inputDecoration({required String hint, String? prefix}) {
+    return InputDecoration(
+      hintText: hint,
+      prefixText: prefix,
+      filled: true,
+      fillColor: Colors.grey.shade50,
+      contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: const BorderSide(color: Colors.grey),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: BorderSide(color: Colors.grey.shade300),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: const BorderSide(color: Colors.green, width: 1.6),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
+
     return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        title: const Text(
-          'Post Job',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 20,
-            fontWeight: FontWeight.w600,
+      backgroundColor: const Color(0xFFF8FAF9),
+      body: Stack(
+        children: [
+          /// Background circles
+          Positioned(
+            top: -80,
+            left: -60,
+            child: Container(
+              width: 160,
+              height: 160,
+              decoration: BoxDecoration(
+                color: Colors.green.withOpacity(0.15),
+                shape: BoxShape.circle,
+              ),
+            ),
           ),
-        ),
-        centerTitle: true,
-        backgroundColor: Colors.green,
-        elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white),
-      ),
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: EdgeInsets.symmetric(
-            horizontal: size.width * 0.08,
-            vertical: 20,
+          Positioned(
+            top: -100,
+            right: -80,
+            child: Container(
+              width: 200,
+              height: 200,
+              decoration: BoxDecoration(
+                color: Colors.green.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+            ),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 16),
-              JobTitleInput(controller: titleController),
-              const SizedBox(height: 24),
-              JobDescriptionInput(controller: descriptionController),
-              const SizedBox(height: 24),
-              SimpleServiceDropdown(
-                selectedService: selectedServiceType,
-                onServiceSelected: (service) {
-                  setState(() {
-                    selectedServiceType = service;
-                  });
-                },
-              ),
-              const SizedBox(height: 24),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Price (PKR)',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+
+          SafeArea(
+            child: Column(
+              children: [
+                /// Custom AppBar
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 10,
                   ),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: priceController,
-                    keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true,
-                    ),
-                    decoration: InputDecoration(
-                      prefixText: '₨ ',
-                      hintText: 'e.g. 1500',
-                      contentPadding: const EdgeInsets.symmetric(
-                        vertical: 16,
-                        horizontal: 16,
+                  child: Row(
+                    children: [
+                      GestureDetector(
+                        onTap: () => Navigator.of(context).pop(),
+                        child: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: const BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black12,
+                                blurRadius: 6,
+                                offset: Offset(0, 3),
+                              ),
+                            ],
+                          ),
+                          child: const Icon(
+                            Icons.arrow_back,
+                            color: Colors.green,
+                          ),
+                        ),
                       ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: Colors.grey),
+                      const SizedBox(width: 16),
+                      const Text(
+                        "Post Job",
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.green,
+                        ),
                       ),
-                    ),
+                    ],
                   ),
-                ],
-              ),
-              const SizedBox(height: 24),
-              JobLocationPicker(
-                onLocationSelected: (address, lat, lng) {
-                  setState(() {
-                    selectedAddress = address;
-                    selectedLatitude = lat;
-                    selectedLongitude = lng;
-                  });
-                },
-              ),
-              const SizedBox(height: 24),
-              JobImagePicker(
-                images: images,
-                onAddImage: pickImage,
-                onRemoveImage: removeImage,
-              ),
-              const SizedBox(height: 32),
-              PostJobButton(
-                isLoading: widget.uiProvider.isLoading,
-                onPressed:
-                    widget.uiProvider.isLoading
-                        ? () {}
-                        : () async {
-                          if (titleController.text.isEmpty ||
-                              descriptionController.text.isEmpty ||
-                              selectedAddress.isEmpty ||
-                              priceController.text.isEmpty ||
-                              selectedServiceType == null) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text(
-                                  'Please fill all required fields including service type',
-                                ),
-                                backgroundColor: Colors.red,
-                              ),
-                            );
-                            return;
-                          }
-                          final parsedPrice = double.tryParse(
-                            priceController.text.replaceAll(',', ''),
-                          );
-                          if (parsedPrice == null || parsedPrice < 0) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Enter a valid price in PKR'),
-                                backgroundColor: Colors.red,
-                              ),
-                            );
-                            return;
-                          }
-                          widget.uiProvider.setLoading(true);
-                          try {
-                            await widget.jobProvider.postJob(
-                              name_en: titleController.text,
-                              name_ur: titleController.text,
-                              description_en: descriptionController.text,
-                              description_ur: descriptionController.text,
-                              image: images.isNotEmpty ? images.first : null,
-                              price: parsedPrice,
-                              location: selectedAddress,
-                              address: selectedAddress,
-                              latitude: selectedLatitude ?? 0.0,
-                              longitude: selectedLongitude ?? 0.0,
-                              context: context,
-                              serviceType: selectedServiceType,
-                            );
-                            if (widget.jobProvider.success != null) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(widget.jobProvider.success!),
-                                  backgroundColor: Colors.green,
-                                  duration: const Duration(seconds: 4),
-                                ),
-                              );
-                              titleController.clear();
-                              descriptionController.clear();
+                ),
+
+                /// Form Content
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: size.width * 0.06,
+                      vertical: 16,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildCard(
+                          child: JobTitleInput(controller: titleController),
+                        ),
+                        _buildCard(
+                          child: JobDescriptionInput(
+                            controller: descriptionController,
+                          ),
+                        ),
+                        _buildCard(
+                          child: SimpleServiceDropdown(
+                            selectedService: selectedServiceType,
+                            onServiceSelected: (service) {
                               setState(() {
-                                images.clear();
-                                selectedAddress = '';
-                                selectedLatitude = null;
-                                selectedLongitude = null;
-                                selectedServiceType = null;
+                                selectedServiceType = service;
                               });
-                              priceController.clear();
-                              Navigator.of(context).pop();
-                            } else if (widget.jobProvider.error != null) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(widget.jobProvider.error!),
-                                  backgroundColor: Colors.red,
-                                  duration: const Duration(seconds: 4),
+                            },
+                          ),
+                        ),
+                        _buildCard(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Price (PKR)',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
                                 ),
-                              );
-                            }
-                          } catch (e) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('Error posting job: $e'),
-                                backgroundColor: Colors.red,
-                                duration: const Duration(seconds: 4),
                               ),
-                            );
-                          } finally {
-                            widget.uiProvider.setLoading(false);
-                          }
-                        },
-              ),
-            ],
+                              const SizedBox(height: 8),
+                              TextField(
+                                controller: priceController,
+                                keyboardType:
+                                    const TextInputType.numberWithOptions(
+                                      decimal: true,
+                                    ),
+                                decoration: _inputDecoration(
+                                  hint: "e.g. 1500",
+                                  prefix: "₨ ",
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        _buildCard(
+                          child: JobLocationPicker(
+                            onLocationSelected: (address, lat, lng) {
+                              setState(() {
+                                selectedAddress = address;
+                                selectedLatitude = lat;
+                                selectedLongitude = lng;
+                              });
+                            },
+                          ),
+                        ),
+                        _buildCard(
+                          child: JobImagePicker(
+                            images: images,
+                            onAddImage: pickImage,
+                            onRemoveImage: removeImage,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        PostJobButton(
+                          isLoading: widget.uiProvider.isLoading,
+                          onPressed:
+                              widget.uiProvider.isLoading ? () {} : _submitJob,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }

@@ -20,15 +20,9 @@ class HomeScreen extends StatelessWidget {
       'Glass & Installation',
       'Outdoor & Gardening',
       'Electrical Services',
-      'Appliance Deep Cleaning',
       'Labour & Moving',
       'Car Care Services',
-      'Water & Utility',
       'Catering & Events',
-      'Residential & Commercial Construction',
-      'Design & Planning',
-      'Renovation & Finishing',
-      'Specialized Works',
       'Outdoor Construction',
     ];
   }
@@ -37,43 +31,31 @@ class HomeScreen extends StatelessWidget {
   String _getServiceEmoji(String serviceType) {
     switch (serviceType) {
       case 'Cleaning Services':
-        return '🧹';
+        return 'assets/broom.png';
       case 'Plumbing Services':
-        return '🔧';
+        return 'assets/plumber.png';
       case 'Carpentry & Furniture':
-        return '🪑';
+        return 'assets/carpenter.png';
       case 'Painting & Finishing':
-        return '🎨';
+        return 'assets/painter.png';
       case 'Masonry & Metalwork':
-        return '🧱';
+        return 'assets/brickwork.png';
       case 'Roofing Services':
-        return '🏠';
+        return 'assets/roof.png';
       case 'Glass & Installation':
-        return '🪟';
+        return 'assets/window-cleaning.png';
       case 'Outdoor & Gardening':
-        return '🌳';
+        return 'assets/gardener.png';
       case 'Electrical Services':
-        return '💡';
-      case 'Appliance Deep Cleaning':
-        return '🏠';
+        return 'assets/electrician.png';
       case 'Labour & Moving':
-        return '👷';
+        return 'assets/labour-day.png';
       case 'Car Care Services':
-        return '🚗';
-      case 'Water & Utility':
-        return '💧';
+        return 'assets/carwash.png';
       case 'Catering & Events':
-        return '🍴';
-      case 'Residential & Commercial Construction':
-        return '🏗';
-      case 'Design & Planning':
-        return '📐';
-      case 'Renovation & Finishing':
-        return '🛠';
-      case 'Specialized Works':
-        return '⚙';
+        return 'assets/catering.png';
       case 'Outdoor Construction':
-        return '🌳';
+        return 'assets/brickwork.png';
       default:
         return '🛠';
     }
@@ -195,15 +177,7 @@ class HomeScreen extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade100,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: Colors.grey.shade300),
-                ),
-                child: Text(emoji, style: const TextStyle(fontSize: 24)),
-              ),
+              Image.asset(emoji, height: 45),
               const SizedBox(height: 4),
               Text(
                 label,

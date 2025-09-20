@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:skillzaar/presentation/screens/job_poster/job_poster_rate_worker_screen.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:skillzaar/core/services/job_request_service.dart';
+import 'package:skillzaar/presentation/screens/job_poster/job_poster_rate_worker_screen.dart';
 
 class JobDetailScreen extends StatelessWidget {
   final String jobId;
@@ -15,457 +15,220 @@ class JobDetailScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    String jobTitle = "Loading...";
-    String jobDescription = "Loading...";
-    String jobLocation = "Loading...";
-    String jobSalary = "Loading...";
+    return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.white,
+        elevation: 6,
+        shadowColor: Colors.green.withOpacity(0.2),
+        centerTitle: true,
 
-    String applicantName = "Loading...";
-    String applicantEmail = "Loading...";
-    String applicantPhone = "Loading...";
-    String skilledWorkerId = "";
+        title: const Text(
+          "Job & Applicant Details",
+          style: TextStyle(
+            color: Colors.black,
+            fontWeight: FontWeight.w700,
+            fontSize: 18,
+          ),
+        ),
+        iconTheme: const IconThemeData(color: Colors.black87),
+      ),
+      body: SizedBox(
+        height: MediaQuery.of(context).size.height,
+        child: Stack(
+          children: [
+            // Decorative background
+            Positioned(
+              top: -80,
+              left: -60,
+              child: _buildCircle(180, Colors.green.withOpacity(0.15)),
+            ),
+            Positioned(
+              bottom: -100,
+              right: -80,
+              child: _buildCircle(220, Colors.greenAccent.withOpacity(0.1)),
+            ),
 
-    return SafeArea(
-      child: WillPopScope(
-        onWillPop: () async => false,
-        child: StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-          stream:
-              FirebaseFirestore.instance
-                  .collection('JobRequests')
-                  .doc(requestId)
-                  .snapshots(),
-          builder: (context, snapshot) {
-            final status = snapshot.data?.data()?['status'] as String?;
-            final isActive = snapshot.data?.data()?['isActive'] as bool?;
-            // Only redirect to home if job is completed or inactive, not for accepted or in_progress jobs
-            if (status == 'completed' ||
-                (isActive == false &&
-                    status != 'accepted' &&
-                    status != 'in_progress')) {
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                if (!Navigator.of(context).canPop()) {
-                  Navigator.pushNamedAndRemoveUntil(
-                    context,
-                    '/job-poster-home',
-                    (route) => false,
-                  );
-                }
-              });
-            }
-            return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+            // Stream for job details
+            StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
               stream: JobRequestService.streamJobDoc(jobId),
               builder: (context, jobSnap) {
-                final jobStatus = jobSnap.data?.data()?['status'] as String?;
-                if (jobStatus == 'completed') {
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    if (!Navigator.of(context).canPop()) {
-                      Navigator.pushNamedAndRemoveUntil(
-                        context,
-                        '/job-poster-home',
-                        (route) => false,
-                      );
-                    }
-                  });
-                }
-
-                // Get job data from Firebase
                 final jobData = jobSnap.data?.data();
-                if (jobData != null) {
-                  jobTitle =
-                      jobData['title_en'] ?? jobData['title_ur'] ?? 'No Title';
-                  jobDescription =
-                      jobData['description_en'] ??
-                      jobData['description_ur'] ??
-                      'No Description';
-                  jobLocation =
-                      jobData['Location'] ??
-                      jobData['Address'] ??
-                      'No Location';
-                  jobSalary = jobData['budget']?.toString() ?? 'Not specified';
-                }
 
-                return Scaffold(
-                  appBar: AppBar(
-                    title: const Text('Job & Applicant Details'),
-                    centerTitle: true,
-                    leading: Builder(
-                      builder:
-                          (context) => IconButton(
-                            icon: const Icon(Icons.menu),
-                            onPressed: () => Scaffold.of(context).openDrawer(),
+                String jobTitle =
+                    jobData?['title_en'] ?? jobData?['title_ur'] ?? "No Title";
+                String jobDescription =
+                    jobData?['description_en'] ??
+                    jobData?['description_ur'] ??
+                    "No Description";
+                String jobLocation =
+                    jobData?['Location'] ??
+                    jobData?['Address'] ??
+                    "No Location";
+                String jobSalary =
+                    jobData?['budget']?.toString() ?? "Not Specified";
+
+                return SingleChildScrollView(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    children: [
+                      _buildGlassCard(
+                        title: "Job Details",
+                        children: [
+                          _buildInfoRow("📌 Title", jobTitle),
+                          _buildInfoRow("📝 Description", jobDescription),
+                          _buildInfoRow("📍 Location", jobLocation),
+                          _buildInfoRow("💰 Budget", jobSalary),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+                      _buildGlassCard(
+                        title: "Applicant Details",
+                        children: [
+                          FutureBuilder<DocumentSnapshot>(
+                            future:
+                                FirebaseFirestore.instance
+                                    .collection('JobRequests')
+                                    .doc(requestId)
+                                    .get(),
+                            builder: (context, snap) {
+                              if (!snap.hasData) {
+                                return const Center(
+                                  child: CircularProgressIndicator(),
+                                );
+                              }
+                              final req =
+                                  snap.data?.data() as Map<String, dynamic>?;
+                              String name =
+                                  req?['skilledWorkerName'] ?? "Unknown";
+                              String phone =
+                                  req?['skilledWorkerPhone'] ?? "Unknown";
+                              String email = "Not Available";
+
+                              return Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _buildInfoRow("👤 Name", name),
+                                  _buildInfoRow("📞 Phone", phone),
+                                  _buildInfoRow("📧 Email", email),
+                                ],
+                              );
+                            },
                           ),
-                    ),
-                  ),
-                  drawer: FutureBuilder<DocumentSnapshot>(
-                    future:
-                        FirebaseFirestore.instance
-                            .collection('JobRequests')
-                            .doc(requestId)
-                            .get(),
-                    builder: (context, requestSnap) {
-                      String currentApplicantName = applicantName;
-                      String currentApplicantPhone = applicantPhone;
-                      String currentApplicantEmail = applicantEmail;
-                      String currentSkilledWorkerId = skilledWorkerId;
-
-                      if (requestSnap.hasData &&
-                          requestSnap.data?.data() != null) {
-                        final requestData =
-                            requestSnap.data?.data() as Map<String, dynamic>;
-                        currentApplicantName =
-                            requestData['skilledWorkerName'] ?? 'Unknown';
-                        currentApplicantPhone =
-                            requestData['skilledWorkerPhone'] ?? 'Unknown';
-                        currentApplicantEmail = 'Not available';
-                        currentSkilledWorkerId =
-                            requestData['skilledWorkerId'] ?? '';
-                      }
-
-                      return _buildDrawer(
-                        context,
-                        jobTitle,
-                        jobDescription,
-                        jobLocation,
-                        jobSalary,
-                        currentApplicantName,
-                        currentApplicantEmail,
-                        currentApplicantPhone,
-                        currentSkilledWorkerId,
-                      );
-                    },
-                  ),
-                  body: SingleChildScrollView(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        /// Job Details
-                        const Text(
-                          'Job Details',
-                          style: TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          "Title: $jobTitle",
-                          style: const TextStyle(fontSize: 18),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          "Description: $jobDescription",
-                          style: const TextStyle(fontSize: 16),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          "Location: $jobLocation",
-                          style: const TextStyle(fontSize: 16),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          "Budget: $jobSalary",
-                          style: const TextStyle(fontSize: 16),
-                        ),
-
-                        const Divider(height: 30, thickness: 1),
-
-                        const Text(
-                          'Applicant Details',
-                          style: TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        // Fetch applicant details from JobRequests collection
-                        FutureBuilder<DocumentSnapshot>(
-                          future:
-                              FirebaseFirestore.instance
-                                  .collection('JobRequests')
-                                  .doc(requestId)
-                                  .get(),
-                          builder: (context, requestSnap) {
-                            if (requestSnap.connectionState ==
-                                ConnectionState.waiting) {
-                              return const CircularProgressIndicator();
-                            }
-
-                            final requestData =
-                                requestSnap.data?.data()
-                                    as Map<String, dynamic>?;
-                            if (requestData != null) {
-                              applicantName =
-                                  requestData['skilledWorkerName'] ?? 'Unknown';
-                              applicantPhone =
-                                  requestData['skilledWorkerPhone'] ??
-                                  'Unknown';
-                              applicantEmail =
-                                  'Not available'; // Email not stored in current schema
-                              skilledWorkerId =
-                                  requestData['skilledWorkerId'] ?? '';
-                            }
-
-                            return Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  "Name: $applicantName",
-                                  style: const TextStyle(fontSize: 18),
-                                ),
-                                const SizedBox(height: 6),
-                                Text(
-                                  "Phone: $applicantPhone",
-                                  style: const TextStyle(fontSize: 16),
-                                ),
-                                const SizedBox(height: 6),
-                                Text(
-                                  "Email: $applicantEmail",
-                                  style: const TextStyle(fontSize: 16),
-                                ),
-                              ],
-                            );
-                          },
-                        ),
-
-                        const SizedBox(height: 30),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: ElevatedButton(
-                                onPressed: () {
-                                  Navigator.of(context).push(
-                                    MaterialPageRoute(
-                                      builder:
-                                          (context) =>
-                                              JobPosterRateWorkerScreen(
-                                                skilledWorkerDetails: {
-                                                  'name': applicantName,
-                                                  'email': applicantEmail,
-                                                  'phone': applicantPhone,
-                                                  'id': skilledWorkerId,
-                                                  'skilledWorkerId':
-                                                      skilledWorkerId,
-                                                  'uid': skilledWorkerId,
-                                                },
-                                                requestId: requestId,
-                                              ),
-                                    ),
-                                  );
-                                },
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.green,
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 20,
-                                    vertical: 12,
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                ),
-                                child: const Text(
-                                  'Complete Job',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                              ),
+                        ],
+                      ),
+                      const SizedBox(height: 30),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _neonButton(
+                              text: "✅ Complete Job",
+                              color: Colors.green,
+                              onTap: () {
+                                // Navigate to rate worker
+                              },
                             ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: ElevatedButton(
-                                onPressed: () {
-                                  // TODO: Implement cancel job logic
-                                },
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.red,
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 20,
-                                    vertical: 12,
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                ),
-                                child: const Text(
-                                  'Cancel Job',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                              ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: _neonButton(
+                              text: "❌ Cancel Job",
+                              color: Colors.redAccent,
+                              onTap: () {},
                             ),
-                          ],
-                        ),
-                      ],
-                    ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                 );
               },
-            );
-          },
+            ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildDrawer(
-    BuildContext context,
-    String jobTitle,
-    String jobDescription,
-    String jobLocation,
-    String jobSalary,
-    String applicantName,
-    String applicantEmail,
-    String applicantPhone,
-    String skilledWorkerId,
-  ) {
-    return Drawer(
-      child: ListView(
-        padding: EdgeInsets.zero,
+  // Decorative Circles
+  Widget _buildCircle(double size, Color color) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: color,
+        shape: BoxShape.circle,
+        boxShadow: [
+          BoxShadow(
+            color: color.withOpacity(0.3),
+            blurRadius: 30,
+            spreadRadius: 5,
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Glassmorphic Card
+  Widget _buildGlassCard({
+    required String title,
+    required List<Widget> children,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.9),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.green.withOpacity(0.08),
+            blurRadius: 12,
+            spreadRadius: 2,
+          ),
+        ],
+        border: Border.all(color: Colors.green.withOpacity(0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          DrawerHeader(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Colors.blue, Colors.blueAccent],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-            ),
-            child: const Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                Icon(Icons.work, size: 40, color: Colors.white),
-                SizedBox(height: 8),
-                Text(
-                  'Job Details',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                Text(
-                  'View all information',
-                  style: TextStyle(color: Colors.white70, fontSize: 14),
-                ),
-              ],
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w700,
+              color: Colors.green,
             ),
           ),
+          const SizedBox(height: 14),
+          ...children,
+        ],
+      ),
+    );
+  }
 
-          // Job Details Section
-          _buildDrawerSection(
-            title: 'Job Information',
-            icon: Icons.work_outline,
-            children: [
-              _buildDrawerItem(
-                icon: Icons.title,
-                title: 'Title',
-                subtitle: jobTitle,
-              ),
-              _buildDrawerItem(
-                icon: Icons.description,
-                title: 'Description',
-                subtitle: jobDescription,
-              ),
-              _buildDrawerItem(
-                icon: Icons.location_on,
-                title: 'Location',
-                subtitle: jobLocation,
-              ),
-              _buildDrawerItem(
-                icon: Icons.attach_money,
-                title: 'Budget',
-                subtitle: jobSalary,
-              ),
-            ],
+  Widget _buildInfoRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            "$label: ",
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: Colors.black87,
+            ),
           ),
-
-          const Divider(),
-
-          // Skilled Worker Details Section
-          _buildDrawerSection(
-            title: 'Skilled Worker',
-            icon: Icons.person_outline,
-            children: [
-              _buildDrawerItem(
-                icon: Icons.person,
-                title: 'Name',
-                subtitle: applicantName,
-              ),
-              _buildDrawerItem(
-                icon: Icons.phone,
-                title: 'Phone',
-                subtitle: applicantPhone,
-              ),
-              _buildDrawerItem(
-                icon: Icons.email,
-                title: 'Email',
-                subtitle: applicantEmail,
-              ),
-            ],
-          ),
-
-          const Divider(),
-
-          // Action Buttons
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              children: [
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: () {
-                      Navigator.pop(context); // Close drawer
-                      // Navigate to rate worker screen
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder:
-                              (context) => JobPosterRateWorkerScreen(
-                                skilledWorkerDetails: {
-                                  'name': applicantName,
-                                  'email': applicantEmail,
-                                  'phone': applicantPhone,
-                                  'id': skilledWorkerId,
-                                  'skilledWorkerId': skilledWorkerId,
-                                  'uid': skilledWorkerId,
-                                },
-                                requestId: requestId,
-                              ),
-                        ),
-                      );
-                    },
-                    icon: const Icon(Icons.star),
-                    label: const Text('Rate Worker'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: () {
-                      Navigator.pop(context); // Close drawer
-                      // TODO: Implement cancel job logic
-                    },
-                    icon: const Icon(Icons.cancel),
-                    label: const Text('Cancel Job'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                    ),
-                  ),
-                ),
-              ],
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(fontSize: 16, color: Colors.black54),
+              maxLines: 4,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
         ],
@@ -473,56 +236,36 @@ class JobDetailScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildDrawerSection({
-    required String title,
-    required IconData icon,
-    required List<Widget> children,
+  Widget _neonButton({
+    required String text,
+    required Color color,
+    required VoidCallback onTap,
   }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-          child: Row(
-            children: [
-              Icon(icon, size: 20, color: Colors.blue),
-              const SizedBox(width: 8),
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.blue,
-                ),
-              ),
-            ],
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: color.withOpacity(0.6),
+              blurRadius: 18,
+              spreadRadius: 2,
+            ),
+          ],
+        ),
+        child: Text(
+          text,
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w700,
+            fontSize: 16,
           ),
         ),
-        ...children,
-        const SizedBox(height: 8),
-      ],
-    );
-  }
-
-  Widget _buildDrawerItem({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-  }) {
-    return ListTile(
-      leading: Icon(icon, size: 20, color: Colors.grey[600]),
-      title: Text(
-        title,
-        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
       ),
-      subtitle: Text(
-        subtitle,
-        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-        maxLines: 2,
-        overflow: TextOverflow.ellipsis,
-      ),
-      dense: true,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
     );
   }
 }
