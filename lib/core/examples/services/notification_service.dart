@@ -3,6 +3,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:skillzaar/core/services/notification_handler_service.dart';
 
 class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
@@ -127,13 +128,38 @@ class NotificationService {
     final user = FirebaseAuth.instance.currentUser;
     if (user != null && _fcmToken != null) {
       try {
-        await _firestore.collection('users').doc(user.uid).update({
-          'fcmToken': _fcmToken,
-          'lastTokenUpdate': FieldValue.serverTimestamp(),
-        });
+        // Save to both SkilledWorkers and JobPosters collections
+        // We'll determine which one based on the user's phone number or other identifier
+        await _saveTokenToUserCollection(user.uid, _fcmToken!);
         print('✅ FCM token saved to Firestore');
       } catch (e) {
         print('❌ Failed to save FCM token to Firestore: $e');
+      }
+    }
+  }
+
+  /// Save FCM token to appropriate user collection
+  Future<void> _saveTokenToUserCollection(
+    String userId,
+    String fcmToken,
+  ) async {
+    try {
+      // Try to save to SkilledWorkers collection first
+      await _firestore.collection('SkilledWorkers').doc(userId).update({
+        'fcmToken': fcmToken,
+        'lastTokenUpdate': FieldValue.serverTimestamp(),
+      });
+      print('✅ FCM token saved to SkilledWorkers collection');
+    } catch (e) {
+      // If that fails, try JobPosters collection
+      try {
+        await _firestore.collection('JobPosters').doc(userId).update({
+          'fcmToken': fcmToken,
+          'lastTokenUpdate': FieldValue.serverTimestamp(),
+        });
+        print('✅ FCM token saved to JobPosters collection');
+      } catch (e2) {
+        print('❌ Failed to save FCM token to both collections: $e2');
       }
     }
   }
@@ -163,6 +189,9 @@ class NotificationService {
   /// Handle foreground messages
   Future<void> _handleForegroundMessage(RemoteMessage message) async {
     print('📨 Received foreground message: ${message.messageId}');
+    print('📱 Foreground notification data: ${message.data}');
+    print('📱 Foreground notification title: ${message.notification?.title}');
+    print('📱 Foreground notification body: ${message.notification?.body}');
 
     // Show local notification
     await _showLocalNotification(message);
@@ -171,20 +200,25 @@ class NotificationService {
   /// Handle notification tap
   Future<void> _handleNotificationTap(RemoteMessage message) async {
     print('👆 Notification tapped: ${message.messageId}');
-    // Navigate to relevant screen based on notification data
-    _navigateToJobDetails(message.data);
+    print('📱 Notification data: ${message.data}');
+
+    // Use the notification handler service for navigation
+    NotificationHandlerService.handleNotificationTap(message);
   }
 
   /// Show local notification
   Future<void> _showLocalNotification(RemoteMessage message) async {
+    print('Showing local notification...');
+
     const AndroidNotificationDetails androidPlatformChannelSpecifics =
         AndroidNotificationDetails(
           'job_notifications',
           'Job Notifications',
-          channelDescription: 'Notifications for new job postings',
+          channelDescription: 'Notifications for job assignments and updates',
           importance: Importance.high,
           priority: Priority.high,
           showWhen: true,
+          icon: '@mipmap/ic_launcher',
         );
 
     const DarwinNotificationDetails iOSPlatformChannelSpecifics =
@@ -199,25 +233,116 @@ class NotificationService {
       iOS: iOSPlatformChannelSpecifics,
     );
 
+    final title = message.notification?.title ?? 'Skillzaar Notification';
+    final body = message.notification?.body ?? 'You have a new notification';
+
+    print('🔔 Local notification - Title: $title');
+    print('🔔 Local notification - Body: $body');
+
     await _localNotifications.show(
       message.hashCode,
-      message.notification?.title ?? 'New Job Posted',
-      message.notification?.body ?? 'A new job has been posted in your area',
+      title,
+      body,
       platformChannelSpecifics,
       payload: message.data.toString(),
     );
+
+    print('✅ Local notification displayed successfully');
   }
 
   /// Handle notification tap from local notifications
   void _onNotificationTapped(NotificationResponse response) {
     print('👆 Local notification tapped: ${response.payload}');
-    // Handle navigation based on payload
+
+    // Parse the payload data
+    try {
+      final payload = response.payload;
+      if (payload != null && payload.isNotEmpty) {
+        // The payload contains the notification data
+        // We need to create a RemoteMessage-like object for the handler
+        final data = <String, dynamic>{};
+
+        // Parse the payload string (it should contain the data)
+        if (payload.startsWith('{') && payload.endsWith('}')) {
+          // Try to parse as JSON
+          try {
+            final jsonData = response.payload;
+            print('📱 Parsing notification payload: $jsonData');
+            // For now, we'll handle this in the notification handler
+            // The actual parsing would depend on how the payload is formatted
+          } catch (e) {
+            print('❌ Error parsing notification payload: $e');
+          }
+        }
+      }
+    } catch (e) {
+      print('❌ Error handling local notification tap: $e');
+    }
   }
 
-  /// Navigate to job details
-  void _navigateToJobDetails(Map<String, dynamic> data) {
+  /// Navigate to relevant screen based on notification data
+  void _navigateToRelevantScreen(Map<String, dynamic> data) {
+    final type = data['type'] as String?;
+    final assignedJobId = data['assignedJobId'] as String?;
+    final userType = data['userType'] as String?;
+    final action = data['action'] as String?;
+
+    print('🧭 Navigate to screen based on notification: $data');
+
+    switch (type) {
+      case 'job_assigned':
+        if (assignedJobId != null && userType != null) {
+          // Navigate to assigned job detail screen
+          _navigateToAssignedJobDetail(assignedJobId, userType);
+        }
+        break;
+      case 'job_completed':
+        if (assignedJobId != null && action == 'rate_client') {
+          // Navigate to rate job poster screen
+          _navigateToRateJobPoster(assignedJobId);
+        }
+        break;
+      case 'worker_rating_completed':
+        // Navigate to home screen or show success message
+        _navigateToHome();
+        break;
+      case 'job_cancelled':
+        // Navigate to home screen
+        _navigateToHome();
+        break;
+      case 'job_posting':
+        // Navigate to jobs screen
+        _navigateToJobsScreen();
+        break;
+      default:
+        print('⚠️ Unknown notification type: $type');
+    }
+  }
+
+  /// Navigate to assigned job detail screen
+  void _navigateToAssignedJobDetail(String assignedJobId, String userType) {
     // This will be implemented in the UI layer
-    print('🧭 Navigate to job details: $data');
+    print(
+      '🧭 Navigate to assigned job detail: $assignedJobId, userType: $userType',
+    );
+  }
+
+  /// Navigate to rate job poster screen
+  void _navigateToRateJobPoster(String assignedJobId) {
+    // This will be implemented in the UI layer
+    print('🧭 Navigate to rate job poster: $assignedJobId');
+  }
+
+  /// Navigate to home screen
+  void _navigateToHome() {
+    // This will be implemented in the UI layer
+    print('🧭 Navigate to home screen');
+  }
+
+  /// Navigate to jobs screen
+  void _navigateToJobsScreen() {
+    // This will be implemented in the UI layer
+    print('🧭 Navigate to jobs screen');
   }
 
   /// Send notification to all skilled workers
@@ -279,10 +404,10 @@ class NotificationService {
   }) async {
     // This would typically be done from your backend server
     // For now, we'll just log the notification details
-  print('📤 Would send notification to token: $fcmToken');
-  print('   Title: $title');
-  print('   Body: $body');
-  print('   Data: $data');
+    print('📤 Would send notification to token: $fcmToken');
+    print('   Title: $title');
+    print('   Body: $body');
+    print('   Data: $data');
   }
 
   /// Refresh FCM token

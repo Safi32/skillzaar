@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:provider/provider.dart';
 import '../../providers/ui_state_provider.dart';
 import '../../providers/home_profile_provider.dart';
@@ -90,6 +89,28 @@ class _JobDetailContentState extends State<_JobDetailContent> {
 
   Future<void> _loadJobData() async {
     try {
+      // First check if the skilled worker is assigned to this job
+      final skilledWorkerId = await JobRequestService.getSkilledWorkerId();
+      if (skilledWorkerId == null) {
+        if (!mounted) return;
+        widget.uiProvider.setLoading(false);
+        _showAssignmentError();
+        return;
+      }
+
+      final isAssigned = await JobRequestService.isSkilledWorkerAssignedToJob(
+        jobId: widget.jobId,
+        skilledWorkerId: skilledWorkerId,
+      );
+
+      if (!isAssigned) {
+        if (!mounted) return;
+        widget.uiProvider.setLoading(false);
+        _showAssignmentError();
+        return;
+      }
+
+      // If assigned, load job data
       final jobData = await JobRequestService.getJobDetails(widget.jobId);
       if (!mounted) return;
       widget.uiProvider.setLoading(false);
@@ -103,7 +124,38 @@ class _JobDetailContentState extends State<_JobDetailContent> {
       setState(() {
         _isLoadingJobData = false;
       });
+      _showAssignmentError();
     }
+  }
+
+  void _showAssignmentError() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Icon(Icons.warning, color: Colors.white),
+            SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'This job is not assigned to you. Please contact admin for more information.',
+                style: TextStyle(fontSize: 14),
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: Colors.red,
+        duration: Duration(seconds: 4),
+        behavior: SnackBarBehavior.floating,
+        margin: EdgeInsets.only(top: 50, left: 16, right: 16),
+      ),
+    );
+
+    // Navigate back to jobs screen after showing the message
+    Future.delayed(const Duration(seconds: 2), () {
+      if (mounted) {
+        Navigator.pop(context);
+      }
+    });
   }
 
   Future<void> _navigateToRatingPage(
@@ -148,189 +200,7 @@ class _JobDetailContentState extends State<_JobDetailContent> {
     }
   }
 
-  Future<void> requestForJob(BuildContext context) async {
-    // Check if portfolio is complete first using the new method
-    final homeProfileProvider = Provider.of<HomeProfileProvider>(
-      context,
-      listen: false,
-    );
-
-    // Check if user can request jobs (has completed portfolio)
-    final canRequest = await homeProfileProvider.canRequestJobs(context);
-    if (!canRequest) {
-      // Show message to complete portfolio
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Complete your portfolio to send job requests'),
-          backgroundColor: Colors.orange,
-          duration: Duration(seconds: 3),
-        ),
-      );
-      return;
-    }
-
-    // Check if job has any active requests (in_progress or accepted)
-    final hasActiveRequests = await JobRequestService.hasActiveRequests(
-      widget.jobId,
-    );
-    if (hasActiveRequests) {
-      // Get active request details to show appropriate message
-      final activeRequest = await JobRequestService.getActiveRequestForJob(
-        widget.jobId,
-      );
-      final status = activeRequest?['status'] ?? 'in progress';
-
-      String message;
-      if (status == 'in_progress') {
-        message =
-            'This job is currently in progress. Cannot send new requests.';
-      } else {
-        message =
-            'This job has already been accepted by another worker. Cannot send new requests.';
-      }
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(message),
-          backgroundColor: Colors.red,
-          duration: const Duration(seconds: 4),
-        ),
-      );
-      return;
-    }
-
-    // Extract Job Poster ID - try multiple sources
-    String jobPosterId = widget.jobPosterId; // Start with widget parameter
-    try {
-      // First try to get from job document
-      final docJobPosterId = await JobRequestService.getJobPosterId(
-        widget.jobId,
-      );
-      print('🔍 Job Poster ID from job document: $docJobPosterId');
-
-      if (docJobPosterId != null && docJobPosterId.isNotEmpty) {
-        jobPosterId = docJobPosterId;
-      } else {
-        print('🔍 Job Poster ID from widget parameter: $jobPosterId');
-      }
-
-      // Final fallback - try to get from job data if available
-      if (_jobData != null) {
-        final jobDataPosterId = _jobData!['jobPosterId'] as String?;
-        if (jobDataPosterId != null && jobDataPosterId.isNotEmpty) {
-          jobPosterId = jobDataPosterId;
-          print('🔍 Job Poster ID from job data: $jobPosterId');
-        }
-      }
-    } catch (e) {
-      print('❌ Error extracting job poster ID: $e');
-      // jobPosterId already set to widget.jobPosterId
-    }
-
-    // Extract Skilled Worker ID - try multiple sources
-    String skilledWorkerId;
-    String skilledWorkerName;
-    String skilledWorkerPhone;
-
-    try {
-      // Prefer test-auth provider over FirebaseAuth
-      final swProvider = Provider.of<SkilledWorkerProvider>(
-        context,
-        listen: false,
-      );
-      final user = FirebaseAuth.instance.currentUser;
-
-      if (swProvider.isLoggedIn && swProvider.loggedInUserId != null) {
-        skilledWorkerId = swProvider.loggedInUserId!;
-        skilledWorkerName = 'Skilled Worker'; // Provider doesn't store name
-        skilledWorkerPhone = swProvider.loggedInPhoneNumber ?? '0000000000';
-        print('🔍 Skilled Worker ID from provider: $skilledWorkerId');
-      } else if (user != null) {
-        skilledWorkerId =
-            await JobRequestService.getSkilledWorkerId() ?? user.uid;
-        skilledWorkerName = user.displayName ?? 'Skilled Worker';
-        skilledWorkerPhone = user.phoneNumber ?? '0000000000';
-        print('🔍 Skilled Worker ID from Firebase Auth: $skilledWorkerId');
-      } else {
-        skilledWorkerId = 'TEST_SKILLED_WORKER_ID';
-        skilledWorkerName = 'Test Skilled Worker';
-        skilledWorkerPhone = '+923115798273';
-        print('🔍 Skilled Worker ID (test fallback): $skilledWorkerId');
-      }
-    } catch (e) {
-      print('❌ Error extracting skilled worker ID: $e');
-      skilledWorkerId = 'TEST_SKILLED_WORKER_ID';
-      skilledWorkerName = 'Test Skilled Worker';
-      skilledWorkerPhone = '+923115798273';
-    }
-
-    // Validate that we have both required IDs
-    if (jobPosterId.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Unable to identify job poster. Please try again.'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
-    }
-
-    if (skilledWorkerId.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Unable to identify skilled worker. Please try again.'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
-    }
-
-    print('🔍 Final Job ID: ${widget.jobId}');
-    print('🔍 Final Job Poster ID: $jobPosterId');
-    print('🔍 Final Skilled Worker ID: $skilledWorkerId');
-    print('🔍 Skilled Worker Name: $skilledWorkerName');
-    print('🔍 Skilled Worker Phone: $skilledWorkerPhone');
-
-    // Check if user has already requested this job
-    final hasRequested = await JobRequestService.hasRequestedJob(
-      widget.jobId,
-      skilledWorkerId,
-    );
-    if (hasRequested) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('You have already requested this job.'),
-          backgroundColor: Colors.orange,
-        ),
-      );
-      return;
-    }
-
-    // Create job request with extracted data
-    final success = await JobRequestService.createJobRequest(
-      jobId: widget.jobId,
-      jobPosterId: jobPosterId,
-      skilledWorkerId: skilledWorkerId,
-      skilledWorkerName: skilledWorkerName,
-      skilledWorkerPhone: skilledWorkerPhone,
-    );
-
-    if (success) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Request sent to job poster!'),
-          backgroundColor: Colors.green,
-        ),
-      );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Failed to send request. Please try again.'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
-  }
+  // Request functionality has been removed - skilled workers can no longer send requests
 
   Future<bool> _isJobRequestAccepted() async {
     try {
@@ -379,32 +249,7 @@ class _JobDetailContentState extends State<_JobDetailContent> {
         return status;
       }
 
-      // Check if user has already requested this job
-      final swProvider = Provider.of<SkilledWorkerProvider>(
-        context,
-        listen: false,
-      );
-      final user = FirebaseAuth.instance.currentUser;
-
-      String skilledWorkerId;
-      if (swProvider.isLoggedIn && swProvider.loggedInUserId != null) {
-        skilledWorkerId = swProvider.loggedInUserId!;
-      } else if (user != null) {
-        skilledWorkerId =
-            await JobRequestService.getSkilledWorkerId() ?? user.uid;
-      } else {
-        skilledWorkerId = 'TEST_SKILLED_WORKER_ID';
-      }
-
-      final hasRequested = await JobRequestService.hasRequestedJob(
-        widget.jobId,
-        skilledWorkerId,
-      );
-
-      if (hasRequested) {
-        print('🔍 User has already requested this job');
-        return 'pending';
-      }
+      // Request functionality removed - skilled workers can no longer send requests
 
       print('❌ No job requests found for job ID: ${widget.jobId}');
       return 'none';
@@ -729,42 +574,7 @@ class _JobDetailContentState extends State<_JobDetailContent> {
                                         return const SizedBox.shrink(); // Don't show warning if portfolio is complete
                                       }
 
-                                      return Container(
-                                        width: double.infinity,
-                                        padding: const EdgeInsets.all(16),
-                                        margin: const EdgeInsets.only(
-                                          bottom: 16,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: Colors.orange.shade50,
-                                          borderRadius: BorderRadius.circular(
-                                            12,
-                                          ),
-                                          border: Border.all(
-                                            color: Colors.orange.shade200,
-                                          ),
-                                        ),
-                                        child: Row(
-                                          children: [
-                                            Icon(
-                                              Icons.warning_amber_rounded,
-                                              color: Colors.orange.shade700,
-                                              size: 24,
-                                            ),
-                                            const SizedBox(width: 12),
-                                            Expanded(
-                                              child: Text(
-                                                'Complete your portfolio to send job requests',
-                                                style: TextStyle(
-                                                  color: Colors.orange.shade700,
-                                                  fontSize: 16,
-                                                  fontWeight: FontWeight.w500,
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      );
+                                      return const SizedBox.shrink(); // Portfolio warning removed - requests are no longer available
                                     },
                                   ),
 
@@ -834,8 +644,6 @@ class _JobDetailContentState extends State<_JobDetailContent> {
                                             return FutureBuilder<String>(
                                               future: _getJobRequestStatus(),
                                               builder: (context, snapshot) {
-                                                final status =
-                                                    snapshot.data ?? 'none';
                                                 final isLoading =
                                                     snapshot.connectionState ==
                                                     ConnectionState.waiting;
@@ -870,114 +678,49 @@ class _JobDetailContentState extends State<_JobDetailContent> {
                                                   );
                                                 }
 
-                                                switch (status) {
-                                                  case 'none':
-                                                    return ElevatedButton.icon(
-                                                      onPressed:
-                                                          () => requestForJob(
-                                                            context,
+                                                return Container(
+                                                  padding: const EdgeInsets.all(
+                                                    16,
+                                                  ),
+                                                  decoration: BoxDecoration(
+                                                    color: Colors.blue.shade50,
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          8,
+                                                        ),
+                                                    border: Border.all(
+                                                      color:
+                                                          Colors.blue.shade200,
+                                                    ),
+                                                  ),
+                                                  child: Row(
+                                                    children: [
+                                                      Icon(
+                                                        Icons.info_outline,
+                                                        color:
+                                                            Colors
+                                                                .blue
+                                                                .shade600,
+                                                        size: 20,
+                                                      ),
+                                                      const SizedBox(width: 12),
+                                                      Expanded(
+                                                        child: Text(
+                                                          'Job requests are not available. Please contact the job poster directly.',
+                                                          style: TextStyle(
+                                                            color:
+                                                                Colors
+                                                                    .blue
+                                                                    .shade800,
+                                                            fontSize: 14,
+                                                            fontWeight:
+                                                                FontWeight.w500,
                                                           ),
-                                                      icon: const Icon(
-                                                        Icons.send,
+                                                        ),
                                                       ),
-                                                      label: const Text(
-                                                        'Send Request',
-                                                      ),
-                                                      style: ElevatedButton.styleFrom(
-                                                        backgroundColor:
-                                                            Colors.green,
-                                                        foregroundColor:
-                                                            Colors.white,
-                                                        padding:
-                                                            const EdgeInsets.symmetric(
-                                                              vertical: 16,
-                                                            ),
-                                                      ),
-                                                    );
-                                                  case 'pending':
-                                                    return ElevatedButton.icon(
-                                                      onPressed: null,
-                                                      icon: const Icon(
-                                                        Icons.schedule,
-                                                      ),
-                                                      label: const Text(
-                                                        'Request Pending',
-                                                      ),
-                                                      style: ElevatedButton.styleFrom(
-                                                        backgroundColor:
-                                                            Colors.orange,
-                                                        foregroundColor:
-                                                            Colors.white,
-                                                        padding:
-                                                            const EdgeInsets.symmetric(
-                                                              vertical: 16,
-                                                            ),
-                                                      ),
-                                                    );
-                                                  case 'accepted':
-                                                    return ElevatedButton.icon(
-                                                      onPressed: null,
-                                                      icon: const Icon(
-                                                        Icons.check_circle,
-                                                      ),
-                                                      label: const Text(
-                                                        'Request Accepted',
-                                                      ),
-                                                      style: ElevatedButton.styleFrom(
-                                                        backgroundColor:
-                                                            Colors.green,
-                                                        foregroundColor:
-                                                            Colors.white,
-                                                        padding:
-                                                            const EdgeInsets.symmetric(
-                                                              vertical: 16,
-                                                            ),
-                                                      ),
-                                                    );
-                                                  case 'in_progress':
-                                                    return ElevatedButton.icon(
-                                                      onPressed: null,
-                                                      icon: const Icon(
-                                                        Icons.work,
-                                                      ),
-                                                      label: const Text(
-                                                        'Job In Progress',
-                                                      ),
-                                                      style: ElevatedButton.styleFrom(
-                                                        backgroundColor:
-                                                            Colors.red,
-                                                        foregroundColor:
-                                                            Colors.white,
-                                                        padding:
-                                                            const EdgeInsets.symmetric(
-                                                              vertical: 16,
-                                                            ),
-                                                      ),
-                                                    );
-                                                  default:
-                                                    return ElevatedButton.icon(
-                                                      onPressed:
-                                                          () => requestForJob(
-                                                            context,
-                                                          ),
-                                                      icon: const Icon(
-                                                        Icons.send,
-                                                      ),
-                                                      label: const Text(
-                                                        'Send Request',
-                                                      ),
-                                                      style: ElevatedButton.styleFrom(
-                                                        backgroundColor:
-                                                            Colors.green,
-                                                        foregroundColor:
-                                                            Colors.white,
-                                                        padding:
-                                                            const EdgeInsets.symmetric(
-                                                              vertical: 16,
-                                                            ),
-                                                      ),
-                                                    );
-                                                }
+                                                    ],
+                                                  ),
+                                                );
                                               },
                                             );
                                           },
@@ -1217,38 +960,7 @@ class _JobDetailContentState extends State<_JobDetailContent> {
                                 return const SizedBox.shrink(); // Don't show warning if portfolio is complete
                               }
 
-                              return Container(
-                                width: double.infinity,
-                                padding: const EdgeInsets.all(16),
-                                margin: const EdgeInsets.only(bottom: 16),
-                                decoration: BoxDecoration(
-                                  color: Colors.orange.shade50,
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(
-                                    color: Colors.orange.shade200,
-                                  ),
-                                ),
-                                child: Row(
-                                  children: [
-                                    Icon(
-                                      Icons.warning_amber_rounded,
-                                      color: Colors.orange.shade700,
-                                      size: 24,
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Text(
-                                        'Complete your portfolio to send job requests',
-                                        style: TextStyle(
-                                          color: Colors.orange.shade700,
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              );
+                              return const SizedBox.shrink(); // Portfolio warning removed - requests are no longer available
                             },
                           ),
 
@@ -1310,7 +1022,6 @@ class _JobDetailContentState extends State<_JobDetailContent> {
                                     return FutureBuilder<String>(
                                       future: _getJobRequestStatus(),
                                       builder: (context, snapshot) {
-                                        final status = snapshot.data ?? 'none';
                                         final isLoading =
                                             snapshot.connectionState ==
                                             ConnectionState.waiting;
@@ -1342,88 +1053,38 @@ class _JobDetailContentState extends State<_JobDetailContent> {
                                           );
                                         }
 
-                                        switch (status) {
-                                          case 'none':
-                                            return ElevatedButton.icon(
-                                              onPressed:
-                                                  () => requestForJob(context),
-                                              icon: const Icon(Icons.send),
-                                              label: const Text('Send Request'),
-                                              style: ElevatedButton.styleFrom(
-                                                backgroundColor: Colors.green,
-                                                foregroundColor: Colors.white,
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                      vertical: 16,
-                                                    ),
+                                        return Container(
+                                          padding: const EdgeInsets.all(16),
+                                          decoration: BoxDecoration(
+                                            color: Colors.blue.shade50,
+                                            borderRadius: BorderRadius.circular(
+                                              8,
+                                            ),
+                                            border: Border.all(
+                                              color: Colors.blue.shade200,
+                                            ),
+                                          ),
+                                          child: Row(
+                                            children: [
+                                              Icon(
+                                                Icons.info_outline,
+                                                color: Colors.blue.shade600,
+                                                size: 20,
                                               ),
-                                            );
-                                          case 'pending':
-                                            return ElevatedButton.icon(
-                                              onPressed: null,
-                                              icon: const Icon(Icons.schedule),
-                                              label: const Text(
-                                                'Request Pending',
+                                              const SizedBox(width: 12),
+                                              Expanded(
+                                                child: Text(
+                                                  'Job requests are not available. Please contact the job poster directly.',
+                                                  style: TextStyle(
+                                                    color: Colors.blue.shade800,
+                                                    fontSize: 14,
+                                                    fontWeight: FontWeight.w500,
+                                                  ),
+                                                ),
                                               ),
-                                              style: ElevatedButton.styleFrom(
-                                                backgroundColor: Colors.orange,
-                                                foregroundColor: Colors.white,
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                      vertical: 16,
-                                                    ),
-                                              ),
-                                            );
-                                          case 'accepted':
-                                            return ElevatedButton.icon(
-                                              onPressed: null,
-                                              icon: const Icon(
-                                                Icons.check_circle,
-                                              ),
-                                              label: const Text(
-                                                'Request Accepted',
-                                              ),
-                                              style: ElevatedButton.styleFrom(
-                                                backgroundColor: Colors.green,
-                                                foregroundColor: Colors.white,
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                      vertical: 16,
-                                                    ),
-                                              ),
-                                            );
-                                          case 'in_progress':
-                                            return ElevatedButton.icon(
-                                              onPressed: null,
-                                              icon: const Icon(Icons.work),
-                                              label: const Text(
-                                                'Job In Progress',
-                                              ),
-                                              style: ElevatedButton.styleFrom(
-                                                backgroundColor: Colors.red,
-                                                foregroundColor: Colors.white,
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                      vertical: 16,
-                                                    ),
-                                              ),
-                                            );
-                                          default:
-                                            return ElevatedButton.icon(
-                                              onPressed:
-                                                  () => requestForJob(context),
-                                              icon: const Icon(Icons.send),
-                                              label: const Text('Send Request'),
-                                              style: ElevatedButton.styleFrom(
-                                                backgroundColor: Colors.green,
-                                                foregroundColor: Colors.white,
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                      vertical: 16,
-                                                    ),
-                                              ),
-                                            );
-                                        }
+                                            ],
+                                          ),
+                                        );
                                       },
                                     );
                                   },

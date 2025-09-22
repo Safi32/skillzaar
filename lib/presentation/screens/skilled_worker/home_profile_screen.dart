@@ -1,5 +1,5 @@
 import '../../widgets/profile_completion_card.dart';
-import '../../widgets/approval_status_card.dart';
+// import '../../widgets/approval_status_card.dart'; // Removed - no approval needed for admin-created accounts
 import '../../widgets/service_type_section.dart';
 import '../../widgets/categories_section.dart';
 import '../../widgets/experience_section.dart';
@@ -103,8 +103,8 @@ class _HomeProfileContentState extends State<_HomeProfileContent> {
             children: [
               _buildProfileCompletionCard(),
               const SizedBox(height: 16),
-              _buildApprovalStatusCard(),
-              const SizedBox(height: 32),
+              // _buildApprovalStatusCard(), // Removed - no approval needed for admin-created accounts
+              const SizedBox(height: 16),
 
               // Service Type Selection
               _buildServiceTypeSection(),
@@ -153,19 +153,19 @@ class _HomeProfileContentState extends State<_HomeProfileContent> {
     );
   }
 
-  Widget _buildApprovalStatusCard() {
-    final skilledWorkerProvider = Provider.of<SkilledWorkerProvider>(
-      context,
-      listen: false,
-    );
-    final userId = skilledWorkerProvider.loggedInUserId ?? '';
+  // Widget _buildApprovalStatusCard() { // Removed - no approval needed for admin-created accounts
+  //   final skilledWorkerProvider = Provider.of<SkilledWorkerProvider>(
+  //     context,
+  //     listen: false,
+  //   );
+  //   final userId = skilledWorkerProvider.loggedInUserId ?? '';
 
-    if (userId.isEmpty) {
-      return const SizedBox.shrink();
-    }
+  //   if (userId.isEmpty) {
+  //     return const SizedBox.shrink();
+  //   }
 
-    return ApprovalStatusCard(userId: userId);
-  }
+  //   return ApprovalStatusCard(userId: userId);
+  // }
 
   Widget _buildServiceTypeSection() {
     return ServiceTypeSection(

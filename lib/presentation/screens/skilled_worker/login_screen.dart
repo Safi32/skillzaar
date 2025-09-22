@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:skillzaar/core/examples/services/user_data_service.dart';
+import 'package:skillzaar/core/services/job_request_service.dart';
 import '../../providers/skilled_worker_provider.dart';
 import '../../../core/theme/app_theme.dart';
-
 
 class SkilledWorkerLoginScreen extends StatefulWidget {
   const SkilledWorkerLoginScreen({super.key});
@@ -114,7 +114,7 @@ class _SkilledWorkerLoginScreenState extends State<SkilledWorkerLoginScreen> {
                 ),
                 const SizedBox(height: 8),
                 const Text(
-                  'Enter your mobile number to explore jobs',
+                  'Enter your mobile number to login as a Skilled Worker',
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 15, color: Colors.black),
                 ),
@@ -223,33 +223,15 @@ class _SkilledWorkerLoginScreenState extends State<SkilledWorkerLoginScreen> {
                                       phoneNumber: formattedPhone,
                                     );
 
-                                    // Check approval status before redirecting
-                                    final userDataMap =
-                                        userData?.data()
-                                            as Map<String, dynamic>?;
-                                    final approvalStatus =
-                                        userDataMap?['approvalStatus'] ??
-                                        'pending';
+                                    print(
+                                      '✅ Admin-created account - logging in directly',
+                                    );
 
-                                    if (approvalStatus == 'approved') {
-                                      // User is approved, navigate to home screen
-                                      Navigator.pushNamedAndRemoveUntil(
-                                        context,
-                                        '/skilled-worker-home',
-                                        (route) => false,
-                                      );
-                                    } else {
-                                      // User is not approved, redirect to approval waiting screen
-                                      Navigator.pushNamedAndRemoveUntil(
-                                        context,
-                                        '/skilled-worker-approval-waiting',
-                                        (route) => false,
-                                        arguments: {
-                                          'userId': userId,
-                                          'phoneNumber': formattedPhone,
-                                        },
-                                      );
-                                    }
+                                    // Check for active job after successful login
+                                    await _checkForActiveJobSkilledWorker(
+                                      context,
+                                      skilledWorkerProvider,
+                                    );
                                   } else {
                                     print(
                                       '📝 Skilled worker not found, showing register message',
@@ -258,7 +240,7 @@ class _SkilledWorkerLoginScreenState extends State<SkilledWorkerLoginScreen> {
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       const SnackBar(
                                         content: Text(
-                                          'No account found with this phone number. Please register first.',
+                                          'No account found with this phone number. Please contact admin to create your skilled worker account.',
                                         ),
                                         backgroundColor: Colors.red,
                                         duration: Duration(seconds: 3),
@@ -322,32 +304,126 @@ class _SkilledWorkerLoginScreenState extends State<SkilledWorkerLoginScreen> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Text(
-                      "Don't have an account?",
-                      style: TextStyle(color: Colors.black54),
-                    ),
-                    TextButton(
-                      onPressed: () {
-                        Navigator.pushNamed(context, '/skilled-worker-signup');
-                      },
-                      child: const Text(
-                        'Sign up',
-                        style: TextStyle(
-                          color: Colors.green,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+                // Signup option removed - skilled worker accounts are created by admin
               ],
             ),
           ),
         ),
       ),
     );
+  }
+
+  Future<void> _checkForActiveJobSkilledWorker(
+    BuildContext context,
+    SkilledWorkerProvider skilledWorkerProvider,
+  ) async {
+    try {
+      print('[Skilled Worker Login] Checking for active job after login...');
+
+      final skilledWorkerId = skilledWorkerProvider.loggedInUserId;
+      final skilledWorkerPhone = skilledWorkerProvider.loggedInPhoneNumber;
+
+      if (skilledWorkerId == null || skilledWorkerId.isEmpty) {
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          '/skilled-worker-home',
+          (route) => false,
+        );
+        return;
+      }
+
+      // Check for active assigned job
+      final assignedJob = await JobRequestService.getActiveAssignedJobForWorker(
+        skilledWorkerId,
+      );
+
+      print('[Skilled Worker Login] Active assigned job result: $assignedJob');
+
+      if (assignedJob != null) {
+        final assignedJobId = assignedJob['assignedJobId'] as String?;
+        final status = assignedJob['status'] as String?;
+
+        if (assignedJobId != null && assignedJobId.isNotEmpty) {
+          print(
+            '[Skilled Worker Login] Found active assigned job - AssignedJobId: $assignedJobId, Status: $status',
+          );
+
+          // Navigate to assigned job detail screen
+          Navigator.pushNamedAndRemoveUntil(
+            context,
+            '/assigned-job-detail',
+            (route) => false,
+            arguments: {
+              'assignedJobId': assignedJobId,
+              'userType': 'skilled_worker',
+            },
+          );
+          return;
+        }
+      }
+
+      // Check for completed job that needs worker rating
+      print(
+        '[Skilled Worker Login] Checking for completed job needing worker rating...',
+      );
+      final completedJob =
+          await JobRequestService.getCompletedJobNeedingWorkerRating(
+            skilledWorkerId,
+          );
+
+      print(
+        '[Skilled Worker Login] Completed job needing rating result: $completedJob',
+      );
+
+      if (completedJob != null) {
+        final assignedJobId = completedJob['assignedJobId'] as String?;
+        final jobTitle = completedJob['jobTitle'] as String?;
+        final assignmentStatus = completedJob['assignmentStatus'] as String?;
+        final workerRatingCompleted =
+            completedJob['workerRatingCompleted'] as bool?;
+
+        print('[Skilled Worker Login] Job details:');
+        print('  - AssignedJobId: $assignedJobId');
+        print('  - Job Title: $jobTitle');
+        print('  - Assignment Status: $assignmentStatus');
+        print('  - Worker Rating Completed: $workerRatingCompleted');
+
+        if (assignedJobId != null && assignedJobId.isNotEmpty) {
+          print(
+            '[Skilled Worker Login] Found completed job needing rating - AssignedJobId: $assignedJobId',
+          );
+
+          // Navigate to job poster rating screen
+          Navigator.pushNamedAndRemoveUntil(
+            context,
+            '/rate-job-poster',
+            (route) => false,
+            arguments: {
+              'assignedJobId': assignedJobId,
+              'isJobCompletion': true,
+            },
+          );
+          return;
+        }
+      } else {
+        print('[Skilled Worker Login] No completed job needing rating found');
+      }
+
+      // No active job found, proceed to home screen
+      print('[Skilled Worker Login] No active job found, going to home screen');
+      Navigator.pushNamedAndRemoveUntil(
+        context,
+        '/skilled-worker-home',
+        (route) => false,
+      );
+    } catch (e) {
+      print('[Skilled Worker Login] Error checking for active job: $e');
+      // On error, go to home screen
+      Navigator.pushNamedAndRemoveUntil(
+        context,
+        '/skilled-worker-home',
+        (route) => false,
+      );
+    }
   }
 }

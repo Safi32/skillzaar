@@ -73,25 +73,14 @@ class JobRequestService {
     }
   }
 
-  /// Check if user has already requested a job
-  static Future<bool> hasRequestedJob(
-    String jobId,
-    String skilledWorkerId,
-  ) async {
-    try {
-      final existingRequest =
-          await _firestore
-              .collection('JobRequests')
-              .where('jobId', isEqualTo: jobId)
-              .where('skilledWorkerId', isEqualTo: skilledWorkerId)
-              .get();
-
-      return existingRequest.docs.isNotEmpty;
-    } catch (e) {
-      print('Error checking existing request: $e');
-      return false;
-    }
-  }
+  /// Check if user has already requested a job - DISABLED: Skilled workers can no longer send requests
+  // static Future<bool> hasRequestedJob(
+  //   String jobId,
+  //   String skilledWorkerId,
+  // ) async {
+  //   // Request functionality has been removed
+  //   return false;
+  // }
 
   /// Check if a job has any active requests (in_progress or accepted)
   static Future<bool> hasActiveRequests(String jobId) async {
@@ -185,43 +174,17 @@ class JobRequestService {
     }
   }
 
-  /// Create a job request
-  static Future<bool> createJobRequest({
-    required String jobId,
-    required String jobPosterId,
-    required String skilledWorkerId,
-    required String skilledWorkerName,
-    required String skilledWorkerPhone,
-  }) async {
-    try {
-      print('🔍 Creating Job Request:');
-      print('  Job ID: $jobId');
-      print('  Job Poster ID: $jobPosterId');
-      print('  Skilled Worker ID: $skilledWorkerId');
-      print('  Skilled Worker Name: $skilledWorkerName');
-      print('  Skilled Worker Phone: $skilledWorkerPhone');
-
-      final requestData = {
-        'jobId': jobId,
-        'jobPosterId': jobPosterId,
-        'skilledWorkerId': skilledWorkerId,
-        'skilledWorkerName': skilledWorkerName,
-        'skilledWorkerPhone': skilledWorkerPhone,
-        'status': 'pending',
-        'requestedAt': FieldValue.serverTimestamp(),
-        'isActive': true,
-      };
-
-      final docRef = await _firestore
-          .collection('JobRequests')
-          .add(requestData);
-      print('✅ Job request created with ID: ${docRef.id}');
-      return true;
-    } catch (e) {
-      print('❌ Error creating job request: $e');
-      return false;
-    }
-  }
+  /// Create a job request - DISABLED: Skilled workers can no longer send requests
+  // static Future<bool> createJobRequest({
+  //   required String jobId,
+  //   required String jobPosterId,
+  //   required String skilledWorkerId,
+  //   required String skilledWorkerName,
+  //   required String skilledWorkerPhone,
+  // }) async {
+  //   // Request functionality has been removed
+  //   return false;
+  // }
 
   /// Update job request status
   static Future<bool> updateRequestStatus(
@@ -524,6 +487,51 @@ class JobRequestService {
         .collection('Job')
         .where('status', isEqualTo: 'approved')
         .where('isActive', isEqualTo: true)
+        .snapshots();
+  }
+
+  /// Get approved jobs by service for skilled workers to browse
+  static Stream<QuerySnapshot> getApprovedJobsByCategory(String service) {
+    // Always return all approved jobs for "All" category
+    if (service == 'All' || service.isEmpty) {
+      return _firestore
+          .collection('Job')
+          .where('status', isEqualTo: 'approved')
+          .where('isActive', isEqualTo: true)
+          .snapshots();
+    }
+
+    // Map category names to serviceType values in database
+    String serviceTypeValue;
+    switch (service.toLowerCase()) {
+      case 'plumbing':
+        serviceTypeValue = 'Plumbing Services';
+        break;
+      case 'painting':
+        serviceTypeValue = 'Painting Services';
+        break;
+      case 'cleaning':
+        serviceTypeValue = 'Cleaning Services';
+        break;
+      case 'gardening':
+        serviceTypeValue = 'Gardening Services';
+        break;
+      case 'masonry':
+        serviceTypeValue = 'Masonry Services';
+        break;
+      case 'electric work':
+        serviceTypeValue = 'Electric Services';
+        break;
+      default:
+        serviceTypeValue = service;
+        break;
+    }
+
+    return _firestore
+        .collection('Job')
+        .where('status', isEqualTo: 'approved')
+        .where('isActive', isEqualTo: true)
+        .where('serviceType', isEqualTo: serviceTypeValue)
         .snapshots();
   }
 
@@ -1462,6 +1470,211 @@ class JobRequestService {
         .snapshots();
   }
 
+  /// Get active assigned job for skilled worker
+  static Future<Map<String, dynamic>?> getActiveAssignedJobForWorker(
+    String skilledWorkerId,
+  ) async {
+    try {
+      print('🔍 Querying AssignedJobs for skilledWorkerId: $skilledWorkerId');
+
+      // First check if there are any documents in AssignedJobs at all
+      final allDocs =
+          await _firestore.collection('AssignedJobs').limit(5).get();
+      print('📋 Total documents in AssignedJobs: ${allDocs.docs.length}');
+
+      if (allDocs.docs.isNotEmpty) {
+        print(
+          '📄 Sample document IDs: ${allDocs.docs.map((d) => d.id).toList()}',
+        );
+        for (var doc in allDocs.docs) {
+          final data = doc.data();
+          print(
+            '📄 Document ${doc.id}: workerId=${data['workerId']}, jobPosterId=${data['jobPosterId']}, assignmentStatus=${data['assignmentStatus']}, isActive=${data['isActive']}',
+          );
+        }
+      }
+
+      final query =
+          await _firestore
+              .collection('AssignedJobs')
+              .where('workerId', isEqualTo: skilledWorkerId)
+              .where('assignmentStatus', whereIn: ['assigned', 'in_progress'])
+              .get();
+
+      print('📊 Found ${query.docs.length} documents for skilled worker');
+
+      // Filter out completed, cancelled, or inactive jobs
+      final activeDocs =
+          query.docs.where((doc) {
+            final data = doc.data();
+            final status = data['assignmentStatus'] as String?;
+            final isActive = data['isActive'] as bool? ?? true;
+
+            // Only include truly active jobs (not completed, cancelled, or inactive)
+            return isActive &&
+                status != null &&
+                status != 'completed' &&
+                status != 'cancelled' &&
+                (status == 'assigned' || status == 'in_progress');
+          }).toList();
+
+      print('📊 Found ${activeDocs.length} truly active jobs after filtering');
+
+      if (activeDocs.isNotEmpty) {
+        // Sort by assignedAt descending and get the first one
+        final sortedDocs =
+            activeDocs.toList()..sort((a, b) {
+              final aTime = a.data()['assignedAt'] as Timestamp?;
+              final bTime = b.data()['assignedAt'] as Timestamp?;
+              if (aTime == null && bTime == null) return 0;
+              if (aTime == null) return 1;
+              if (bTime == null) return -1;
+              return bTime.compareTo(aTime);
+            });
+
+        final doc = sortedDocs.first;
+        print(
+          '✅ Returning active job: ${doc.id} with status: ${doc.data()['assignmentStatus']}',
+        );
+        return {'assignedJobId': doc.id, ...doc.data()};
+      }
+
+      print('✅ No active jobs found for skilled worker');
+      return null;
+    } catch (e) {
+      print('❌ Error getting active assigned job for worker: $e');
+      return null;
+    }
+  }
+
+  /// Get active assigned job for job poster
+  static Future<Map<String, dynamic>?> getActiveAssignedJobForPoster(
+    String jobPosterId,
+  ) async {
+    try {
+      print('🔍 Querying AssignedJobs for jobPosterId: $jobPosterId');
+      final query =
+          await _firestore
+              .collection('AssignedJobs')
+              .where('jobPosterId', isEqualTo: jobPosterId)
+              .where('assignmentStatus', whereIn: ['assigned', 'in_progress'])
+              .get();
+
+      print('📊 Found ${query.docs.length} documents for job poster');
+
+      // Filter out completed, cancelled, or inactive jobs
+      final activeDocs =
+          query.docs.where((doc) {
+            final data = doc.data();
+            final status = data['assignmentStatus'] as String?;
+            final isActive = data['isActive'] as bool? ?? true;
+
+            // Only include truly active jobs (not completed, cancelled, or inactive)
+            return isActive &&
+                status != null &&
+                status != 'completed' &&
+                status != 'cancelled' &&
+                (status == 'assigned' || status == 'in_progress');
+          }).toList();
+
+      print('📊 Found ${activeDocs.length} truly active jobs after filtering');
+
+      if (activeDocs.isNotEmpty) {
+        // Sort by assignedAt descending and get the first one
+        final sortedDocs =
+            activeDocs.toList()..sort((a, b) {
+              final aTime = a.data()['assignedAt'] as Timestamp?;
+              final bTime = b.data()['assignedAt'] as Timestamp?;
+              if (aTime == null && bTime == null) return 0;
+              if (aTime == null) return 1;
+              if (bTime == null) return -1;
+              return bTime.compareTo(aTime);
+            });
+
+        final doc = sortedDocs.first;
+        print(
+          '✅ Returning active job: ${doc.id} with status: ${doc.data()['assignmentStatus']}',
+        );
+        return {'assignedJobId': doc.id, ...doc.data()};
+      }
+
+      print('✅ No active jobs found for job poster');
+      return null;
+    } catch (e) {
+      print('❌ Error getting active assigned job for poster: $e');
+      return null;
+    }
+  }
+
+  /// Check if skilled worker has a completed job that needs rating
+  static Future<Map<String, dynamic>?> getCompletedJobNeedingWorkerRating(
+    String skilledWorkerId,
+  ) async {
+    try {
+      print(
+        '🔍 Checking for completed job needing worker rating for: $skilledWorkerId',
+      );
+
+      // First, let's check all jobs for this worker to see what we have
+      final allJobsQuery =
+          await _firestore
+              .collection('AssignedJobs')
+              .where('workerId', isEqualTo: skilledWorkerId)
+              .get();
+
+      print('📋 Total jobs for worker: ${allJobsQuery.docs.length}');
+      for (var doc in allJobsQuery.docs) {
+        final data = doc.data();
+        print(
+          '📄 Job ${doc.id}: status=${data['assignmentStatus']}, isActive=${data['isActive']}, workerRatingCompleted=${data['workerRatingCompleted']}',
+        );
+      }
+
+      // Query for completed jobs that need worker rating
+      // Note: When job is completed, isActive is set to false, so we don't filter by isActive
+      var query =
+          await _firestore
+              .collection('AssignedJobs')
+              .where('workerId', isEqualTo: skilledWorkerId)
+              .where('assignmentStatus', isEqualTo: 'completed')
+              .where('workerRatingCompleted', isEqualTo: false)
+              .get();
+
+      print(
+        '📊 Found ${query.docs.length} completed jobs needing worker rating',
+      );
+
+      if (query.docs.isNotEmpty) {
+        // Sort by completedAt descending and get the most recent one
+        final sortedDocs =
+            query.docs.toList()..sort((a, b) {
+              final aTime = a.data()['completedAt'] as Timestamp?;
+              final bTime = b.data()['completedAt'] as Timestamp?;
+              if (aTime == null && bTime == null) return 0;
+              if (aTime == null) return 1;
+              if (bTime == null) return -1;
+              return bTime.compareTo(aTime);
+            });
+
+        final doc = sortedDocs.first;
+        final data = doc.data();
+
+        print('✅ Found completed job needing rating:');
+        print('  - Job ID: ${doc.id}');
+        print('  - Job Title: ${data['jobTitle']}');
+        print('  - Assignment Status: ${data['assignmentStatus']}');
+        print('  - Worker Rating Completed: ${data['workerRatingCompleted']}');
+        print('  - Completed At: ${data['completedAt']}');
+
+        return {'assignedJobId': doc.id, ...data};
+      }
+      return null;
+    } catch (e) {
+      print('❌ Error checking for completed job needing worker rating: $e');
+      return null;
+    }
+  }
+
   /// Mark an accepted job as completed
   static Future<bool> markAcceptedJobCompleted(String acceptedJobId) async {
     try {
@@ -1798,6 +2011,57 @@ class JobRequestService {
       }
     } catch (e) {
       print('❌ Error updating skilled worker average rating: $e');
+    }
+  }
+
+  /// Check if a skilled worker is assigned to a specific job
+  static Future<bool> isSkilledWorkerAssignedToJob({
+    required String jobId,
+    required String skilledWorkerId,
+  }) async {
+    try {
+      print(
+        '🔍 Checking if skilled worker $skilledWorkerId is assigned to job $jobId',
+      );
+
+      // Check JobRequests collection for accepted or in_progress requests
+      final jobRequests =
+          await _firestore
+              .collection('JobRequests')
+              .where('jobId', isEqualTo: jobId)
+              .where('skilledWorkerId', isEqualTo: skilledWorkerId)
+              .where('status', whereIn: ['accepted', 'in_progress'])
+              .where('isActive', isEqualTo: true)
+              .get();
+
+      if (jobRequests.docs.isNotEmpty) {
+        print(
+          '✅ Found active job request for skilled worker $skilledWorkerId and job $jobId',
+        );
+        return true;
+      }
+
+      // Check AcceptedJobs collection as fallback
+      final acceptedJobs =
+          await _firestore
+              .collection('AcceptedJobs')
+              .where('jobId', isEqualTo: jobId)
+              .where('skilledWorkerId', isEqualTo: skilledWorkerId)
+              .where('isActive', isEqualTo: true)
+              .get();
+
+      if (acceptedJobs.docs.isNotEmpty) {
+        print(
+          '✅ Found accepted job entry for skilled worker $skilledWorkerId and job $jobId',
+        );
+        return true;
+      }
+
+      print('❌ Skilled worker $skilledWorkerId is not assigned to job $jobId');
+      return false;
+    } catch (e) {
+      print('❌ Error checking job assignment: $e');
+      return false;
     }
   }
 

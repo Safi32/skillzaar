@@ -352,22 +352,8 @@ class _ProfileContentState extends State<_ProfileContent> {
                           'Your profile has been completed successfully! Your application is now under review.',
                         );
 
-                        // Redirect to approval waiting screen
-                        Navigator.pushNamedAndRemoveUntil(
-                          context,
-                          '/skilled-worker-approval-waiting',
-                          (route) => false,
-                          arguments: {
-                            'userId':
-                                widget.skilledWorkerProvider.loggedInUserId ??
-                                '',
-                            'phoneNumber':
-                                widget
-                                    .skilledWorkerProvider
-                                    .loggedInPhoneNumber ??
-                                '',
-                          },
-                        );
+                        // Admin-created accounts are auto-approved, no approval waiting needed
+                        // Profile completed successfully - user can continue using the app
                       } catch (e) {
                         // Show error toast instead of SnackBar
                         context.read<UIStateProvider>().showErrorToast(

@@ -17,6 +17,7 @@ import 'presentation/providers/notification_provider.dart';
 import 'presentation/widgets/splash_and_dialog_gate.dart';
 import 'presentation/widgets/notification_initializer.dart';
 import 'presentation/widgets/provider_connector.dart';
+import 'core/services/notification_handler_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -49,9 +50,18 @@ void main() async {
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
+
+  // Global navigator key for notification handling
+  static final GlobalKey<NavigatorState> navigatorKey =
+      GlobalKey<NavigatorState>();
+
   @override
   Widget build(BuildContext context) {
+    // Initialize notification handler with navigator key
+    NotificationHandlerService.initialize(navigatorKey);
+
     return MaterialApp(
+      navigatorKey: navigatorKey,
       debugShowCheckedModeBanner: false,
       theme: AppTheme.themeData,
       home: const SplashAndDialogGate(),

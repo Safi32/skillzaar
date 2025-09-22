@@ -206,6 +206,9 @@ class UserDataService {
       for (var doc in querySnapshot.docs) {
         print('📄 Document ID: ${doc.id}');
         print('📄 Data: ${doc.data()}');
+        print('📄 Phone in doc: ${doc.data()['phoneNumber']}');
+        print('📄 Searching for: $phoneNumber');
+        print('📄 Phone match: ${doc.data()['phoneNumber'] == phoneNumber}');
       }
 
       final exists = querySnapshot.docs.isNotEmpty;
@@ -331,11 +334,49 @@ class UserDataService {
     return await FirestoreRetryService.retryOperation(() async {
       return await FirebaseFirestore.instance
           .collection(_skilledWorkersCollection)
-          .where('approvalStatus', isEqualTo: 'approved')
           .where('isActive', isEqualTo: true)
+          .where('isApproved', isEqualTo: true)
           .orderBy('createdAt', descending: true)
           .get();
     }, operationName: 'getApprovedSkilledWorkers');
+  }
+
+  /// Get approved skilled workers by service type
+  static Future<QuerySnapshot> getApprovedSkilledWorkersByService(
+    String serviceType,
+  ) async {
+    print('🔍 Getting skilled workers for service: $serviceType');
+
+    // Always return all approved workers for "All" category
+    if (serviceType == 'All' || serviceType.isEmpty) {
+      print('📋 Fetching ALL approved skilled workers');
+      return await FirestoreRetryService.retryOperation(() async {
+        final result =
+            await FirebaseFirestore.instance
+                .collection(_skilledWorkersCollection)
+                .where('isActive', isEqualTo: true)
+                .where('isApproved', isEqualTo: true)
+                .orderBy('createdAt', descending: true)
+                .get();
+        print('✅ Found ${result.docs.length} approved skilled workers');
+        return result;
+      }, operationName: 'getApprovedSkilledWorkersByService');
+    }
+
+    // For specific service types, filter by categories array
+    print('🔍 Fetching skilled workers for specific service: $serviceType');
+    return await FirestoreRetryService.retryOperation(() async {
+      final result =
+          await FirebaseFirestore.instance
+              .collection(_skilledWorkersCollection)
+              .where('isActive', isEqualTo: true)
+              .where('isApproved', isEqualTo: true)
+              .where('categories', arrayContains: serviceType)
+              .orderBy('createdAt', descending: true)
+              .get();
+      print('✅ Found ${result.docs.length} skilled workers for $serviceType');
+      return result;
+    }, operationName: 'getApprovedSkilledWorkersByService');
   }
 
   /// Check if a skilled worker is approved

@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:skillzaar/core/examples/services/job_request_service.dart';
+import 'package:skillzaar/core/services/job_request_service.dart';
 import 'package:skillzaar/core/examples/services/user_data_service.dart';
 import 'package:skillzaar/presentation/providers/phone_auth_provider.dart';
 import 'package:skillzaar/presentation/providers/skilled_worker_provider.dart';
-import '../../../core/theme/app_theme.dart'; // where AppColors is defined
+import '../../../core/theme/app_theme.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -51,7 +51,7 @@ class _LoginScreenState extends State<LoginScreen> {
     final String role = args?['role'] ?? 'job_poster';
     final String description =
         role == 'skilled_worker'
-            ? 'Enter your mobile number to join as a Skilled Worker.'
+            ? 'Enter your mobile number to login as a Skilled Worker.'
             : 'Enter your mobile number to join as a Job Poster.';
     final size = MediaQuery.of(context).size;
 
@@ -88,16 +88,16 @@ class _LoginScreenState extends State<LoginScreen> {
             Positioned(
               top: 16,
               right: 16,
-              child: Image.asset(
-                "assets/applogo.png", // replace with your logo path
-                height: 128,
-                width: 128,
-                fit: BoxFit.contain,
+              child: SizedBox(
+                height: 80,
+                width: 80,
+                child: Image.asset("assets/applogo.png", fit: BoxFit.contain),
               ),
             ),
 
             Center(
               child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(vertical: 20.0),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 24.0),
                   child: Container(
@@ -110,31 +110,39 @@ class _LoginScreenState extends State<LoginScreen> {
                           color: Colors.black12,
                           blurRadius: 12,
                           spreadRadius: 2,
-                          offset: Offset(0, 6),
+                          offset: const Offset(0, 6),
                         ),
                       ],
                     ),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         // App Title
-                        Text(
-                          "Welcome to Skillzaar",
-                          style: TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.green,
+                        Flexible(
+                          child: Text(
+                            "Welcome to Skillzaar",
+                            style: TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.green,
+                            ),
+                            textAlign: TextAlign.center,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                          textAlign: TextAlign.center,
                         ),
                         const SizedBox(height: 8),
-                        Text(
-                          description,
-                          style: TextStyle(
-                            fontSize: 15,
-                            color: Colors.grey[700],
+                        Flexible(
+                          child: Text(
+                            description,
+                            style: TextStyle(
+                              fontSize: 15,
+                              color: Colors.grey[700],
+                            ),
+                            textAlign: TextAlign.center,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                          textAlign: TextAlign.center,
                         ),
                         const SizedBox(height: 32),
 
@@ -209,40 +217,49 @@ class _LoginScreenState extends State<LoginScreen> {
 
                         // Signup link
                         if (role == 'job_poster')
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Text(
-                                "Don’t have an account? ",
-                                style: TextStyle(fontSize: 15),
-                              ),
-                              GestureDetector(
-                                onTap: () {
-                                  Navigator.pushNamed(
-                                    context,
-                                    '/job-poster-signup',
-                                  );
-                                },
-                                child: Text(
-                                  "Sign up",
-                                  style: TextStyle(
-                                    color: AppColors.green,
-                                    fontWeight: FontWeight.bold,
-                                    decoration: TextDecoration.underline,
+                          Flexible(
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    "Don't have an account? ",
+                                    style: TextStyle(fontSize: 15),
+                                    overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
-                              ),
-                            ],
+                                GestureDetector(
+                                  onTap: () {
+                                    Navigator.pushNamed(
+                                      context,
+                                      '/job-poster-signup',
+                                    );
+                                  },
+                                  child: Text(
+                                    "Sign up",
+                                    style: TextStyle(
+                                      color: AppColors.green,
+                                      fontWeight: FontWeight.bold,
+                                      decoration: TextDecoration.underline,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         const SizedBox(height: 16),
 
-                        Text(
-                          "By signing up, you accept our Terms & Privacy Policy.",
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey[600],
+                        Flexible(
+                          child: Text(
+                            "By signing up, you accept our Terms & Privacy Policy.",
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey[600],
+                            ),
+                            textAlign: TextAlign.center,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                          textAlign: TextAlign.center,
                         ),
                       ],
                     ),
@@ -250,7 +267,6 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ),
             ),
-            // Green accent shape at top
             Positioned(
               bottom: -size.height * 0.15,
               right: -size.width * 0.25,
@@ -263,7 +279,6 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ),
             ),
-            // Top-right app logo
           ],
         ),
       ),
@@ -345,11 +360,13 @@ class _LoginScreenState extends State<LoginScreen> {
             phoneNumber: formattedPhone,
           );
 
-          Navigator.pushNamedAndRemoveUntil(
-            context,
-            '/skilled-worker-home',
-            (route) => false,
-          );
+          print('🔍 Skilled Worker Login Debug:');
+          print('📱 Phone: $formattedPhone');
+          print('🆔 User ID: $userId');
+          print('✅ Admin-created account - logging in directly');
+
+          // Check for active job after successful login
+          await _checkForActiveJobSkilledWorker(context, skilledWorkerProvider);
         } else {
           final phoneAuthProvider = Provider.of<PhoneAuthProvider>(
             context,
@@ -366,19 +383,92 @@ class _LoginScreenState extends State<LoginScreen> {
         }
       } else {
         print('📝 User not found, showing register message');
-        // User is not registered, show register message
+        // User is not registered, show appropriate message based on role
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'No account found with this phone number. Please register first.',
+              role == 'skilled_worker'
+                  ? 'No account found with this phone number. Please contact admin to create your skilled worker account.'
+                  : 'No account found with this phone number. Please register first.',
             ),
             backgroundColor: Colors.red,
-            duration: Duration(seconds: 3),
+            duration: Duration(seconds: 4),
           ),
         );
       }
     } finally {
       if (mounted) setState(() => isLoading = false);
+    }
+  }
+
+  Future<void> _checkForActiveJobSkilledWorker(
+    BuildContext context,
+    SkilledWorkerProvider skilledWorkerProvider,
+  ) async {
+    try {
+      print(
+        '[Login Screen] Checking for active job after skilled worker login...',
+      );
+
+      final skilledWorkerId = skilledWorkerProvider.loggedInUserId;
+
+      if (skilledWorkerId == null || skilledWorkerId.isEmpty) {
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          '/skilled-worker-home',
+          (route) => false,
+        );
+        return;
+      }
+
+      // Check for active assigned job
+      print(
+        '[Login Screen] Checking for assigned job with skilledWorkerId: $skilledWorkerId',
+      );
+      final assignedJob = await JobRequestService.getActiveAssignedJobForWorker(
+        skilledWorkerId,
+      );
+
+      print('[Login Screen] Active assigned job result: $assignedJob');
+
+      if (assignedJob != null) {
+        final assignedJobId = assignedJob['assignedJobId'] as String?;
+        final status = assignedJob['status'] as String?;
+
+        if (assignedJobId != null && assignedJobId.isNotEmpty) {
+          print(
+            '[Login Screen] Found active assigned job - AssignedJobId: $assignedJobId, Status: $status',
+          );
+
+          // Navigate to assigned job detail screen
+          Navigator.pushNamedAndRemoveUntil(
+            context,
+            '/assigned-job-detail',
+            (route) => false,
+            arguments: {
+              'assignedJobId': assignedJobId,
+              'userType': 'skilled_worker',
+            },
+          );
+          return;
+        }
+      }
+
+      // No active job found, proceed to home screen
+      print('[Login Screen] No active job found, going to home screen');
+      Navigator.pushNamedAndRemoveUntil(
+        context,
+        '/skilled-worker-home',
+        (route) => false,
+      );
+    } catch (e) {
+      print('[Login Screen] Error checking for active job: $e');
+      // On error, go to home screen
+      Navigator.pushNamedAndRemoveUntil(
+        context,
+        '/skilled-worker-home',
+        (route) => false,
+      );
     }
   }
 
@@ -390,7 +480,6 @@ class _LoginScreenState extends State<LoginScreen> {
       print('[Login Screen] Checking for active job after job poster login...');
 
       final jobPosterId = phoneAuthProvider.loggedInUserId;
-      final jobPosterPhone = phoneAuthProvider.loggedInPhoneNumber;
 
       if (jobPosterId == null || jobPosterId.isEmpty) {
         // No user ID, go to home screen
@@ -402,44 +491,36 @@ class _LoginScreenState extends State<LoginScreen> {
         return;
       }
 
-      // Check for active job
-      final active = await JobRequestService.getActiveRequestForPoster(
+      // Check for active assigned job
+      print(
+        '[Login Screen] Checking for assigned job with jobPosterId: $jobPosterId',
+      );
+      final assignedJob = await JobRequestService.getActiveAssignedJobForPoster(
         jobPosterId,
-        posterPhone: jobPosterPhone,
       );
 
-      print('[Login Screen] Active job result: $active');
+      print('[Login Screen] Active assigned job result: $assignedJob');
 
-      if (active != null) {
-        final jobId = active['jobId'] as String?;
-        final requestId = active['requestId'] as String?;
-        final status = active['status'] as String?;
+      if (assignedJob != null) {
+        final assignedJobId = assignedJob['assignedJobId'] as String?;
+        final status = assignedJob['status'] as String?;
 
-        if (jobId != null && jobId.isNotEmpty) {
+        if (assignedJobId != null && assignedJobId.isNotEmpty) {
           print(
-            '[Login Screen] Found active job - JobId: $jobId, Status: $status',
+            '[Login Screen] Found active assigned job - AssignedJobId: $assignedJobId, Status: $status',
           );
 
-          // Redirect based on job status
-          if (status == 'in_progress') {
-            // In progress jobs go to job detail screen
-            Navigator.pushNamedAndRemoveUntil(
-              context,
-              '/job-poster-job-detail',
-              (route) => false,
-              arguments: {'jobId': jobId, 'requestId': requestId},
-            );
-            return;
-          } else if (status == 'accepted') {
-            // Accepted jobs go to accepted details screen
-            Navigator.pushNamedAndRemoveUntil(
-              context,
-              '/job-poster-accepted-details',
-              (route) => false,
-              arguments: {'jobId': jobId, 'requestId': requestId},
-            );
-            return;
-          }
+          // Navigate to assigned job detail screen
+          Navigator.pushNamedAndRemoveUntil(
+            context,
+            '/assigned-job-detail',
+            (route) => false,
+            arguments: {
+              'assignedJobId': assignedJobId,
+              'userType': 'job_poster',
+            },
+          );
+          return;
         }
       }
 

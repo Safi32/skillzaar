@@ -1,36 +1,37 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-class RateJobPosterScreen extends StatefulWidget {
+class AssignedJobRatingScreen extends StatefulWidget {
   final String assignedJobId;
   final bool isJobCompletion;
 
-  const RateJobPosterScreen({
+  const AssignedJobRatingScreen({
     super.key,
     required this.assignedJobId,
     required this.isJobCompletion,
   });
 
   @override
-  State<RateJobPosterScreen> createState() => _RateJobPosterScreenState();
+  State<AssignedJobRatingScreen> createState() =>
+      _AssignedJobRatingScreenState();
 }
 
-class _RateJobPosterScreenState extends State<RateJobPosterScreen> {
+class _AssignedJobRatingScreenState extends State<AssignedJobRatingScreen> {
   double rating = 4.0;
-  // Map 1 star -> Poor, 5 stars -> Excellent
+  // Map 1 star -> Poor, 5 stars -> Excellent (poster rates worker)
   final List<String> defaultTexts = [
     'Poor',
     'Average',
     'Good',
     'Very Good',
-    'Excellent client',
+    'Excellent work',
   ];
   String? selectedText;
   final TextEditingController _customController = TextEditingController();
   bool _isSubmitting = false;
   Map<String, dynamic>? _assignedJobData;
   bool _isLoading = true;
-  double _currentJobPosterRating = 0.0;
+  double _currentWorkerRating = 0.0;
   int _currentRatingCount = 0;
 
   @override
@@ -54,8 +55,8 @@ class _RateJobPosterScreenState extends State<RateJobPosterScreen> {
           _isLoading = false;
         });
 
-        // Load job poster's current rating
-        await _loadJobPosterRating(data['jobPosterId'] as String?);
+        // Load skilled worker's current rating
+        await _loadSkilledWorkerRating(data['workerId'] as String?);
       } else {
         setState(() {
           _isLoading = false;
@@ -81,26 +82,26 @@ class _RateJobPosterScreenState extends State<RateJobPosterScreen> {
     }
   }
 
-  Future<void> _loadJobPosterRating(String? jobPosterId) async {
-    if (jobPosterId == null) return;
+  Future<void> _loadSkilledWorkerRating(String? workerId) async {
+    if (workerId == null) return;
 
     try {
       final doc =
           await FirebaseFirestore.instance
-              .collection('JobPosters')
-              .doc(jobPosterId)
+              .collection('SkilledWorkers')
+              .doc(workerId)
               .get();
 
       if (doc.exists) {
         final data = doc.data()!;
         setState(() {
-          _currentJobPosterRating =
+          _currentWorkerRating =
               (data['averageRating'] as num?)?.toDouble() ?? 0.0;
           _currentRatingCount = (data['ratingCount'] as int?) ?? 0;
         });
       }
     } catch (e) {
-      print('Error loading job poster rating: $e');
+      print('Error loading skilled worker rating: $e');
     }
   }
 
@@ -118,37 +119,38 @@ class _RateJobPosterScreenState extends State<RateJobPosterScreen> {
     });
 
     try {
-      final jobPosterId = _assignedJobData!['jobPosterId'] as String?;
       final skilledWorkerId = _assignedJobData!['workerId'] as String?;
+      final jobPosterId = _assignedJobData!['jobPosterId'] as String?;
       final jobId = _assignedJobData!['jobId'] as String?;
 
-      if (jobPosterId == null || skilledWorkerId == null || jobId == null) {
+      if (skilledWorkerId == null || jobPosterId == null || jobId == null) {
         throw Exception('Missing required IDs');
       }
 
-      // 1) Update the assigned job with worker's rating of job poster
+      // 1) Update the assigned job status to completed
       await FirebaseFirestore.instance
           .collection('AssignedJobs')
           .doc(widget.assignedJobId)
           .update({
-            'workerRatingOfPoster': rating,
-            'workerRatingComment': selectedText ?? _customController.text,
-            'ratedByWorker': skilledWorkerId,
-            'ratedByWorkerAt': FieldValue.serverTimestamp(),
-            'workerRatingCompleted': true,
-          });
-
-      // 2) Update job poster's rating
-      await _updateJobPosterRating(jobPosterId, rating);
-
-      // 3) Mark the job as fully completed (both sides rated)
-      await FirebaseFirestore.instance
-          .collection('AssignedJobs')
-          .doc(widget.assignedJobId)
-          .update({
-            'fullyCompleted': true,
+            'assignmentStatus': 'completed',
+            'isActive': false,
             'completedAt': FieldValue.serverTimestamp(),
+            'rating': rating,
+            'ratingComment': selectedText ?? _customController.text,
+            'ratedBy': jobPosterId,
+            'ratedAt': FieldValue.serverTimestamp(),
+            'workerRatingCompleted':
+                false, // This field needs to be false so worker can rate
           });
+
+      // 2) Update skilled worker's rating
+      await _updateSkilledWorkerRating(skilledWorkerId, rating);
+
+      // 3) Update job status
+      await FirebaseFirestore.instance.collection('Job').doc(jobId).update({
+        'status': 'completed',
+        'completedAt': FieldValue.serverTimestamp(),
+      });
 
       // Show success message
       ScaffoldMessenger.of(context).showSnackBar(
@@ -158,10 +160,10 @@ class _RateJobPosterScreenState extends State<RateJobPosterScreen> {
         ),
       );
 
-      // Navigate to home screen
+      // Navigate to home screen after job poster rates the worker
       Navigator.pushNamedAndRemoveUntil(
         context,
-        '/skilled-worker-home',
+        '/job-poster-home',
         (route) => false,
       );
     } catch (e) {
@@ -178,13 +180,13 @@ class _RateJobPosterScreenState extends State<RateJobPosterScreen> {
     }
   }
 
-  Future<void> _updateJobPosterRating(
-    String jobPosterId,
+  Future<void> _updateSkilledWorkerRating(
+    String skilledWorkerId,
     double newRating,
   ) async {
     try {
       // Use the current rating data we already have
-      final currentRating = _currentJobPosterRating;
+      final currentRating = _currentWorkerRating;
       final ratingCount = _currentRatingCount;
 
       // Calculate new average rating using proper formula
@@ -192,10 +194,10 @@ class _RateJobPosterScreenState extends State<RateJobPosterScreen> {
       final newAverageRating =
           ((currentRating * ratingCount) + newRating) / (ratingCount + 1);
 
-      // Update job poster's rating
+      // Update worker's rating
       await FirebaseFirestore.instance
-          .collection('JobPosters')
-          .doc(jobPosterId)
+          .collection('SkilledWorkers')
+          .doc(skilledWorkerId)
           .update({
             'averageRating': newAverageRating,
             'ratingCount': ratingCount + 1,
@@ -204,11 +206,11 @@ class _RateJobPosterScreenState extends State<RateJobPosterScreen> {
 
       // Update local state
       setState(() {
-        _currentJobPosterRating = newAverageRating;
+        _currentWorkerRating = newAverageRating;
         _currentRatingCount = ratingCount + 1;
       });
     } catch (e) {
-      print('Error updating job poster rating: $e');
+      print('Error updating skilled worker rating: $e');
     }
   }
 
@@ -224,12 +226,12 @@ class _RateJobPosterScreenState extends State<RateJobPosterScreen> {
       );
     }
 
-    final jobPosterName = _assignedJobData!['jobPosterName'] ?? 'Client';
+    final workerName = _assignedJobData!['workerName'] ?? 'Worker';
     final jobTitle = _assignedJobData!['jobTitle'] ?? 'Job';
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Rate Client'),
+        title: Text(widget.isJobCompletion ? 'Rate Worker' : 'Rate Worker'),
         backgroundColor: Colors.green,
         foregroundColor: Colors.white,
       ),
@@ -261,7 +263,7 @@ class _RateJobPosterScreenState extends State<RateJobPosterScreen> {
                   const SizedBox(height: 8),
                   Text('Job: $jobTitle', style: const TextStyle(fontSize: 16)),
                   Text(
-                    'Client: $jobPosterName',
+                    'Worker: $workerName',
                     style: const TextStyle(fontSize: 16),
                   ),
                   const SizedBox(height: 8),
@@ -278,7 +280,7 @@ class _RateJobPosterScreenState extends State<RateJobPosterScreen> {
                       Row(
                         children: List.generate(5, (index) {
                           return Icon(
-                            index < _currentJobPosterRating
+                            index < _currentWorkerRating
                                 ? Icons.star
                                 : Icons.star_border,
                             color: Colors.amber,
@@ -288,7 +290,7 @@ class _RateJobPosterScreenState extends State<RateJobPosterScreen> {
                       ),
                       const SizedBox(width: 8),
                       Text(
-                        '${_currentJobPosterRating.toStringAsFixed(1)}/5.0',
+                        '${_currentWorkerRating.toStringAsFixed(1)}/5.0',
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.bold,
@@ -313,7 +315,7 @@ class _RateJobPosterScreenState extends State<RateJobPosterScreen> {
 
             // Rating Section
             const Text(
-              'How was your experience with this client?',
+              'How was your experience?',
               style: TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
@@ -432,7 +434,7 @@ class _RateJobPosterScreenState extends State<RateJobPosterScreen> {
               controller: _customController,
               maxLines: 3,
               decoration: InputDecoration(
-                hintText: 'Share your detailed feedback about the client...',
+                hintText: 'Share your detailed feedback...',
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),

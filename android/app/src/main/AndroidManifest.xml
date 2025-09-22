@@ -8,6 +8,7 @@
 <uses-permission android:name="android.permission.READ_SMS"/>
 <uses-permission android:name="android.permission.READ_PHONE_STATE"/>
 <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+<uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
 <uses-permission android:name="android.permission.VIBRATE"/>
 
     <application
@@ -34,7 +35,6 @@
               <meta-data
         android:name="io.flutter.embedding.android.EnableImpeller"
         android:value="false" />
-
                 <meta-data
                   android:name="flutter_deeplinking_enabled"
                   android:value="true"
@@ -49,8 +49,6 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
-        
-        <!-- Google Maps API Key -->
         <meta-data
             android:name="com.google.android.geo.API_KEY"
             android:value="AIzaSyCeozEFCHJyX5syiB-oz2UNMDJvS4gFhb0" />

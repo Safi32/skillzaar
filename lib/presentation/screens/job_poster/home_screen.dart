@@ -5,12 +5,20 @@ import 'package:skillzaar/presentation/widgets/banner.dart';
 import 'package:skillzaar/core/services/performance_monitor.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  String _selectedService = 'All';
 
   // Get all service types from the simple dropdown
   List<String> _getServiceTypes() {
     return [
+      'All',
       'Cleaning Services',
       'Plumbing Services',
       'Carpentry & Furniture',
@@ -30,6 +38,8 @@ class HomeScreen extends StatelessWidget {
   // Get emoji for each service type
   String _getServiceEmoji(String serviceType) {
     switch (serviceType) {
+      case 'All':
+        return 'assets/workers.png';
       case 'Cleaning Services':
         return 'assets/broom.png';
       case 'Plumbing Services':
@@ -88,7 +98,9 @@ class HomeScreen extends StatelessWidget {
           const SizedBox(height: 16),
           Expanded(
             child: FutureBuilder<QuerySnapshot>(
-              future: UserDataService.getApprovedSkilledWorkers(),
+              future: UserDataService.getApprovedSkilledWorkersByService(
+                _selectedService,
+              ),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
@@ -100,7 +112,36 @@ class HomeScreen extends StatelessWidget {
                 }
                 final docs = snapshot.data?.docs ?? [];
                 if (docs.isEmpty) {
-                  return const Center(child: Text('No skilled workers found'));
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.work_off,
+                          size: 64,
+                          color: Colors.grey.shade400,
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          _selectedService == 'All'
+                              ? 'No skilled workers found'
+                              : 'No $_selectedService workers available',
+                          style: TextStyle(
+                            color: Colors.grey.shade600,
+                            fontSize: 16,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Check back later for new workers',
+                          style: TextStyle(
+                            color: Colors.grey.shade500,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
                 }
 
                 return PerformanceGridView(
@@ -127,9 +168,9 @@ class HomeScreen extends StatelessWidget {
                                 'Skilled Worker')
                             .toString();
                     final service =
-                        (data['primaryService'] ??
-                                    data['service'] ??
-                                    data['skills']?.isNotEmpty == true
+                        (data['categories']?.isNotEmpty == true
+                                ? (data['categories'][0]).toString()
+                                : data['skills']?.isNotEmpty == true
                                 ? (data['skills'][0]).toString()
                                 : 'Service')
                             .toString();
@@ -165,15 +206,25 @@ class HomeScreen extends StatelessWidget {
   }
 
   Widget _buildChip(String label, String emoji, String serviceType) {
+    final isSelected = _selectedService == serviceType;
     return RepaintBoundary(
       child: GestureDetector(
         onTap: () {
-          // TODO: Navigate to filtered workers by service type
-          print('Selected service type: $serviceType');
+          setState(() {
+            _selectedService = serviceType;
+          });
         },
         child: Container(
           width: 70,
           margin: const EdgeInsets.only(right: 6),
+          padding: const EdgeInsets.all(4.0),
+          decoration: BoxDecoration(
+            color:
+                isSelected ? Colors.green.withOpacity(0.1) : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+            border:
+                isSelected ? Border.all(color: Colors.green, width: 2) : null,
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -182,10 +233,10 @@ class HomeScreen extends StatelessWidget {
               Text(
                 label,
                 textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: Colors.black87,
+                style: TextStyle(
+                  color: isSelected ? Colors.green : Colors.black87,
                   fontSize: 9,
-                  fontWeight: FontWeight.w500,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
                   height: 1.1,
                 ),
                 maxLines: 2,
@@ -225,7 +276,7 @@ class _JobCard extends StatelessWidget {
         onTap: onTap,
         child: Container(
           margin: const EdgeInsets.only(bottom: 16),
-          height: 180,
+          height: 185,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
             image: DecorationImage(
@@ -281,7 +332,7 @@ class _JobCard extends StatelessWidget {
               Align(
                 alignment: Alignment.bottomLeft,
                 child: Padding(
-                  padding: const EdgeInsets.all(8.0),
+                  padding: const EdgeInsets.all(10.0),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
@@ -290,26 +341,33 @@ class _JobCard extends StatelessWidget {
                         title,
                         style: const TextStyle(
                           color: Colors.white,
-                          fontSize: 14,
+                          fontSize: 13,
                           fontWeight: FontWeight.bold,
                         ),
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
                       ),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text(
-                            subtitle,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 12,
+                          Expanded(
+                            child: Text(
+                              subtitle,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 11,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
                             ),
                           ),
+                          const SizedBox(width: 4),
                           Text(
                             price,
                             style: const TextStyle(
                               color: Colors.white,
                               fontWeight: FontWeight.w600,
-                              fontSize: 13,
+                              fontSize: 12,
                             ),
                           ),
                         ],

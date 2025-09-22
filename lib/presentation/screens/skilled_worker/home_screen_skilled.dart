@@ -10,10 +10,11 @@ import 'package:skillzaar/presentation/widgets/bottom_bar_widget.dart';
 import '../../widgets/contact_us_dialog.dart';
 import '../../widgets/filter_dialog.dart';
 import '../../widgets/skilled_worker_drawer_header.dart';
-import '../../widgets/approval_gate.dart';
+// import '../../widgets/approval_gate.dart'; // Removed - no approval needed for admin-created accounts
 import 'jobs_screen.dart';
 import 'home_profile_screen.dart';
 import 'requests_screen.dart';
+import '../../widgets/real_time_notification_widget.dart';
 
 /// Helper function to safely convert Timestamp to DateTime
 DateTime? _safeConvertToDateTime(dynamic value) {
@@ -36,6 +37,7 @@ class _HomeScreenSkilledState extends State<HomeScreenSkilled> {
   int _selectedIndex = 0;
   String _selectedJobType = 'All';
   double _selectedRadius = 50.0;
+  String _selectedCategory = 'All';
 
   @override
   void initState() {
@@ -55,7 +57,6 @@ class _HomeScreenSkilledState extends State<HomeScreenSkilled> {
   void _setupRequestStatusListener() {
     final provider = Provider.of<SkilledWorkerProvider>(context, listen: false);
     if (provider.loggedInUserId != null) {
-      // Listen for changes in the skilled worker's request status
       FirebaseFirestore.instance
           .collection('JobRequests')
           .where('skilledWorkerId', isEqualTo: provider.loggedInUserId)
@@ -64,7 +65,6 @@ class _HomeScreenSkilledState extends State<HomeScreenSkilled> {
           .snapshots()
           .listen((snapshot) {
             if (snapshot.docs.isNotEmpty && mounted) {
-              // Request was accepted, redirect to job detail screen
               final requestData = snapshot.docs.first.data();
               final jobId = requestData['jobId'] as String?;
               if (jobId != null) {
@@ -122,6 +122,25 @@ class _HomeScreenSkilledState extends State<HomeScreenSkilled> {
       }
 
       if (workerId == null || workerId.isEmpty) return;
+
+      // Force rating flow BEFORE anything else. If there's a completed job
+      // where the worker hasn't rated the client yet, open the rating screen
+      // and block access to other screens until it's submitted.
+      final completedNeedingRating =
+          await JobRequestService.getCompletedJobNeedingWorkerRating(workerId);
+      if (mounted &&
+          completedNeedingRating != null &&
+          (completedNeedingRating['assignedJobId'] as String?)?.isNotEmpty ==
+              true) {
+        final assignedJobId = completedNeedingRating['assignedJobId'] as String;
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          '/rate-job-poster',
+          (route) => false,
+          arguments: {'assignedJobId': assignedJobId, 'isJobCompletion': true},
+        );
+        return;
+      }
       final active = await JobRequestService.getActiveRequestForWorker(
         workerId,
         skilledWorkerPhone: workerPhone,
@@ -151,7 +170,9 @@ class _HomeScreenSkilledState extends State<HomeScreenSkilled> {
 
   @override
   Widget build(BuildContext context) {
-    return ApprovalGate(child: _buildMainContent(context));
+    return _buildMainContent(
+      context,
+    ); // Removed ApprovalGate - admin-created accounts are auto-approved
   }
 
   Widget _buildMainContent(BuildContext context) {
@@ -199,14 +220,7 @@ class _HomeScreenSkilledState extends State<HomeScreenSkilled> {
                 _showContactUsDialog(context);
               },
             ),
-            ListTile(
-              leading: const Icon(Icons.star_rate, color: Colors.amber),
-              title: const Text('Rate Job Poster'),
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.pushNamed(context, '/skilled-worker-rate-poster');
-              },
-            ),
+            // Rate Job Poster functionality removed from drawer but kept for automatic opening
             const Divider(),
             ListTile(
               leading: const Icon(Icons.logout, color: Colors.red),
@@ -229,29 +243,33 @@ class _HomeScreenSkilledState extends State<HomeScreenSkilled> {
   }
 
   Widget _buildChip(String label, String assetPath) {
+    final isSelected = _selectedCategory == label;
     return GestureDetector(
-      onTap: () {},
-      child: SizedBox(
+      onTap: () {
+        setState(() {
+          _selectedCategory = label;
+        });
+      },
+      child: Container(
         width: 80,
+        padding: const EdgeInsets.all(8.0),
+        decoration: BoxDecoration(
+          color:
+              isSelected ? Colors.green.withOpacity(0.1) : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+          border: isSelected ? Border.all(color: Colors.green, width: 2) : null,
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: Image.asset(
-                assetPath,
-                width: 40,
-                height: 40,
-                fit: BoxFit.contain,
-              ),
-            ),
+            Image.asset(assetPath, width: 40, height: 40, fit: BoxFit.contain),
             const SizedBox(height: 6),
             Text(
               label,
-              style: const TextStyle(
-                color: Colors.black87,
+              style: TextStyle(
+                color: isSelected ? Colors.green : Colors.black87,
                 fontSize: 12,
-                fontWeight: FontWeight.w500,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
               ),
             ),
           ],
@@ -266,11 +284,12 @@ class _HomeScreenSkilledState extends State<HomeScreenSkilled> {
         const HireBanner(),
         const SizedBox(height: 12),
         SizedBox(
-          height: 100,
+          height: 110,
           child: ListView(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 12),
             children: [
+              _buildChip("All", 'assets/workers.png'),
               _buildChip("Plumbing", 'assets/plumber.png'),
               _buildChip("Painting", 'assets/painter.png'),
               _buildChip("Cleaning", 'assets/broom.png'),
@@ -283,7 +302,9 @@ class _HomeScreenSkilledState extends State<HomeScreenSkilled> {
         const SizedBox(height: 16),
         Expanded(
           child: StreamBuilder<QuerySnapshot>(
-            stream: JobRequestService.getApprovedJobs(),
+            stream: JobRequestService.getApprovedJobsByCategory(
+              _selectedCategory,
+            ),
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Center(
@@ -299,10 +320,34 @@ class _HomeScreenSkilledState extends State<HomeScreenSkilled> {
                 );
               }
               if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                return const Center(
-                  child: Text(
-                    'No approved jobs available yet',
-                    style: TextStyle(color: Colors.grey),
+                return Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.work_off,
+                        size: 64,
+                        color: Colors.grey.shade400,
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        _selectedCategory == 'All'
+                            ? 'No approved jobs available yet'
+                            : 'No $_selectedCategory jobs available',
+                        style: TextStyle(
+                          color: Colors.grey.shade600,
+                          fontSize: 16,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Check back later for new opportunities',
+                        style: TextStyle(
+                          color: Colors.grey.shade500,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
                   ),
                 );
               }
@@ -449,6 +494,58 @@ class _HomeScreenSkilledState extends State<HomeScreenSkilled> {
             },
           ),
     );
+  }
+
+  Future<void> _openRateJobPosterFromDrawer(BuildContext context) async {
+    try {
+      final provider = Provider.of<SkilledWorkerProvider>(
+        context,
+        listen: false,
+      );
+      final skilledWorkerId = provider.loggedInUserId;
+
+      if (skilledWorkerId == null || skilledWorkerId.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please log in first'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+
+      // Look for a completed job that still needs the worker's rating
+      final completedJob =
+          await JobRequestService.getCompletedJobNeedingWorkerRating(
+            skilledWorkerId,
+          );
+
+      if (completedJob != null &&
+          (completedJob['assignedJobId'] as String?)?.isNotEmpty == true) {
+        final assignedJobId = completedJob['assignedJobId'] as String;
+        Navigator.pushNamed(
+          context,
+          '/rate-job-poster',
+          arguments: {'assignedJobId': assignedJobId, 'isJobCompletion': true},
+        );
+        return;
+      }
+
+      // If nothing pending, inform the user
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No pending ratings found.'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Unable to open rating page: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   void _logout(BuildContext context) async {

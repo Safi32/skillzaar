@@ -8,7 +8,7 @@ import '../../../core/services/job_request_service.dart';
 import '../../../core/services/performance_service.dart';
 import '../../../core/services/performance_monitor.dart';
 import '../../widgets/location_status_widget.dart';
-import '../../widgets/approval_gate.dart';
+// import '../../widgets/approval_gate.dart'; // Removed - no approval needed for admin-created accounts
 import 'job_detail_screen.dart';
 
 class SkilledWorkerJobsScreen extends StatefulWidget {
@@ -43,86 +43,81 @@ class _SkilledWorkerJobsScreenState extends State<SkilledWorkerJobsScreen>
 
   @override
   Widget build(BuildContext context) {
-    return ApprovalGate(
-      child: Consumer<SkilledWorkerProvider>(
-        builder: (context, skilledWorkerProvider, child) {
-          return Container(
-            color: Colors.grey.shade50,
-            child: Column(
-              children: [
-                // Location Status Widget
-                const LocationStatusWidget(),
+    return Consumer<SkilledWorkerProvider>(
+      // Removed ApprovalGate - admin-created accounts are auto-approved
+      builder: (context, skilledWorkerProvider, child) {
+        return Container(
+          color: Colors.grey.shade50,
+          child: Column(
+            children: [
+              // Location Status Widget
+              const LocationStatusWidget(),
 
-                // Jobs List
-                Expanded(
-                  child: StreamBuilder<QuerySnapshot>(
-                    stream: JobRequestService.getApprovedJobs(),
-                    builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.waiting) {
-                        return const Center(
-                          child: CircularProgressIndicator(color: Colors.green),
-                        );
-                      }
+              // Jobs List
+              Expanded(
+                child: StreamBuilder<QuerySnapshot>(
+                  stream: JobRequestService.getApprovedJobs(),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(
+                        child: CircularProgressIndicator(color: Colors.green),
+                      );
+                    }
 
-                      if (snapshot.hasError) {
-                        return Center(
-                          child: Text(
-                            'Error: ${snapshot.error}',
-                            style: const TextStyle(color: Colors.red),
-                          ),
-                        );
-                      }
+                    if (snapshot.hasError) {
+                      return Center(
+                        child: Text(
+                          'Error: ${snapshot.error}',
+                          style: const TextStyle(color: Colors.red),
+                        ),
+                      );
+                    }
 
-                      if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                        return const Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.work_off,
-                                size: 64,
+                    if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                      return const Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.work_off, size: 64, color: Colors.grey),
+                            SizedBox(height: 16),
+                            Text(
+                              'No approved jobs available',
+                              style: TextStyle(
+                                fontSize: 18,
                                 color: Colors.grey,
                               ),
-                              SizedBox(height: 16),
-                              Text(
-                                'No approved jobs available',
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  color: Colors.grey,
-                                ),
+                            ),
+                            SizedBox(height: 8),
+                            Text(
+                              'Jobs are being reviewed by admin.\nCheck back later for approved opportunities.',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.grey,
                               ),
-                              SizedBox(height: 8),
-                              Text(
-                                'Jobs are being reviewed by admin.\nCheck back later for approved opportunities.',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: Colors.grey,
-                                ),
-                                textAlign: TextAlign.center,
-                              ),
-                            ],
-                          ),
-                        );
-                      }
-
-                      return PerformanceListView(
-                        padding: const EdgeInsets.all(16),
-                        itemCount: snapshot.data!.docs.length,
-                        itemBuilder: (context, index) {
-                          final job = snapshot.data!.docs[index];
-                          final jobData = job.data() as Map<String, dynamic>;
-
-                          return _buildJobCard(context, jobData, job.id);
-                        },
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
+                        ),
                       );
-                    },
-                  ),
+                    }
+
+                    return PerformanceListView(
+                      padding: const EdgeInsets.all(16),
+                      itemCount: snapshot.data!.docs.length,
+                      itemBuilder: (context, index) {
+                        final job = snapshot.data!.docs[index];
+                        final jobData = job.data() as Map<String, dynamic>;
+
+                        return _buildJobCard(context, jobData, job.id);
+                      },
+                    );
+                  },
                 ),
-              ],
-            ),
-          );
-        },
-      ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -136,6 +131,93 @@ class _SkilledWorkerJobsScreenState extends State<SkilledWorkerJobsScreen>
         job: job,
         jobId: jobId,
         onTap: () => _launchDialer(job['posterPhone'] ?? ''),
+        onJobDetailTap: () => _navigateToJobDetail(context, job, jobId),
+      ),
+    );
+  }
+
+  Future<void> _navigateToJobDetail(
+    BuildContext context,
+    Map<String, dynamic> job,
+    String jobId,
+  ) async {
+    try {
+      // Check if the skilled worker is assigned to this job before navigating
+      final skilledWorkerId = await JobRequestService.getSkilledWorkerId();
+      if (skilledWorkerId == null) {
+        _showAssignmentError(context);
+        return;
+      }
+
+      final isAssigned = await JobRequestService.isSkilledWorkerAssignedToJob(
+        jobId: jobId,
+        skilledWorkerId: skilledWorkerId,
+      );
+
+      if (!isAssigned) {
+        _showAssignmentError(context);
+        return;
+      }
+
+      // If assigned, navigate to job detail screen
+      final title =
+          job['title_en'] ?? job['title_ur'] ?? job['Name'] ?? 'No Title';
+      final description =
+          job['description_en'] ??
+          job['description_ur'] ??
+          job['Description'] ??
+          '';
+      final imageUrl =
+          (job['images'] != null &&
+                  job['images'] is List &&
+                  job['images'].isNotEmpty)
+              ? job['images'][0]
+              : (job['Image'] ?? 'https://via.placeholder.com/120x80?text=Job');
+      final postedDate =
+          job['createdAt'] != null
+              ? (job['createdAt'] as Timestamp).toDate()
+              : null;
+
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder:
+              (_) => JobDetailScreen(
+                imageUrl: imageUrl,
+                title: title,
+                location: job['Address'] ?? '',
+                date: postedDate,
+                description: description,
+                jobId: jobId,
+                jobPosterId: job['jobPosterId'] ?? job['userId'] ?? '',
+              ),
+        ),
+      );
+    } catch (e) {
+      print('Error navigating to job detail: $e');
+      _showAssignmentError(context);
+    }
+  }
+
+  void _showAssignmentError(BuildContext context) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Icon(Icons.warning, color: Colors.white),
+            SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'This job is not assigned to you. Please contact admin for more information.',
+                style: TextStyle(fontSize: 14),
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: Colors.red,
+        duration: Duration(seconds: 4),
+        behavior: SnackBarBehavior.floating,
+        margin: EdgeInsets.only(top: 50, left: 16, right: 16),
       ),
     );
   }
@@ -145,11 +227,13 @@ class _JobCardWidget extends StatefulWidget {
   final Map<String, dynamic> job;
   final String jobId;
   final VoidCallback onTap;
+  final VoidCallback onJobDetailTap;
 
   const _JobCardWidget({
     required this.job,
     required this.jobId,
     required this.onTap,
+    required this.onJobDetailTap,
   });
 
   @override
@@ -220,11 +304,6 @@ class _JobCardWidgetState extends State<_JobCardWidget>
         widget.job['title_ur'] ??
         widget.job['Name'] ??
         'No Title';
-    final description =
-        widget.job['description_en'] ??
-        widget.job['description_ur'] ??
-        widget.job['Description'] ??
-        '';
     final imageUrl =
         (widget.job['images'] != null &&
                 widget.job['images'] is List &&
@@ -251,24 +330,7 @@ class _JobCardWidgetState extends State<_JobCardWidget>
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder:
-                  (_) => JobDetailScreen(
-                    imageUrl: imageUrl,
-                    title: title,
-                    location: widget.job['Address'] ?? '',
-                    date: postedDate,
-                    description: description,
-                    jobId: widget.jobId,
-                    jobPosterId:
-                        widget.job['jobPosterId'] ?? widget.job['userId'] ?? '',
-                  ),
-            ),
-          );
-        },
+        onTap: widget.onJobDetailTap,
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Row(

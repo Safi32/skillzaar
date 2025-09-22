@@ -11,7 +11,7 @@ import '../screens/job_poster/job_poster_profile_screen.dart';
 import '../screens/job_poster/job_poster_detail_screen.dart';
 import '../screens/job_poster/job_poster_ads_screen.dart';
 import '../screens/job_poster/contact_us_screen.dart';
-import '../screens/skilled_worker/signup_screen.dart';
+// import '../screens/skilled_worker/signup_screen.dart'; // Removed - skilled worker signup disabled
 // import '../screens/skilled_worker/otp_screen.dart' as skilled_worker_otp; // OTP removed for skilled workers
 import '../screens/skilled_worker/cnic_screen.dart';
 import '../screens/skilled_worker/profile_screen.dart';
@@ -20,16 +20,19 @@ import '../screens/skilled_worker/home_profile_screen.dart';
 import '../screens/skilled_worker/jobs_screen.dart';
 import '../screens/skilled_worker/accepted_requests_screen.dart';
 import '../screens/skilled_worker/job_detail_screen.dart' as skilled_worker;
+import '../screens/skilled_worker/job_detail_screen_from_id.dart';
 import '../screens/job_poster/job_detail_screen.dart';
 import '../screens/job_poster/job_accepted_details_screen.dart';
 import '../screens/skilled_worker/navigate_to_job_screen.dart';
 import '../screens/skilled_worker/portfolio_overview_screen.dart';
 import '../screens/skilled_worker/rate_job_poster_screen.dart';
+import '../screens/shared/assigned_job_rating_screen.dart';
 import '../screens/job_poster/skilled_worker_rate_job_poster_screen.dart';
 import '../screens/test_notification_screen.dart';
 import '../screens/admin/worker_approval_screen.dart';
-import '../screens/skilled_worker/approval_waiting_screen.dart';
+// import '../screens/skilled_worker/approval_waiting_screen.dart'; // Removed - no approval needed for admin-created accounts
 import '../screens/job_poster/worker_tracking_screen.dart';
+import '../screens/shared/assigned_job_detail_screen.dart';
 import '../providers/skilled_worker_provider.dart';
 import '../providers/ui_state_provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -56,7 +59,7 @@ class AppRoutes {
     '/job-poster-ads': (context) => const JobPosterAdsScreen(),
     '/job-poster-contact': (context) => const ContactUsScreen(),
     '/job-poster-detail': (context) => const JobPosterDetailScreen(),
-    '/skilled-worker-signup': (context) => const SkilledWorkerSignUpScreen(),
+    // '/skilled-worker-signup': (context) => const SkilledWorkerSignUpScreen(), // Disabled - skilled worker accounts are created by admin
     '/skilled-worker-login': (context) => LoginScreen(),
     // '/skilled-worker-otp': (context) => const skilled_worker_otp.SkilledWorkerOTPScreen(), // OTP removed for skilled workers
     '/skilled-worker-cnic': (context) => const CnicScreen(),
@@ -66,14 +69,14 @@ class AppRoutes {
         (context) => const AcceptedRequestsScreen(),
     '/test-notifications': (context) => const TestNotificationScreen(),
     '/admin-worker-approval': (context) => const WorkerApprovalScreen(),
-    '/skilled-worker-approval-waiting': (context) {
-      final args =
-          ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
-      return ApprovalWaitingScreen(
-        userId: args?['userId'] ?? '',
-        phoneNumber: args?['phoneNumber'] ?? '',
-      );
-    },
+    // '/skilled-worker-approval-waiting': (context) { // Removed - no approval needed for admin-created accounts
+    //   final args =
+    //       ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+    //   return ApprovalWaitingScreen(
+    //     userId: args?['userId'] ?? '',
+    //     phoneNumber: args?['phoneNumber'] ?? '',
+    //   );
+    // },
     '/worker-tracking': (context) {
       final args =
           ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
@@ -181,8 +184,53 @@ class AppRoutes {
           return MaterialPageRoute(
             builder:
                 (context) => RateJobPosterScreen(
-                  jobPosterDetails: args['jobPosterDetails'] ?? {},
-                  requestId: args['requestId'],
+                  assignedJobId: args['assignedJobId'] ?? '',
+                  isJobCompletion: args['isJobCompletion'] ?? false,
+                ),
+          );
+        }
+        break;
+      case '/job-detail':
+        final args = settings.arguments as Map<String, dynamic>?;
+        if (args != null) {
+          return MaterialPageRoute(
+            builder:
+                (context) => JobDetailScreenFromId(jobId: args['jobId'] ?? ''),
+          );
+        }
+        break;
+      case '/assigned-job-detail':
+        final args = settings.arguments as Map<String, dynamic>?;
+        if (args != null) {
+          return MaterialPageRoute(
+            builder:
+                (context) => AssignedJobDetailScreen(
+                  assignedJobId: args['assignedJobId'] ?? '',
+                  userType: args['userType'] ?? 'skilled_worker',
+                ),
+          );
+        }
+        break;
+      case '/rate-skilled-worker':
+        final args = settings.arguments as Map<String, dynamic>?;
+        if (args != null) {
+          return MaterialPageRoute(
+            builder:
+                (context) => AssignedJobRatingScreen(
+                  assignedJobId: args['assignedJobId'] ?? '',
+                  isJobCompletion: args['isJobCompletion'] ?? false,
+                ),
+          );
+        }
+        break;
+      case '/rate-job-poster':
+        final args = settings.arguments as Map<String, dynamic>?;
+        if (args != null) {
+          return MaterialPageRoute(
+            builder:
+                (context) => RateJobPosterScreen(
+                  assignedJobId: args['assignedJobId'] ?? '',
+                  isJobCompletion: args['isJobCompletion'] ?? false,
                 ),
           );
         }
