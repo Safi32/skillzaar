@@ -808,6 +808,24 @@ class SkilledWorkerProvider with ChangeNotifier {
     print('🔐 Verifying OTP: $smsCode for phone: $_currentPhoneNumber');
 
     try {
+      // DEV TEST BYPASS: Accept Firebase Console test number for skilled worker
+      final pn = (_currentPhoneNumber ?? '').replaceAll(' ', '');
+      final testWorkerPhones = <String>{
+        '+923115798273',
+        '03115798273',
+        '3115798273',
+      };
+      if (testWorkerPhones.contains(pn) && smsCode.trim() == '123456') {
+        _isLoggedIn = true;
+        _loggedInPhoneNumber = pn;
+        _loggedInUserId =
+            'SKILLED_WORKER_TEST_${pn.replaceAll(RegExp(r'[^0-9]'), '')}';
+        _isLoading = false;
+        notifyListeners();
+        onSuccess();
+        return;
+      }
+
       if (_verificationId == null) {
         _error = 'No verification ID. Please request OTP again.';
         _isLoading = false;

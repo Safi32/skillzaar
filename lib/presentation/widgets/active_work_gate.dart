@@ -275,6 +275,32 @@ class _ActiveWorkGateState extends State<ActiveWorkGate> {
         );
         return;
       }
+
+      // Fallback: if no activeJobId, check AcceptedJobs directly and force navigation
+      try {
+        final accepted =
+            await FirebaseFirestore.instance
+                .collection('AcceptedJobs')
+                .where('jobPosterId', isEqualTo: poster.loggedInUserId)
+                .where('isActive', isEqualTo: true)
+                .orderBy('acceptedAt', descending: true)
+                .limit(1)
+                .get();
+        if (accepted.docs.isNotEmpty) {
+          final doc = accepted.docs.first;
+          final data = doc.data();
+          final jobId = (data['jobId'] ?? '').toString();
+          final requestId = (data['requestId'] ?? '').toString();
+          if (!mounted) return;
+          Navigator.pushNamedAndRemoveUntil(
+            context,
+            '/job-poster-accepted-details',
+            (route) => false,
+            arguments: {'jobId': jobId, 'requestId': requestId},
+          );
+          return;
+        }
+      } catch (_) {}
     }
 
     // Legacy flows (JobRequests) kept for backward compatibility

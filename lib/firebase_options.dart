@@ -57,7 +57,7 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions android = FirebaseOptions(
     apiKey: 'AIzaSyAtG2_o2-9_BrXDCAKikd_83uYGxIDfy30',
-    appId: '1:18417914632:android:4bc87dbda7b98ccfd892bd',
+    appId: '1:18417914632:android:4cab83b8e1668174d892bd',
     messagingSenderId: '18417914632',
     projectId: 'skillzaar-bcb0f',
     storageBucket: 'skillzaar-bcb0f.firebasestorage.app',
@@ -65,10 +65,11 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions ios = FirebaseOptions(
     apiKey: 'AIzaSyA7zqXeNz4rCbXaIT3Bou1FbYpo0XIKC5A',
-    appId: '1:18417914632:ios:20aa8631557efd13d892bd',
+    appId: '1:18417914632:ios:9bf6f8f356069c62d892bd',
     messagingSenderId: '18417914632',
     projectId: 'skillzaar-bcb0f',
     storageBucket: 'skillzaar-bcb0f.firebasestorage.app',
-    iosBundleId: 'com.example.skillzaar',
+    iosBundleId: 'com.skillzaar.worker',
   );
+
 }

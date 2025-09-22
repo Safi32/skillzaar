@@ -123,6 +123,43 @@ class PhoneAuthProvider with ChangeNotifier {
     print('🔐 Verifying OTP (job poster)');
 
     try {
+      // DEV TEST BYPASS: Accept Firebase Console test number without network
+      final pnInput = (_currentPhoneNumber ?? '').replaceAll(' ', '');
+      final testPosterPhones = <String>{
+        '+923055526288',
+        '03055526288',
+        '3055526288',
+      };
+      if (testPosterPhones.contains(pnInput) &&
+          (smsCode.trim() == '123465' || smsCode.trim() == '123456')) {
+        final pn = _currentPhoneNumber ?? '';
+        _isLoggedIn = true;
+        _loggedInUserId =
+            'JOB_POSTER_TEST_${pn.replaceAll(RegExp(r'[^0-9]'), '')}';
+        _loggedInPhoneNumber = pn;
+
+        await _saveFcmTokenAndStartListener();
+        await _createJobPosterDocument();
+        await _checkAndSetActiveJobFlags();
+
+        _isLoading = false;
+        notifyListeners();
+
+        if (context.mounted) {
+          if (isSignUp) {
+            Navigator.pushNamedAndRemoveUntil(
+              context,
+              '/job-poster-home',
+              (route) => false,
+              arguments: {'userId': _loggedInUserId},
+            );
+          } else {
+            await checkJobOnLogin(pn, context);
+          }
+        }
+        return true;
+      }
+
       if (_verificationId == null) {
         _error = 'No verification ID. Please request OTP again.';
         _isLoading = false;
