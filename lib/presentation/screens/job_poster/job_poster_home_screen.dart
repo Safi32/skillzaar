@@ -4,7 +4,7 @@ import 'package:skillzaar/presentation/screens/job_poster/home_screen.dart';
 import 'package:skillzaar/presentation/widgets/bottom_bar_widget.dart';
 import '../../providers/ui_state_provider.dart';
 import 'job_poster_ads_screen.dart';
-import 'job_requests_screen.dart';
+// import 'job_requests_screen.dart'; // Requests removed
 import 'job_poster_profile_screen.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:skillzaar/presentation/widgets/job_poster_drawer.dart';
@@ -53,7 +53,6 @@ class _JobPosterHomeContentState extends State<_JobPosterHomeContent> {
     _pages = [
       HomeScreen(),
       JobPosterAdsScreen(myAdsOnly: _showMyAdsOnly),
-      const JobRequestsScreen(),
       const JobPosterProfileScreen(),
     ];
   }

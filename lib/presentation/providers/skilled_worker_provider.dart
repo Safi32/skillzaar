@@ -4,10 +4,14 @@ import 'package:firebase_auth/firebase_auth.dart' as fb_auth;
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:skillzaar/core/examples/services/recaptcha_service.dart';
+// import 'package:skillzaar/core/examples/services/recaptcha_service.dart';
+import 'package:skillzaar/presentation/providers/notification_provider.dart';
 import '../../../core/utils/permission_handler.dart';
 import '../../../core/services/job_request_service.dart';
 import '../../../core/services/user_storage_service.dart';
+
+import '../../core/examples/services/notification_service.dart'
+    as example_notif;
 
 import '../../../core/services/location_tracking_service.dart';
 import 'dart:io';
@@ -49,6 +53,27 @@ class SkilledWorkerProvider with ChangeNotifier {
     // Start location tracking for the worker
     LocationTrackingService().startLocationTracking(userId);
 
+    // Save FCM token and start Firestore notifications listener if available
+    try {
+      final notificationProvider = NotificationProvider();
+      final token = notificationProvider.notificationService.fcmToken;
+      if (token != null && token.isNotEmpty) {
+        example_notif.NotificationService().saveTokenForUser(
+          userId: userId,
+          userCollection: 'Tokens',
+          token: token,
+        );
+      }
+      // Listen to Firestore notifcation collection for real-time docs
+      example_notif.NotificationService().startFirestoreNotificationListener(
+        userId: userId,
+        collectionName: 'notifcation',
+      );
+    } catch (e) {
+      // Non-fatal
+      print('⚠️ Could not setup notifications on login: $e');
+    }
+
     notifyListeners();
     print('✅ Skilled Worker logged in state set: $userId, $phoneNumber');
   }
@@ -83,6 +108,37 @@ class SkilledWorkerProvider with ChangeNotifier {
       _loggedInUserId = userCred.user?.uid;
 
       print('✅ Skilled Worker login successful: $_loggedInUserId');
+
+      // Save FCM token and start Firestore notifications listener
+      try {
+        final notifService = example_notif.NotificationService();
+        final token = notifService.fcmToken;
+        if (_loggedInUserId != null && token != null && token.isNotEmpty) {
+          await notifService.saveTokenForUser(
+            userId: _loggedInUserId!,
+            userCollection: 'Tokens',
+            token: token,
+          );
+
+          // Also save/update a token record in 'notifcation' collection for admin panel
+          await FirebaseFirestore.instance
+              .collection('notifcation')
+              .doc(_loggedInUserId!)
+              .set({
+                'userId': _loggedInUserId!,
+                'userType': 'skilled_worker',
+                'fcmToken': token,
+                'updatedAt': FieldValue.serverTimestamp(),
+                'createdAt': FieldValue.serverTimestamp(),
+              }, SetOptions(merge: true));
+          notifService.startFirestoreNotificationListener(
+            userId: _loggedInUserId!,
+            collectionName: 'notifcation',
+          );
+        }
+      } catch (e) {
+        print('⚠️ Could not setup notifications on worker login: $e');
+      }
 
       // Check for active job and set SharedPreferences flags
       await _checkAndSetActiveJobFlags();
@@ -324,6 +380,11 @@ class SkilledWorkerProvider with ChangeNotifier {
       LocationTrackingService().setWorkerOffline(_loggedInUserId!);
       LocationTrackingService().stopLocationTracking();
     }
+
+    // Stop Firestore notifications listener
+    try {
+      example_notif.NotificationService().stopFirestoreNotificationListener();
+    } catch (_) {}
 
     _isLoggedIn = false;
     _loggedInUserId = null;
@@ -641,41 +702,61 @@ class SkilledWorkerProvider with ChangeNotifier {
     final input = phoneNumber.trim();
     print('📱 Sending OTP (skilled worker) to: "$input"');
 
-    // Check if reCAPTCHA is required
-    if (ReCaptchaService.isRecaptchaRequired) {
+    // Temporary bypass: direct login without OTP
+    try {
+      final formatted = formatPhoneNumber(input);
+      final digitsOnly = formatted.replaceAll(RegExp(r'[^0-9]'), '');
+      final localUserId = 'SKILLED_WORKER_\${digitsOnly}';
+
+      _currentPhoneNumber = formatted;
+      _loggedInPhoneNumber = formatted;
+      _loggedInUserId = localUserId;
+      _isLoggedIn = true;
+
+      // Save FCM token and start Firestore notifications listener
       try {
-        await ReCaptchaService.verifyWithReCaptcha(
-          phoneNumber: input,
-          onSuccess: () {
-            print('✅ reCAPTCHA verification successful');
-            _proceedWithPhoneVerification(input);
-          },
-          onError: (error) {
-            print('❌ reCAPTCHA verification failed: $error');
-            _error = 'reCAPTCHA verification failed: $error';
-            _isLoading = false;
-            notifyListeners();
-          },
-          onExpired: () {
-            print('⏰ reCAPTCHA verification expired');
-            _error = 'reCAPTCHA verification expired. Please try again.';
-            _isLoading = false;
-            notifyListeners();
-          },
-        );
+        final notifService = example_notif.NotificationService();
+        final token = notifService.fcmToken;
+        if (_loggedInUserId != null && token != null && token.isNotEmpty) {
+          await notifService.saveTokenForUser(
+            userId: _loggedInUserId!,
+            userCollection: 'Tokens',
+            token: token,
+          );
+          await FirebaseFirestore.instance
+              .collection('notifcation')
+              .doc(_loggedInUserId!)
+              .set({
+                'userId': _loggedInUserId!,
+                'userType': 'skilled_worker',
+                'fcmToken': token,
+                'updatedAt': FieldValue.serverTimestamp(),
+                'createdAt': FieldValue.serverTimestamp(),
+              }, SetOptions(merge: true));
+          notifService.startFirestoreNotificationListener(
+            userId: _loggedInUserId!,
+            collectionName: 'notifcation',
+          );
+        }
       } catch (e) {
-        print('❌ reCAPTCHA error: $e');
-        _error = 'reCAPTCHA verification failed: $e';
-        _isLoading = false;
-        notifyListeners();
+        print('⚠️ Could not setup notifications on worker direct login: $e');
       }
-    } else {
-      // For mobile platforms, proceed directly with phone verification
-      _proceedWithPhoneVerification(input);
+
+      // Ensure worker document exists
+      await _createSkilledWorkerDocument();
+
+      _isLoading = false;
+      notifyListeners();
+    } catch (e) {
+      _error = 'Direct login failed: $e';
+      _isLoading = false;
+      notifyListeners();
     }
   }
 
   void _proceedWithPhoneVerification(String input) {
+    // Firebase OTP flow temporarily disabled; keeping code commented for future use.
+    /*
     fb_auth.FirebaseAuth.instance.verifyPhoneNumber(
       phoneNumber: formatPhoneNumber(input),
       forceResendingToken: _resendToken,
@@ -716,6 +797,7 @@ class SkilledWorkerProvider with ChangeNotifier {
         notifyListeners();
       },
     );
+    */
   }
 
   Future<void> signInWithOTP(String smsCode, VoidCallback onSuccess) async {

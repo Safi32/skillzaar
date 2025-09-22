@@ -330,71 +330,79 @@ class _LoginScreenState extends State<LoginScreen> {
       );
 
       if (userExists) {
-        print('🏠 Navigating to home screen for $userType');
-
-        // Get user data to get the actual user ID
-        final userData = await UserDataService.getUserDataByPhone(
-          phoneNumber: formattedPhone,
-          userType: userType,
-        );
-
-        String userId;
-        if (userData != null && userData.exists) {
-          userId = userData.id;
-          print('✅ Found existing user with ID: $userId');
-        } else {
-          // Fallback: generate dynamic user ID
-          userId =
-              '${userType}_${formattedPhone.replaceAll('+', '').replaceAll(' ', '')}_${DateTime.now().millisecondsSinceEpoch}';
-        }
-
-        // Set authentication state in providers
         if (role == 'skilled_worker') {
+          // Skilled worker continues with direct login (admin-created accounts)
+          print('🏠 Skilled worker exists; logging in directly');
+
+          // Get user data to get the actual user ID
+          final userData = await UserDataService.getUserDataByPhone(
+            phoneNumber: formattedPhone,
+            userType: userType,
+          );
+
+          String userId;
+          if (userData != null && userData.exists) {
+            userId = userData.id;
+          } else {
+            userId =
+                '${userType}_${formattedPhone.replaceAll('+', '').replaceAll(' ', '')}_${DateTime.now().millisecondsSinceEpoch}';
+          }
+
           final skilledWorkerProvider = Provider.of<SkilledWorkerProvider>(
             context,
             listen: false,
           );
-          // Set logged in state for skilled worker
           skilledWorkerProvider.setLoggedInState(
             userId: userId,
             phoneNumber: formattedPhone,
           );
-
-          print('🔍 Skilled Worker Login Debug:');
-          print('📱 Phone: $formattedPhone');
-          print('🆔 User ID: $userId');
-          print('✅ Admin-created account - logging in directly');
-
-          // Check for active job after successful login
           await _checkForActiveJobSkilledWorker(context, skilledWorkerProvider);
         } else {
+          // Job poster now uses OTP flow
+          print('📨 Sending OTP to existing job poster: $formattedPhone');
           final phoneAuthProvider = Provider.of<PhoneAuthProvider>(
             context,
             listen: false,
           );
-          // Set logged in state for job poster
-          phoneAuthProvider.setLoggedInState(
-            userId: userId,
-            phoneNumber: formattedPhone,
-          );
-
-          // Check for active job after successful login
-          await _checkForActiveJobPoster(context, phoneAuthProvider);
+          phoneAuthProvider.sendOtp(formattedPhone, context);
+          if (mounted) {
+            Navigator.pushNamed(
+              context,
+              '/job-poster-otp',
+              arguments: {'phoneNumber': formattedPhone, 'isSignUp': false},
+            );
+          }
         }
       } else {
         print('📝 User not found, showing register message');
-        // User is not registered, show appropriate message based on role
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              role == 'skilled_worker'
-                  ? 'No account found with this phone number. Please contact admin to create your skilled worker account.'
-                  : 'No account found with this phone number. Please register first.',
+        if (role == 'skilled_worker') {
+          // Skilled workers cannot self-register
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'No account found with this phone number. Please contact admin to create your skilled worker account.',
+              ),
+              backgroundColor: Colors.red,
+              duration: Duration(seconds: 4),
             ),
-            backgroundColor: Colors.red,
-            duration: Duration(seconds: 4),
-          ),
-        );
+          );
+        } else {
+          // Job poster: start OTP for registration
+          final formatted = formattedPhone;
+          final phoneAuthProvider = Provider.of<PhoneAuthProvider>(
+            context,
+            listen: false,
+          );
+          print('📝 New job poster; sending OTP for signup: $formatted');
+          phoneAuthProvider.sendOtp(formatted, context, isSignUp: true);
+          if (mounted) {
+            Navigator.pushNamed(
+              context,
+              '/job-poster-otp',
+              arguments: {'phoneNumber': formatted, 'isSignUp': true},
+            );
+          }
+        }
       }
     } finally {
       if (mounted) setState(() => isLoading = false);
@@ -467,76 +475,6 @@ class _LoginScreenState extends State<LoginScreen> {
       Navigator.pushNamedAndRemoveUntil(
         context,
         '/skilled-worker-home',
-        (route) => false,
-      );
-    }
-  }
-
-  Future<void> _checkForActiveJobPoster(
-    BuildContext context,
-    PhoneAuthProvider phoneAuthProvider,
-  ) async {
-    try {
-      print('[Login Screen] Checking for active job after job poster login...');
-
-      final jobPosterId = phoneAuthProvider.loggedInUserId;
-
-      if (jobPosterId == null || jobPosterId.isEmpty) {
-        // No user ID, go to home screen
-        Navigator.pushNamedAndRemoveUntil(
-          context,
-          '/job-poster-home',
-          (route) => false,
-        );
-        return;
-      }
-
-      // Check for active assigned job
-      print(
-        '[Login Screen] Checking for assigned job with jobPosterId: $jobPosterId',
-      );
-      final assignedJob = await JobRequestService.getActiveAssignedJobForPoster(
-        jobPosterId,
-      );
-
-      print('[Login Screen] Active assigned job result: $assignedJob');
-
-      if (assignedJob != null) {
-        final assignedJobId = assignedJob['assignedJobId'] as String?;
-        final status = assignedJob['status'] as String?;
-
-        if (assignedJobId != null && assignedJobId.isNotEmpty) {
-          print(
-            '[Login Screen] Found active assigned job - AssignedJobId: $assignedJobId, Status: $status',
-          );
-
-          // Navigate to assigned job detail screen
-          Navigator.pushNamedAndRemoveUntil(
-            context,
-            '/assigned-job-detail',
-            (route) => false,
-            arguments: {
-              'assignedJobId': assignedJobId,
-              'userType': 'job_poster',
-            },
-          );
-          return;
-        }
-      }
-
-      // No active job found, proceed to home screen
-      print('[Login Screen] No active job found, going to home screen');
-      Navigator.pushNamedAndRemoveUntil(
-        context,
-        '/job-poster-home',
-        (route) => false,
-      );
-    } catch (e) {
-      print('[Login Screen] Error checking for active job: $e');
-      // On error, proceed to home screen
-      Navigator.pushNamedAndRemoveUntil(
-        context,
-        '/job-poster-home',
         (route) => false,
       );
     }

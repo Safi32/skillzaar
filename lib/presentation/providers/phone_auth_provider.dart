@@ -9,6 +9,8 @@ import '../../core/services/firestore_retry_service.dart';
 import '../../core/services/job_request_service.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:skillzaar/core/examples/services/notification_service.dart'
+    as example_notif;
 
 String formatPhoneNumber(String input) {
   input = input.trim();
@@ -67,6 +69,37 @@ class PhoneAuthProvider with ChangeNotifier {
   String? get loggedInUserId => _loggedInUserId;
   String? get loggedInPhoneNumber => _loggedInPhoneNumber;
 
+  Future<void> _saveFcmTokenAndStartListener() async {
+    try {
+      if (_loggedInUserId == null) return;
+      final notifService = example_notif.NotificationService();
+      final token = notifService.fcmToken;
+      if (token != null && token.isNotEmpty) {
+        await notifService.saveTokenForUser(
+          userId: _loggedInUserId!,
+          userCollection: 'Tokens',
+          token: token,
+        );
+        await FirebaseFirestore.instance
+            .collection('notifcation')
+            .doc(_loggedInUserId!)
+            .set({
+              'userId': _loggedInUserId!,
+              'userType': 'job_poster',
+              'fcmToken': token,
+              'updatedAt': FieldValue.serverTimestamp(),
+              'createdAt': FieldValue.serverTimestamp(),
+            }, SetOptions(merge: true));
+        notifService.startFirestoreNotificationListener(
+          userId: _loggedInUserId!,
+          collectionName: 'notifcation',
+        );
+      }
+    } catch (e) {
+      print('⚠️ Could not save FCM token for job poster: $e');
+    }
+  }
+
   /// Set logged in state for direct login (without OTP)
   void setLoggedInState({required String userId, required String phoneNumber}) {
     _isLoggedIn = true;
@@ -110,6 +143,9 @@ class PhoneAuthProvider with ChangeNotifier {
       _isLoggedIn = true;
       _loggedInUserId = userCred.user?.uid;
       _loggedInPhoneNumber = pn;
+
+      // Save FCM token and start Firestore notifications listener
+      await _saveFcmTokenAndStartListener();
 
       await _createJobPosterDocument();
       await _checkAndSetActiveJobFlags();
@@ -252,6 +288,64 @@ class PhoneAuthProvider with ChangeNotifier {
         }
       } else {
         print('❌ No active job found');
+
+        // Fallback 1: Check AcceptedJobs directly by jobPosterId
+        try {
+          final accepted =
+              await FirebaseFirestore.instance
+                  .collection('AcceptedJobs')
+                  .where('jobPosterId', isEqualTo: _loggedInUserId)
+                  .where('isActive', isEqualTo: true)
+                  .orderBy('acceptedAt', descending: true)
+                  .limit(1)
+                  .get();
+          if (accepted.docs.isNotEmpty) {
+            final d = accepted.docs.first.data();
+            final jobId = d['jobId'] as String?;
+            final requestId = d['requestId'] as String?;
+            if (jobId != null &&
+                jobId.isNotEmpty &&
+                requestId != null &&
+                requestId.isNotEmpty) {
+              Navigator.pushNamedAndRemoveUntil(
+                context,
+                '/job-poster-accepted-details',
+                (route) => false,
+                arguments: {'jobId': jobId, 'requestId': requestId},
+              );
+              return;
+            }
+          }
+        } catch (e) {
+          print('⚠️ Fallback AcceptedJobs check failed: $e');
+        }
+
+        // Fallback 2: Check JobRequests by poster id regardless of isActive
+        try {
+          final reqs =
+              await FirebaseFirestore.instance
+                  .collection('JobRequests')
+                  .where('jobPosterId', isEqualTo: _loggedInUserId)
+                  .where('status', whereIn: ['in_progress', 'accepted'])
+                  .limit(1)
+                  .get();
+          if (reqs.docs.isNotEmpty) {
+            final d = reqs.docs.first.data();
+            final jobId = d['jobId'] as String?;
+            final requestId = reqs.docs.first.id;
+            if (jobId != null && jobId.isNotEmpty) {
+              Navigator.pushNamedAndRemoveUntil(
+                context,
+                '/job-poster-accepted-details',
+                (route) => false,
+                arguments: {'jobId': jobId, 'requestId': requestId},
+              );
+              return;
+            }
+          }
+        } catch (e) {
+          print('⚠️ Fallback JobRequests check failed: $e');
+        }
       }
 
       print('ℹ️ No active job found, navigating to home');
@@ -326,6 +420,26 @@ class PhoneAuthProvider with ChangeNotifier {
 
   /// Logout method
   void logout() {
+    // Clear token and stop listener
+    if (_loggedInUserId != null) {
+      try {
+        example_notif.NotificationService().stopFirestoreNotificationListener();
+        FirebaseFirestore.instance
+            .collection('notifcation')
+            .doc(_loggedInUserId!)
+            .set({
+              'fcmToken': null,
+              'updatedAt': FieldValue.serverTimestamp(),
+            }, SetOptions(merge: true));
+        FirebaseFirestore.instance
+            .collection('JobPosters')
+            .doc(_loggedInUserId!)
+            .set({
+              'fcmToken': FieldValue.delete(),
+              'lastTokenUpdate': FieldValue.serverTimestamp(),
+            }, SetOptions(merge: true));
+      } catch (_) {}
+    }
     _isLoggedIn = false;
     _loggedInUserId = null;
     _loggedInPhoneNumber = null;
@@ -411,6 +525,12 @@ class PhoneAuthProvider with ChangeNotifier {
     }
   }
 
+  // Direct-login helper kept for reference (unused when OTP is enabled)
+  // String _generateLocalUserId(String phone) {
+  //   final digitsOnly = phone.replaceAll(RegExp(r'[^0-9]'), '');
+  //   return 'JOB_POSTER_${digitsOnly}';
+  // }
+
   void _proceedWithPhoneVerification(
     String input,
     BuildContext context,
@@ -430,6 +550,7 @@ class PhoneAuthProvider with ChangeNotifier {
           _isLoggedIn = true;
           _loggedInUserId = userCred.user?.uid;
           _loggedInPhoneNumber = pn;
+          await _saveFcmTokenAndStartListener();
           await _createJobPosterDocument();
           await _checkAndSetActiveJobFlags();
           _isLoading = false;

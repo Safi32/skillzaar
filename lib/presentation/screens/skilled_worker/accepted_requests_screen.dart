@@ -20,6 +20,7 @@ class AcceptedRequestsScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
+
         title: const Text('Accepted Jobs'),
         backgroundColor: Colors.green,
         centerTitle: true,

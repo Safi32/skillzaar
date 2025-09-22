@@ -53,6 +53,7 @@ class _JobPosterSignUpScreenState extends State<JobPosterSignUpScreen> {
     final size = MediaQuery.of(context).size;
 
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       backgroundColor: Colors.white,
       body: SafeArea(
         child: Stack(
@@ -238,31 +239,26 @@ class _JobPosterSignUpScreenState extends State<JobPosterSignUpScreen> {
                                           return;
                                         }
 
-                                        final userId =
-                                            'job_poster_${formattedPhone.replaceAll('+', '').replaceAll(' ', '')}_${DateTime.now().millisecondsSinceEpoch}';
-
-                                        await UserDataService.createJobPoster(
-                                          userId: userId,
-                                          phoneNumber: formattedPhone,
-                                          displayName: 'Job Poster',
-                                        );
-
+                                        // Start OTP signup flow for job poster
                                         final phoneAuthProvider =
                                             Provider.of<PhoneAuthProvider>(
                                               context,
                                               listen: false,
                                             );
-                                        phoneAuthProvider.setLoggedInState(
-                                          userId: userId,
-                                          phoneNumber: formattedPhone,
+                                        phoneAuthProvider.sendOtp(
+                                          formattedPhone,
+                                          context,
+                                          isSignUp: true,
                                         );
 
                                         if (mounted) {
-                                          Navigator.pushNamedAndRemoveUntil(
+                                          Navigator.pushNamed(
                                             context,
-                                            '/job-poster-home',
-                                            (route) => false,
-                                            arguments: {'userId': userId},
+                                            '/job-poster-otp',
+                                            arguments: {
+                                              'phoneNumber': formattedPhone,
+                                              'isSignUp': true,
+                                            },
                                           );
                                         }
                                       } catch (e) {

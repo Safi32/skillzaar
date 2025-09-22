@@ -3,10 +3,11 @@ import 'package:provider/provider.dart';
 import 'package:skillzaar/presentation/screens/auth/job_poster_signup_screen.dart';
 import 'package:skillzaar/presentation/screens/auth/login_screen.dart';
 
-// import '../screens/job_poster/otp_screen.dart' as job_poster_otp; // OTP removed for job posters
+import '../screens/job_poster/otp_screen.dart'
+    as job_poster_otp; // Restored OTP for job posters
 import '../screens/job_poster/post_job_screen.dart';
 import '../screens/job_poster/job_poster_home_screen.dart';
-import '../screens/job_poster/job_requests_screen.dart';
+// import '../screens/job_poster/job_requests_screen.dart'; // Requests removed
 import '../screens/job_poster/job_poster_profile_screen.dart';
 import '../screens/job_poster/job_poster_detail_screen.dart';
 import '../screens/job_poster/job_poster_ads_screen.dart';
@@ -18,7 +19,7 @@ import '../screens/skilled_worker/profile_screen.dart';
 import '../screens/skilled_worker/home_screen_skilled.dart';
 import '../screens/skilled_worker/home_profile_screen.dart';
 import '../screens/skilled_worker/jobs_screen.dart';
-import '../screens/skilled_worker/accepted_requests_screen.dart';
+// import '../screens/skilled_worker/accepted_requests_screen.dart'; // Requests removed
 import '../screens/skilled_worker/job_detail_screen.dart' as skilled_worker;
 import '../screens/skilled_worker/job_detail_screen_from_id.dart';
 import '../screens/job_poster/job_detail_screen.dart';
@@ -51,10 +52,10 @@ class AppRoutes {
     '/job-poster-login': (context) => LoginScreen(),
     '/job-poster-quick-register': (context) => LoginScreen(),
     '/job-poster-signup': (context) => const JobPosterSignUpScreen(),
-    // '/job-poster-otp': (context) => const job_poster_otp.JobPosterOTPScreen(), // OTP removed for job posters
+    '/job-poster-otp': (context) => const job_poster_otp.JobPosterOTPScreen(),
     '/job-poster-post-job': (context) => const PostJobScreen(),
     '/job-poster-home': (context) => const JobPosterHomeScreen(),
-    '/job-poster-requests': (context) => const JobRequestsScreen(),
+    // '/job-poster-requests': (context) => const JobRequestsScreen(), // Removed
     '/job-poster-profile': (context) => const JobPosterProfileScreen(),
     '/job-poster-ads': (context) => const JobPosterAdsScreen(),
     '/job-poster-contact': (context) => const ContactUsScreen(),
@@ -65,8 +66,8 @@ class AppRoutes {
     '/skilled-worker-cnic': (context) => const CnicScreen(),
     '/skilled-worker-home': (context) => const HomeScreenSkilled(),
     '/skilled-worker-jobs': (context) => const SkilledWorkerJobsScreen(),
-    '/skilled-worker-accepted-requests':
-        (context) => const AcceptedRequestsScreen(),
+    // '/skilled-worker-accepted-requests':
+    //     (context) => const AcceptedRequestsScreen(), // Removed
     '/test-notifications': (context) => const TestNotificationScreen(),
     '/admin-worker-approval': (context) => const WorkerApprovalScreen(),
     // '/skilled-worker-approval-waiting': (context) { // Removed - no approval needed for admin-created accounts

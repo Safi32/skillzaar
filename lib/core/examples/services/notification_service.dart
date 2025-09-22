@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -14,6 +15,7 @@ class NotificationService {
   final FlutterLocalNotificationsPlugin _localNotifications =
       FlutterLocalNotificationsPlugin();
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  StreamSubscription<QuerySnapshot>? _firestoreNotifSubscription;
 
   String? _fcmToken;
   String? get fcmToken => _fcmToken;
@@ -41,6 +43,84 @@ class NotificationService {
       print('❌ Notification service initialization failed: $e');
     }
   }
+
+  Future<void> saveTokenForUser({
+    required String userId,
+    required String userCollection,
+    required String token,
+  }) async {
+    try {
+      await _firestore.collection(userCollection).doc(userId).set({
+        'fcmToken': token,
+        'lastTokenUpdate': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+      print('✅ FCM token saved for $userCollection/$userId');
+    } catch (e) {
+      print('❌ Failed saving FCM token for $userCollection/$userId: $e');
+    }
+  }
+
+  /// Start listening to Firestore collection for real-time notifications for a user
+  /// Expects collection name provided by backend (e.g., 'notifcation')
+  void startFirestoreNotificationListener({
+    required String userId,
+    required String collectionName,
+  }) {
+    // Cancel existing
+    stopFirestoreNotificationListener();
+
+    print('📡 Listening to Firestore notifications for user: $userId');
+    _firestoreNotifSubscription = _firestore
+        .collection(collectionName)
+        .where('userId', isEqualTo: userId)
+        .orderBy('createdAt', descending: true)
+        .limit(20)
+        .snapshots()
+        .listen(
+          (snapshot) async {
+            for (final change in snapshot.docChanges) {
+              if (change.type == DocumentChangeType.added) {
+                final doc = change.doc;
+                final data = doc.data() as Map<String, dynamic>?;
+                if (data == null) continue;
+                final title = (data['title'] ?? 'Notification').toString();
+                final body = (data['body'] ?? '').toString();
+                final delivered = data['delivered'] == true;
+
+                // Only show once
+                if (!delivered) {
+                  await showLocalNotificationFromData(
+                    title: title,
+                    body: body,
+                    data: Map<String, String>.from(
+                      (data['data'] as Map?)?.map(
+                            (k, v) => MapEntry(k.toString(), v.toString()),
+                          ) ??
+                          {},
+                    ),
+                  );
+                  // Mark delivered
+                  await doc.reference.set({
+                    'delivered': true,
+                    'deliveredAt': FieldValue.serverTimestamp(),
+                  }, SetOptions(merge: true));
+                }
+              }
+            }
+          },
+          onError: (e) {
+            print('❌ Firestore notifications listener error: $e');
+          },
+        );
+  }
+
+  /// Stop Firestore listener
+  void stopFirestoreNotificationListener() {
+    _firestoreNotifSubscription?.cancel();
+    _firestoreNotifSubscription = null;
+  }
+
+  // Initial message handling removed
 
   /// Request notification permissions
   Future<void> _requestPermission() async {
@@ -250,6 +330,44 @@ class NotificationService {
     print('✅ Local notification displayed successfully');
   }
 
+  /// Show local notification from arbitrary data (Firestore-driven)
+  Future<void> showLocalNotificationFromData({
+    required String title,
+    required String body,
+    Map<String, String>? data,
+  }) async {
+    const AndroidNotificationDetails androidPlatformChannelSpecifics =
+        AndroidNotificationDetails(
+          'job_notifications',
+          'Job Notifications',
+          channelDescription: 'Notifications for job assignments and updates',
+          importance: Importance.high,
+          priority: Priority.high,
+          showWhen: true,
+          icon: '@mipmap/ic_launcher',
+        );
+
+    const DarwinNotificationDetails iOSPlatformChannelSpecifics =
+        DarwinNotificationDetails(
+          presentAlert: true,
+          presentBadge: true,
+          presentSound: true,
+        );
+
+    const NotificationDetails platformChannelSpecifics = NotificationDetails(
+      android: androidPlatformChannelSpecifics,
+      iOS: iOSPlatformChannelSpecifics,
+    );
+
+    await _localNotifications.show(
+      DateTime.now().millisecondsSinceEpoch ~/ 1000,
+      title,
+      body,
+      platformChannelSpecifics,
+      payload: (data ?? {}).toString(),
+    );
+  }
+
   /// Handle notification tap from local notifications
   void _onNotificationTapped(NotificationResponse response) {
     print('👆 Local notification tapped: ${response.payload}');
@@ -258,92 +376,14 @@ class NotificationService {
     try {
       final payload = response.payload;
       if (payload != null && payload.isNotEmpty) {
-        // The payload contains the notification data
-        // We need to create a RemoteMessage-like object for the handler
-        final data = <String, dynamic>{};
-
-        // Parse the payload string (it should contain the data)
-        if (payload.startsWith('{') && payload.endsWith('}')) {
-          // Try to parse as JSON
-          try {
-            final jsonData = response.payload;
-            print('📱 Parsing notification payload: $jsonData');
-            // For now, we'll handle this in the notification handler
-            // The actual parsing would depend on how the payload is formatted
-          } catch (e) {
-            print('❌ Error parsing notification payload: $e');
-          }
-        }
+        print('📱 Notification payload (local): $payload');
       }
     } catch (e) {
       print('❌ Error handling local notification tap: $e');
     }
   }
 
-  /// Navigate to relevant screen based on notification data
-  void _navigateToRelevantScreen(Map<String, dynamic> data) {
-    final type = data['type'] as String?;
-    final assignedJobId = data['assignedJobId'] as String?;
-    final userType = data['userType'] as String?;
-    final action = data['action'] as String?;
-
-    print('🧭 Navigate to screen based on notification: $data');
-
-    switch (type) {
-      case 'job_assigned':
-        if (assignedJobId != null && userType != null) {
-          // Navigate to assigned job detail screen
-          _navigateToAssignedJobDetail(assignedJobId, userType);
-        }
-        break;
-      case 'job_completed':
-        if (assignedJobId != null && action == 'rate_client') {
-          // Navigate to rate job poster screen
-          _navigateToRateJobPoster(assignedJobId);
-        }
-        break;
-      case 'worker_rating_completed':
-        // Navigate to home screen or show success message
-        _navigateToHome();
-        break;
-      case 'job_cancelled':
-        // Navigate to home screen
-        _navigateToHome();
-        break;
-      case 'job_posting':
-        // Navigate to jobs screen
-        _navigateToJobsScreen();
-        break;
-      default:
-        print('⚠️ Unknown notification type: $type');
-    }
-  }
-
-  /// Navigate to assigned job detail screen
-  void _navigateToAssignedJobDetail(String assignedJobId, String userType) {
-    // This will be implemented in the UI layer
-    print(
-      '🧭 Navigate to assigned job detail: $assignedJobId, userType: $userType',
-    );
-  }
-
-  /// Navigate to rate job poster screen
-  void _navigateToRateJobPoster(String assignedJobId) {
-    // This will be implemented in the UI layer
-    print('🧭 Navigate to rate job poster: $assignedJobId');
-  }
-
-  /// Navigate to home screen
-  void _navigateToHome() {
-    // This will be implemented in the UI layer
-    print('🧭 Navigate to home screen');
-  }
-
-  /// Navigate to jobs screen
-  void _navigateToJobsScreen() {
-    // This will be implemented in the UI layer
-    print('🧭 Navigate to jobs screen');
-  }
+  // Navigation is handled by NotificationHandlerService at app layer
 
   /// Send notification to all skilled workers
   Future<void> sendJobNotificationToAllWorkers({

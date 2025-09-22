@@ -263,6 +263,7 @@ class JobRequestService {
 
     return stream;
   }
+
   static Stream<QuerySnapshot> getJobRequestsForPosterByPhone(
     String phoneNumber,
   ) {
@@ -963,7 +964,6 @@ class JobRequestService {
             .collection('JobRequests')
             .where('jobPosterId', isEqualTo: jobPosterId)
             .where('status', isEqualTo: 'accepted')
-            .where('isActive', isEqualTo: true)
             .limit(1)
             .get();
     print('[JobRequestService] Accepted requests found: ${acc.docs.length}');
@@ -971,6 +971,20 @@ class JobRequestService {
       final d = acc.docs.first;
       final data = d.data();
       print('[JobRequestService] Found accepted request: ${d.id} = $data');
+      return {...data, 'requestId': d.id};
+    }
+    // Additional fallback: some datasets use 'ASSIGNED' or 'assigned'
+    final assigned =
+        await _firestore
+            .collection('JobRequests')
+            .where('jobPosterId', isEqualTo: jobPosterId)
+            .where('status', whereIn: ['ASSIGNED', 'assigned'])
+            .limit(1)
+            .get();
+    if (assigned.docs.isNotEmpty) {
+      final d = assigned.docs.first;
+      final data = d.data();
+      print('[JobRequestService] Found ASSIGNED request: ${d.id} = $data');
       return {...data, 'requestId': d.id};
     }
     // Fallback by phone: look for active requests whose job's posterPhone matches
@@ -990,7 +1004,6 @@ class JobRequestService {
       final activeSnap =
           await _firestore
               .collection('JobRequests')
-              .where('isActive', isEqualTo: true)
               .where('status', whereIn: ['in_progress', 'accepted'])
               .limit(25)
               .get();

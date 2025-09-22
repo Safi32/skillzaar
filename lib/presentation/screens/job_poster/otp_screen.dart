@@ -5,7 +5,6 @@ import 'package:skillzaar/core/examples/services/recaptcha_service.dart';
 import '../../providers/phone_auth_provider.dart';
 import '../../widgets/recaptcha_widget.dart';
 
-
 class JobPosterOTPScreen extends StatefulWidget {
   const JobPosterOTPScreen({super.key});
 
@@ -142,6 +141,7 @@ class _JobPosterOTPScreenState extends State<JobPosterOTPScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       backgroundColor: Colors.white,
       appBar: AppBar(
         backgroundColor: Colors.white,
