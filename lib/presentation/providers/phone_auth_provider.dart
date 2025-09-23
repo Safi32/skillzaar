@@ -276,7 +276,7 @@ class PhoneAuthProvider with ChangeNotifier {
       print('🔍 Checking JobRequests collection directly...');
       final allRequests =
           await FirebaseFirestore.instance
-              .collection('JobRequests')
+              .collection('AssignedJobs')
               .where('jobPosterId', isEqualTo: _loggedInUserId)
               .get();
 
@@ -300,19 +300,26 @@ class PhoneAuthProvider with ChangeNotifier {
       if (active != null) {
         final jobId = active['jobId'] as String?;
         final requestId = active['requestId'] as String?;
+        final status = (active['status'] as String?)?.trim();
 
         if (jobId != null &&
             jobId.isNotEmpty &&
             requestId != null &&
             requestId.isNotEmpty) {
           print(
-            '✅ Found active job, navigating to job detail for jobId: $jobId, requestId: $requestId',
+            '✅ Found active job - jobId: $jobId, requestId: $requestId, status: $status',
           );
 
-          // Navigate to Job Poster Accepted Details screen
+          // Navigate based on status
+          final isInProgress = status == 'in_progress';
+          final route =
+              isInProgress
+                  ? '/job-poster-job-detail'
+                  : '/job-poster-accepted-details';
+
           Navigator.pushNamedAndRemoveUntil(
             context,
-            '/job-poster-accepted-details',
+            route,
             (route) => false,
             arguments: {'jobId': jobId, 'requestId': requestId},
           );
@@ -326,24 +333,26 @@ class PhoneAuthProvider with ChangeNotifier {
       } else {
         print('❌ No active job found');
 
-        // Fallback 1: Check AcceptedJobs directly by jobPosterId
+        // Fallback 1: Check AssignedJobs directly by jobPosterId
         try {
           final accepted =
               await FirebaseFirestore.instance
-                  .collection('AcceptedJobs')
+                  .collection('AssignedJobs')
                   .where('jobPosterId', isEqualTo: _loggedInUserId)
                   .where('isActive', isEqualTo: true)
-                  .orderBy('acceptedAt', descending: true)
+                  // Prefer assigned or accepted assignments, newest first if available
                   .limit(1)
                   .get();
           if (accepted.docs.isNotEmpty) {
-            final d = accepted.docs.first.data();
+            final doc = accepted.docs.first;
+            final d = doc.data();
             final jobId = d['jobId'] as String?;
-            final requestId = d['requestId'] as String?;
-            if (jobId != null &&
-                jobId.isNotEmpty &&
-                requestId != null &&
-                requestId.isNotEmpty) {
+            // Some schemas don't store requestId; fall back to document ID
+            final requestId =
+                (d['requestId'] as String?)?.trim().isNotEmpty == true
+                    ? (d['requestId'] as String)
+                    : doc.id;
+            if (jobId != null && jobId.isNotEmpty) {
               Navigator.pushNamedAndRemoveUntil(
                 context,
                 '/job-poster-accepted-details',
@@ -354,26 +363,35 @@ class PhoneAuthProvider with ChangeNotifier {
             }
           }
         } catch (e) {
-          print('⚠️ Fallback AcceptedJobs check failed: $e');
+          print('⚠️ Fallback AssignedJobs check failed: $e');
         }
 
         // Fallback 2: Check JobRequests by poster id regardless of isActive
         try {
           final reqs =
               await FirebaseFirestore.instance
-                  .collection('JobRequests')
+                  .collection('AssignedJobs')
                   .where('jobPosterId', isEqualTo: _loggedInUserId)
-                  .where('status', whereIn: ['in_progress', 'accepted'])
+                  .where(
+                    'status',
+                    whereIn: ['in_progress', 'accepted', 'assigned'],
+                  )
                   .limit(1)
                   .get();
           if (reqs.docs.isNotEmpty) {
             final d = reqs.docs.first.data();
             final jobId = d['jobId'] as String?;
             final requestId = reqs.docs.first.id;
+            final status = (d['status'] as String?)?.trim();
             if (jobId != null && jobId.isNotEmpty) {
+              final isInProgress = status == 'in_progress';
+              final route =
+                  isInProgress
+                      ? '/job-poster-job-detail'
+                      : '/job-poster-accepted-details';
               Navigator.pushNamedAndRemoveUntil(
                 context,
-                '/job-poster-accepted-details',
+                route,
                 (route) => false,
                 arguments: {'jobId': jobId, 'requestId': requestId},
               );

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:skillzaar/core/services/job_request_service.dart';
 import 'job_poster_rate_worker_screen.dart';
 
 class JobAcceptedDetailsScreen extends StatefulWidget {
@@ -32,14 +31,15 @@ class _JobAcceptedDetailsScreenState extends State<JobAcceptedDetailsScreen> {
     try {
       final requestDoc =
           await FirebaseFirestore.instance
-              .collection('JobRequests')
+              .collection('AssignedJobs')
               .doc(widget.requestId)
               .get();
 
       if (requestDoc.exists) {
         final requestData = requestDoc.data();
         setState(() {
-          _skilledWorkerId = requestData?['skilledWorkerId'];
+          _skilledWorkerId =
+              requestData?['workerId'] ?? requestData?['skilledWorkerId'];
         });
       }
     } catch (e) {
@@ -51,30 +51,23 @@ class _JobAcceptedDetailsScreenState extends State<JobAcceptedDetailsScreen> {
     try {
       final requestDoc =
           await FirebaseFirestore.instance
-              .collection('JobRequests')
+              .collection('AssignedJobs')
               .doc(widget.requestId)
               .get();
 
       final requestData = requestDoc.data();
 
-      String applicantName = requestData?['skilledWorkerName'] ?? 'Unknown';
-      String applicantPhone = requestData?['skilledWorkerPhone'] ?? 'Unknown';
-      String applicantEmail = 'Not available';
-      String skilledWorkerId = requestData?['skilledWorkerId'] ?? '';
+      // Only pass the worker document ID; next screen fetches fresh details
+      final String skilledWorkerId =
+          (requestData?['skilledWorkerId'] ?? requestData?['workerId'] ?? '')
+              .toString();
 
       if (mounted) {
         Navigator.of(context).push(
           MaterialPageRoute(
             builder:
                 (context) => JobPosterRateWorkerScreen(
-                  skilledWorkerDetails: {
-                    'name': applicantName,
-                    'phone': applicantPhone,
-                    'email': applicantEmail,
-                    'id': skilledWorkerId,
-                    'skilledWorkerId': skilledWorkerId,
-                    'uid': skilledWorkerId,
-                  },
+                  skilledWorkerDetails: {'docId': skilledWorkerId},
                   requestId: widget.requestId,
                 ),
           ),
@@ -141,22 +134,54 @@ class _JobAcceptedDetailsScreenState extends State<JobAcceptedDetailsScreen> {
             ),
 
             StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-              stream: JobRequestService.streamJobDoc(widget.jobId),
-              builder: (context, jobSnap) {
-                final jobData = jobSnap.data?.data();
+              stream:
+                  FirebaseFirestore.instance
+                      .collection('AssignedJobs')
+                      .doc(widget.requestId)
+                      .snapshots(),
+              builder: (context, snap) {
+                if (!snap.hasData) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                final d = snap.data!.data() ?? <String, dynamic>{};
 
                 String jobTitle =
-                    jobData?['title_en'] ?? jobData?['title_ur'] ?? "No Title";
-                String jobDescription =
-                    jobData?['description_en'] ??
-                    jobData?['description_ur'] ??
-                    "No Description";
-                String jobLocation =
-                    jobData?['Location'] ??
-                    jobData?['Address'] ??
-                    "No Location";
-                String jobSalary =
-                    jobData?['budget']?.toString() ?? "Not Specified";
+                    (d['jobTitle'] ?? d['title'] ?? '').toString().trim();
+                if (jobTitle.isEmpty) jobTitle = 'No Title';
+                final jobDescription =
+                    (d['jobDescription'] ?? '').toString().trim().isNotEmpty
+                        ? d['jobDescription'].toString()
+                        : 'No Description';
+                final jobLocation =
+                    (d['jobLocationAddress'] ??
+                            d['jobLocation'] ??
+                            'No Location')
+                        .toString();
+                final jobCurrency = (d['jobCurrency'] ?? 'PKR').toString();
+                final jobPrice = d['jobPrice']?.toString() ?? 'Not Specified';
+                final jobServiceType = (d['jobServiceType'] ?? '').toString();
+                final jobStatus = (d['jobStatus'] ?? '').toString();
+                final posterPhone = (d['jobPosterPhone'] ?? '').toString();
+                final workerName =
+                    (d['workerName'] ?? d['skilledWorkerName'] ?? '')
+                        .toString();
+                final workerPhone =
+                    (d['workerPhone'] ?? d['skilledWorkerPhone'] ?? '')
+                        .toString();
+                final jobImageUrl = (d['jobImage'] ?? '').toString();
+                final workerImageUrl =
+                    (d['workerProfileImage'] ??
+                            d['skilledWorkerProfileImage'] ??
+                            '')
+                        .toString();
+                final workerCity = (d['workerCity'] ?? '').toString();
+                final workerSkills =
+                    (d['workerSkills'] is List)
+                        ? (d['workerSkills'] as List)
+                            .whereType<String>()
+                            .toList()
+                        : <String>[];
+                // Assignment status/timestamps removed from UI per request
 
                 return SingleChildScrollView(
                   padding: const EdgeInsets.all(20),
@@ -165,46 +190,71 @@ class _JobAcceptedDetailsScreenState extends State<JobAcceptedDetailsScreen> {
                       _buildGlassCard(
                         title: "Job Details",
                         children: [
+                          if (jobImageUrl.isNotEmpty)
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(12),
+                              child: Image.network(
+                                jobImageUrl,
+                                height: 180,
+                                width: double.infinity,
+                                fit: BoxFit.cover,
+                                errorBuilder: (c, e, s) => const SizedBox(),
+                              ),
+                            ),
+                          if (jobImageUrl.isNotEmpty)
+                            const SizedBox(height: 12),
                           _buildInfoRow("📌 Title", jobTitle),
                           _buildInfoRow("📝 Description", jobDescription),
                           _buildInfoRow("📍 Location", jobLocation),
-                          _buildInfoRow("💰 Budget", jobSalary),
+                          _buildInfoRow(
+                            "🧰 Service Type",
+                            jobServiceType.isEmpty ? '-' : jobServiceType,
+                          ),
+                          _buildInfoRow(
+                            "💰 Budget",
+                            jobPrice == 'Not Specified'
+                                ? jobPrice
+                                : '$jobCurrency $jobPrice',
+                          ),
+                          _buildInfoRow(
+                            "📄 Job Status",
+                            jobStatus.isEmpty ? '-' : jobStatus,
+                          ),
+                          _buildInfoRow(
+                            "📞 Poster Phone",
+                            posterPhone.isEmpty ? '-' : posterPhone,
+                          ),
+                          // Removed: Assignment Status, Assigned At, Created At
                         ],
                       ),
                       const SizedBox(height: 20),
                       _buildGlassCard(
-                        title: "Applicant Details",
+                        title: "Skilled Worker",
                         children: [
-                          FutureBuilder<DocumentSnapshot>(
-                            future:
-                                FirebaseFirestore.instance
-                                    .collection('JobRequests')
-                                    .doc(widget.requestId)
-                                    .get(),
-                            builder: (context, snap) {
-                              if (!snap.hasData) {
-                                return const Center(
-                                  child: CircularProgressIndicator(),
-                                );
-                              }
-                              final req =
-                                  snap.data?.data() as Map<String, dynamic>?;
-                              String name =
-                                  req?['skilledWorkerName'] ?? "Unknown";
-                              String phone =
-                                  req?['skilledWorkerPhone'] ?? "Unknown";
-                              String email = "Not Available";
-
-                              return Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  _buildInfoRow("👤 Name", name),
-                                  _buildInfoRow("📞 Phone", phone),
-                                  _buildInfoRow("📧 Email", email),
-                                ],
-                              );
-                            },
+                          if (workerImageUrl.isNotEmpty)
+                            Center(
+                              child: CircleAvatar(
+                                radius: 36,
+                                backgroundImage: NetworkImage(workerImageUrl),
+                              ),
+                            ),
+                          if (workerImageUrl.isNotEmpty)
+                            const SizedBox(height: 12),
+                          _buildInfoRow(
+                            "👷 Name",
+                            workerName.isEmpty ? '-' : workerName,
                           ),
+                          _buildInfoRow(
+                            "📞 Phone",
+                            workerPhone.isEmpty ? '-' : workerPhone,
+                          ),
+                          if (workerCity.isNotEmpty)
+                            _buildInfoRow("🏙️ City", workerCity),
+                          if (workerSkills.isNotEmpty)
+                            _buildInfoRow(
+                              "🛠️ Skills",
+                              workerSkills.join(', '),
+                            ),
                         ],
                       ),
                       const SizedBox(height: 20),
@@ -230,7 +280,7 @@ class _JobAcceptedDetailsScreenState extends State<JobAcceptedDetailsScreen> {
                         children: [
                           Expanded(
                             child: _neonButton(
-                              text: "✅ Complete Job",
+                              text: "Complete Job",
                               color: Colors.green,
                               onTap: _onJobCompleted,
                             ),
@@ -238,7 +288,7 @@ class _JobAcceptedDetailsScreenState extends State<JobAcceptedDetailsScreen> {
                           const SizedBox(width: 16),
                           Expanded(
                             child: _neonButton(
-                              text: "❌ Cancel Job",
+                              text: "Cancel Job",
                               color: Colors.redAccent,
                               onTap: _onCancelJob,
                             ),

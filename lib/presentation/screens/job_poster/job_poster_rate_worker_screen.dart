@@ -1,14 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:skillzaar/core/services/job_request_service.dart';
 
 class JobPosterRateWorkerScreen extends StatefulWidget {
   final Map<String, dynamic> skilledWorkerDetails;
   final String? requestId;
+
   const JobPosterRateWorkerScreen({
-    Key? key,
+    super.key,
     required this.skilledWorkerDetails,
     this.requestId,
-  }) : super(key: key);
+  });
 
   @override
   State<JobPosterRateWorkerScreen> createState() =>
@@ -17,95 +19,109 @@ class JobPosterRateWorkerScreen extends StatefulWidget {
 
 class _JobPosterRateWorkerScreenState extends State<JobPosterRateWorkerScreen> {
   double rating = 4.0;
-  final List<String> defaultTexts = [
+  String? selectedFeedback;
+  final TextEditingController _feedbackController = TextEditingController();
+  bool _isSubmitting = false;
+
+  final List<String> feedbackOptions = [
     'Excellent work',
     'Very Good',
     'Good',
     'Average',
     'Poor',
   ];
-  String? selectedText;
-  final TextEditingController _customController = TextEditingController();
-  bool _isSubmitting = false;
 
-  void _onRatingChanged(double value) {
-    setState(() {
-      rating = value;
-    });
+  String _extractWorkerDocId() {
+    final details = widget.skilledWorkerDetails;
+    final dynamic direct =
+        details['docId'] ??
+        details['id'] ??
+        details['skilledWorkerId'] ??
+        details['uid'] ??
+        details['workerId'] ??
+        details['userId'];
+    return (direct?.toString() ?? '').trim();
   }
 
   Future<void> _submitRating() async {
     if (_isSubmitting) return;
-
-    setState(() {
-      _isSubmitting = true;
-    });
+    setState(() => _isSubmitting = true);
 
     try {
-      // 1) Submit rating for skilled worker
-      final String skilledWorkerId =
-          (widget.skilledWorkerDetails['id'] ??
-                  widget.skilledWorkerDetails['skilledWorkerId'] ??
-                  widget.skilledWorkerDetails['uid'] ??
-                  '')
-              .toString();
-
-      print(
-        '🔍 Rating screen - Skilled worker details: ${widget.skilledWorkerDetails}',
-      );
-      print('🔍 Rating screen - Extracted skilled worker ID: $skilledWorkerId');
-
-      if (skilledWorkerId.isEmpty || skilledWorkerId == 'UNKNOWN_ID') {
+      final workerDocId = _extractWorkerDocId();
+      if (workerDocId.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Skilled worker not identified. Details: ${widget.skilledWorkerDetails}',
-            ),
+          const SnackBar(
+            content: Text("Skilled worker not identified."),
             backgroundColor: Colors.red,
-            duration: const Duration(seconds: 5),
           ),
         );
         return;
       }
 
       final submitted = await JobRequestService.submitSkilledWorkerRating(
-        skilledWorkerId: skilledWorkerId,
+        skilledWorkerId: workerDocId,
         rating: rating,
-        feedback: selectedText ?? _customController.text,
+        feedback: selectedFeedback ?? _feedbackController.text,
         requestId: widget.requestId,
       );
 
       if (!submitted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Failed to submit rating. Please try again.'),
+            content: Text("Failed to submit rating."),
             backgroundColor: Colors.red,
           ),
         );
         return;
       }
 
-      // 2) If requestId is provided, mark the job request completed
+      // Mark AssignedJobs as completed and open worker rating flow
       if (widget.requestId != null && widget.requestId!.isNotEmpty) {
-        final success = await JobRequestService.markRequestCompleted(
-          widget.requestId!,
-        );
-        if (!success) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Failed to complete job. Please try again.'),
-              backgroundColor: Colors.red,
-            ),
-          );
-          return;
-        }
+        try {
+          final assignedRef = FirebaseFirestore.instance
+              .collection('AssignedJobs')
+              .doc(widget.requestId!);
+          final assignedSnap = await assignedRef.get();
+
+          await assignedRef.set({
+            'assignmentStatus': 'completed',
+            'isActive': false,
+            'completedAt': FieldValue.serverTimestamp(),
+            'rating': rating,
+            'ratingComment': selectedFeedback ?? _feedbackController.text,
+            'ratedBy': JobRequestService.getCurrentUserId(),
+            'ratedAt': FieldValue.serverTimestamp(),
+            'workerRatingCompleted': false, // worker must now rate poster
+          }, SetOptions(merge: true));
+
+          // Best-effort: clear worker activeJobId and poster activeJobId
+          final data = assignedSnap.data() as Map<String, dynamic>?;
+          final workerId = data?['workerId']?.toString();
+          final posterId = data?['jobPosterId']?.toString();
+          if (workerId != null && workerId.isNotEmpty) {
+            await FirebaseFirestore.instance
+                .collection('SkilledWorkers')
+                .doc(workerId)
+                .set({
+                  'activeJobId': FieldValue.delete(),
+                }, SetOptions(merge: true));
+          }
+          if (posterId != null && posterId.isNotEmpty) {
+            await FirebaseFirestore.instance
+                .collection('JobPosters')
+                .doc(posterId)
+                .set({
+                  'activeJobId': FieldValue.delete(),
+                }, SetOptions(merge: true));
+          }
+        } catch (_) {}
       }
 
-      // 3) Success message and navigate home
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'Rating submitted! (${rating.toStringAsFixed(1)} stars)',
+            "Rating submitted! (${rating.toStringAsFixed(1)} stars)",
           ),
           backgroundColor: Colors.green,
         ),
@@ -118,120 +134,188 @@ class _JobPosterRateWorkerScreenState extends State<JobPosterRateWorkerScreen> {
       );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error: ${e.toString()}'),
-          backgroundColor: Colors.red,
-        ),
+        SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red),
       );
     } finally {
-      setState(() {
-        _isSubmitting = false;
-      });
+      setState(() => _isSubmitting = false);
     }
   }
 
   @override
   void dispose() {
-    _customController.dispose();
+    _feedbackController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final workerDocId = _extractWorkerDocId();
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Rate Skilled Worker')),
+      appBar: AppBar(title: const Text("Rate Skilled Worker")),
       body: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(16),
         child: SingleChildScrollView(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Skilled Worker:',
-                style: Theme.of(context).textTheme.titleLarge,
+              const Text(
+                "Worker Details",
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
-              const SizedBox(height: 8),
-              Text('Name: ${widget.skilledWorkerDetails['name'] ?? '-'}'),
-              Text('Phone: ${widget.skilledWorkerDetails['phone'] ?? '-'}'),
-              Text('Email: ${widget.skilledWorkerDetails['email'] ?? '-'}'),
-              const SizedBox(height: 32),
-              Text(
-                'Give a rating:',
-                style: Theme.of(context).textTheme.titleMedium,
+              const SizedBox(height: 12),
+
+              if (workerDocId.isNotEmpty)
+                FutureBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+                  future:
+                      FirebaseFirestore.instance
+                          .collection('SkilledWorkers')
+                          .doc(workerDocId)
+                          .get(),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+                    if (!snapshot.hasData || !snapshot.data!.exists) {
+                      return const Text("Worker not found.");
+                    }
+
+                    final data = snapshot.data!.data();
+                    final String name =
+                        (data?['Name'] ??
+                                data?['displayName'] ??
+                                data?['name'] ??
+                                data?['FullName'] ??
+                                '-')
+                            .toString();
+                    final String phone =
+                        (data?['phoneNumber'] ??
+                                data?['userPhone'] ??
+                                data?['phone'] ??
+                                data?['skilledWorkerPhone'] ??
+                                data?['Phone'] ??
+                                '-')
+                            .toString();
+                    final String city =
+                        (data?['City'] ?? data?['city'] ?? '').toString();
+                    final String? profileUrl =
+                        (data?['ProfilePicture'] ??
+                                data?['profileImage'] ??
+                                data?['photoURL'] ??
+                                data?['imageUrl'] ??
+                                data?['skilledWorkerProfileImage'])
+                            ?.toString();
+                    return _buildWorkerCard(
+                      name: name,
+                      phone: phone,
+                      city: city.isEmpty ? '-' : city,
+                      profileUrl:
+                          (profileUrl != null && profileUrl.isNotEmpty)
+                              ? profileUrl
+                              : null,
+                    );
+                  },
+                )
+              else
+                const Text("Worker ID missing"),
+
+              const SizedBox(height: 24),
+              const Text(
+                "Give a rating:",
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
               ),
               _buildRatingBar(),
               const SizedBox(height: 16),
-              Text(
-                'Select a feedback:',
-                style: Theme.of(context).textTheme.titleMedium,
+
+              const Text(
+                "Select a feedback:",
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
               ),
-              const SizedBox(height: 8),
               Wrap(
                 spacing: 8,
                 children:
-                    defaultTexts.map((text) {
-                      final isSelected = selectedText == text;
+                    feedbackOptions.map((text) {
+                      final isSelected = selectedFeedback == text;
                       return ChoiceChip(
                         label: Text(text),
                         selected: isSelected,
                         onSelected: (_) {
                           setState(() {
-                            selectedText = text;
-                            _customController.clear();
+                            selectedFeedback = text;
+                            _feedbackController.clear();
                           });
                         },
                       );
                     }).toList(),
               ),
               const SizedBox(height: 16),
-              Text(
-                'Or write your own feedback:',
-                style: Theme.of(context).textTheme.titleMedium,
+
+              const Text(
+                "Or write your feedback:",
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
               ),
               const SizedBox(height: 8),
               TextField(
-                controller: _customController,
+                controller: _feedbackController,
                 maxLines: 2,
                 decoration: const InputDecoration(
                   border: OutlineInputBorder(),
-                  hintText: 'Enter your feedback',
+                  hintText: "Enter your feedback",
                 ),
                 onChanged: (val) {
-                  if (val.isNotEmpty && selectedText != null) {
-                    setState(() {
-                      selectedText = null;
-                    });
+                  if (val.isNotEmpty && selectedFeedback != null) {
+                    setState(() => selectedFeedback = null);
                   }
                 },
               ),
+
               const SizedBox(height: 24),
               Center(
                 child: ElevatedButton(
                   onPressed: _isSubmitting ? null : _submitRating,
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 12,
+                    ),
+                  ),
                   child:
                       _isSubmitting
-                          ? const Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  valueColor: AlwaysStoppedAnimation<Color>(
-                                    Colors.white,
-                                  ),
-                                ),
-                              ),
-                              SizedBox(width: 8),
-                              Text('Submitting...'),
-                            ],
+                          ? const CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
                           )
-                          : const Text('Submit Rating & Complete Job'),
+                          : const Text("Submit Rating & Complete Job"),
                 ),
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildWorkerCard({
+    required String name,
+    required String phone,
+    required String city,
+    String? profileUrl,
+  }) {
+    return Card(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: ListTile(
+        leading: CircleAvatar(
+          radius: 28,
+          backgroundImage: profileUrl != null ? NetworkImage(profileUrl) : null,
+          child: profileUrl == null ? const Icon(Icons.person, size: 32) : null,
+        ),
+        title: Text(
+          name,
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [Text("Phone: $phone"), Text("City: $city")],
         ),
       ),
     );
@@ -247,7 +331,7 @@ class _JobPosterRateWorkerScreenState extends State<JobPosterRateWorkerScreen> {
             color: Colors.amber,
             size: 32,
           ),
-          onPressed: () => _onRatingChanged(starIndex.toDouble()),
+          onPressed: () => setState(() => rating = starIndex.toDouble()),
         );
       }),
     );

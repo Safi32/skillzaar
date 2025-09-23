@@ -1,4 +1,4 @@
-    import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:skillzaar/firebase_options.dart';
 import 'package:skillzaar/presentation/providers/skilled_worker_provider.dart';
@@ -22,11 +22,10 @@ import 'core/services/notification_handler_service.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
- 
   // await FirebaseAppCheck.instance.activate(
   //   androidProvider: AndroidProvider.playIntegrity,
   //   appleProvider: AppleProvider.appAttest,
-  // );    
+  // );
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   runApp(
     MultiProvider(
@@ -50,13 +49,12 @@ void main() async {
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
- 
+
   static final GlobalKey<NavigatorState> navigatorKey =
       GlobalKey<NavigatorState>();
 
   @override
   Widget build(BuildContext context) {
-   
     NotificationHandlerService.initialize(navigatorKey);
 
     return MaterialApp(

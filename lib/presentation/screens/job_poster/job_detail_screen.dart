@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:skillzaar/core/services/job_request_service.dart';
-import 'package:skillzaar/presentation/screens/job_poster/job_poster_rate_worker_screen.dart';
 
 class JobDetailScreen extends StatelessWidget {
   final String jobId;
@@ -98,21 +97,76 @@ class JobDetailScreen extends StatelessWidget {
                                   child: CircularProgressIndicator(),
                                 );
                               }
+
                               final req =
                                   snap.data?.data() as Map<String, dynamic>?;
-                              String name =
-                                  req?['skilledWorkerName'] ?? "Unknown";
-                              String phone =
-                                  req?['skilledWorkerPhone'] ?? "Unknown";
-                              String email = "Not Available";
 
-                              return Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  _buildInfoRow("👤 Name", name),
-                                  _buildInfoRow("📞 Phone", phone),
-                                  _buildInfoRow("📧 Email", email),
-                                ],
+                              final fallbackName =
+                                  (req?['skilledWorkerName'] ?? 'Unknown')
+                                      .toString();
+                              final fallbackPhone =
+                                  (req?['skilledWorkerPhone'] ?? 'Unknown')
+                                      .toString();
+                              final skilledWorkerId =
+                                  (req?['skilledWorkerId'] ??
+                                          req?['workerId'] ??
+                                          req?['uid'] ??
+                                          req?['userId'])
+                                      ?.toString();
+
+                              if (skilledWorkerId == null ||
+                                  skilledWorkerId.isEmpty) {
+                                return Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    _buildInfoRow("👤 Name", fallbackName),
+                                    _buildInfoRow("📞 Phone", fallbackPhone),
+                                  ],
+                                );
+                              }
+
+                              return FutureBuilder<
+                                DocumentSnapshot<Map<String, dynamic>>
+                              >(
+                                future:
+                                    FirebaseFirestore.instance
+                                        .collection('SkilledWorkers')
+                                        .doc(skilledWorkerId)
+                                        .get(),
+                                builder: (context, workerSnap) {
+                                  final data = workerSnap.data?.data();
+                                  final name =
+                                      (data?['Name'] ??
+                                              data?['displayName'] ??
+                                              data?['name'] ??
+                                              data?['FullName'] ??
+                                              fallbackName)
+                                          .toString();
+                                  final phone =
+                                      (data?['phoneNumber'] ??
+                                              data?['userPhone'] ??
+                                              data?['phone'] ??
+                                              data?['skilledWorkerPhone'] ??
+                                              data?['Phone'] ??
+                                              fallbackPhone)
+                                          .toString();
+
+                                  if (workerSnap.connectionState ==
+                                      ConnectionState.waiting) {
+                                    return const Center(
+                                      child: CircularProgressIndicator(),
+                                    );
+                                  }
+
+                                  return Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      _buildInfoRow("👤 Name", name),
+                                      _buildInfoRow("📞 Phone", phone),
+                                    ],
+                                  );
+                                },
                               );
                             },
                           ),

@@ -5,6 +5,7 @@ import 'package:skillzaar/core/examples/services/user_data_service.dart';
 import 'package:skillzaar/presentation/providers/phone_auth_provider.dart';
 import 'package:skillzaar/presentation/providers/skilled_worker_provider.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/animated_toast.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -356,6 +357,17 @@ class _LoginScreenState extends State<LoginScreen> {
             userId: userId,
             phoneNumber: formattedPhone,
           );
+
+          // Show portfolio setup reminder for skilled workers
+          ToastOverlay.instance.showToast(
+            context: context,
+            title: 'Portfolio Required',
+            message:
+                'Please complete your portfolio first. Without a portfolio, jobs cannot be assigned to you.',
+            type: ToastType.warning,
+            duration: const Duration(seconds: 4),
+          );
+
           await _checkForActiveJobSkilledWorker(context, skilledWorkerProvider);
         } else {
           // Job poster now uses OTP flow

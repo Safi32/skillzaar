@@ -535,6 +535,30 @@ class _JobDetailContentState extends State<_JobDetailContent> {
                                   Row(
                                     children: [
                                       Text(
+                                        'Job Poster Phone:',
+                                        style: TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.black87,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    (data?['jobPosterPhone'] ??
+                                            _jobData?['jobPosterPhone'] ??
+                                            'Not available')
+                                        .toString(),
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      color: Colors.black54,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  Row(
+                                    children: [
+                                      Text(
                                         'Job Description:',
                                         style: TextStyle(
                                           fontSize: 18,
@@ -943,6 +967,28 @@ class _JobDetailContentState extends State<_JobDetailContent> {
                             ),
                           ),
                           const SizedBox(height: 32),
+                          Row(
+                            children: [
+                              Text(
+                                'Job Poster Phone:',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black87,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            (_jobData?['jobPosterPhone'] ?? 'Not available')
+                                .toString(),
+                            style: const TextStyle(
+                              fontSize: 16,
+                              color: Colors.black54,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
                           // Portfolio completion warning
                           FutureBuilder<bool>(
                             future: Provider.of<HomeProfileProvider>(
