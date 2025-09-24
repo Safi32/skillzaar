@@ -13,6 +13,7 @@ import 'package:skillzaar/presentation/widgets/location_settings_dialog.dart';
 import 'package:skillzaar/presentation/widgets/logout_dialog.dart';
 import '../../providers/phone_auth_provider.dart';
 import '../../../core/services/job_request_service.dart';
+import 'job_requests_screen.dart';
 
 class JobPosterHomeScreen extends StatelessWidget {
   const JobPosterHomeScreen({super.key});
@@ -53,7 +54,9 @@ class _JobPosterHomeContentState extends State<_JobPosterHomeContent> {
     _pages = [
       HomeScreen(),
       JobPosterAdsScreen(myAdsOnly: _showMyAdsOnly),
+      JobRequestsScreen(),
       const JobPosterProfileScreen(),
+
     ];
   }
 

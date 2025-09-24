@@ -1,5 +1,7 @@
-import Flutter
 import UIKit
+import Flutter
+import FirebaseCore
+import FirebaseAuth
 
 @main
 @objc class AppDelegate: FlutterAppDelegate {
@@ -9,5 +11,11 @@ import UIKit
   ) -> Bool {
     GeneratedPluginRegistrant.register(with: self)
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
+  }
+
+  override func application(_ application: UIApplication,
+      didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+    Auth.auth().setAPNSToken(deviceToken, type: .unknown)
+    super.application(application, didRegisterForRemoteNotificationsWithDeviceToken: deviceToken)
   }
 }
