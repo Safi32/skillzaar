@@ -50,6 +50,14 @@
         <meta-data
             android:name="com.google.android.geo.API_KEY"
             android:value="AIzaSyCeozEFCHJyX5syiB-oz2UNMDJvS4gFhb0" />
+        
+        <!-- Firebase Phone Auth configuration -->
+        <meta-data
+            android:name="com.google.firebase.auth.api_key"
+            android:value="AIzaSyAtG2_o2-9_BrXDCAKikd_83uYGxIDfy30" />
+        <meta-data
+            android:name="com.google.firebase.auth.project_id"
+            android:value="skillzaar-bcb0f" />
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

@@ -16,7 +16,6 @@ class FloatingIslandNavBar extends StatelessWidget {
     final items = const [
       {'icon': Icons.home, 'label': 'Home'},
       {'icon': Icons.sell, 'label': 'Ads'},
-      {'icon': Icons.inbox, 'label': 'Requests'},
       {'icon': Icons.person, 'label': 'Profile'},
     ];
 

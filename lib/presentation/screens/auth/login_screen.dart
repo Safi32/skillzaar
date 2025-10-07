@@ -157,7 +157,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               color: AppColors.green,
                               fontWeight: FontWeight.w600,
                             ),
-                            hintText: "03XXXXXXXXX",
+                            hintText: "Enter your phone number",
                             filled: true,
                             fillColor: Colors.grey[100],
                             prefixIcon: Icon(
@@ -377,13 +377,7 @@ class _LoginScreenState extends State<LoginScreen> {
             listen: false,
           );
           phoneAuthProvider.sendOtp(formattedPhone, context);
-          if (mounted) {
-            Navigator.pushNamed(
-              context,
-              '/job-poster-otp',
-              arguments: {'phoneNumber': formattedPhone, 'isSignUp': false},
-            );
-          }
+          // Navigation now handled in provider after OTP is sent
         }
       } else {
         print('📝 User not found, showing register message');
@@ -407,13 +401,7 @@ class _LoginScreenState extends State<LoginScreen> {
           );
           print('📝 New job poster; sending OTP for signup: $formatted');
           phoneAuthProvider.sendOtp(formatted, context, isSignUp: true);
-          if (mounted) {
-            Navigator.pushNamed(
-              context,
-              '/job-poster-otp',
-              arguments: {'phoneNumber': formatted, 'isSignUp': true},
-            );
-          }
+          // Navigation now handled in provider after OTP is sent
         }
       }
     } finally {

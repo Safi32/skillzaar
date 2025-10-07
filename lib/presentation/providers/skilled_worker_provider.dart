@@ -3,7 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb_auth;
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+// SharedPreferences already imported above
 // import 'package:skillzaar/core/examples/services/recaptcha_service.dart';
 import 'package:skillzaar/presentation/providers/notification_provider.dart';
 import '../../../core/utils/permission_handler.dart';
@@ -15,6 +15,7 @@ import '../../core/examples/services/notification_service.dart'
 
 import '../../../core/services/location_tracking_service.dart';
 import 'dart:io';
+import 'package:shared_preferences/shared_preferences.dart';
 
 String formatPhoneNumber(String input) {
   input = input.trim().replaceAll(' ', '');
@@ -76,6 +77,78 @@ class SkilledWorkerProvider with ChangeNotifier {
 
     notifyListeners();
     print('✅ Skilled Worker logged in state set: $userId, $phoneNumber');
+  }
+
+  /// Deactivate and permanently delete the current skilled worker account.
+  /// Deletes Firestore document and then deletes the Auth user.
+  Future<bool> deactivateAndDeleteCurrentUser(BuildContext context) async {
+    try {
+      final user = fb_auth.FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        _error = 'No authenticated user.';
+        notifyListeners();
+        return false;
+      }
+
+      final String userId = user.uid;
+
+      // Stop any listeners and clear token if stored
+      try {
+        example_notif.NotificationService().stopFirestoreNotificationListener();
+        await FirebaseFirestore.instance
+            .collection('notifcation')
+            .doc(userId)
+            .set({
+              'fcmToken': null,
+              'updatedAt': FieldValue.serverTimestamp(),
+            }, SetOptions(merge: true));
+      } catch (_) {}
+
+      // Delete SkilledWorkers document
+      try {
+        await FirebaseFirestore.instance
+            .collection('SkilledWorkers')
+            .doc(userId)
+            .delete();
+      } catch (e) {
+        print('⚠️ Firestore SkilledWorker delete warning: $e');
+      }
+
+      // Clean local flags
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.remove('active_job_${userId}');
+        await prefs.remove('active_job_${userId}_jobId');
+        await prefs.remove('active_job_${userId}_requestId');
+      } catch (_) {}
+
+      // Delete Auth user
+      try {
+        await user.delete();
+      } on fb_auth.FirebaseAuthException catch (e) {
+        if (e.code == 'requires-recent-login') {
+          _error =
+              'Please reauthenticate to delete your account. Log in again and retry.';
+          notifyListeners();
+          return false;
+        }
+        _error = 'Failed to delete account: ${e.message ?? e.code}';
+        notifyListeners();
+        return false;
+      }
+
+      // Reset local session state
+      _isLoggedIn = false;
+      _loggedInUserId = null;
+      _loggedInPhoneNumber = null;
+      notifyListeners();
+
+      return true;
+    } catch (e) {
+      _error = 'Account deletion failed. Please try again.';
+      notifyListeners();
+      return false;
+    }
   }
 
   /// Verify OTP and sign in (skilled worker)

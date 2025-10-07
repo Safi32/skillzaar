@@ -13,8 +13,8 @@ import '../../widgets/skilled_worker_drawer_header.dart';
 // import '../../widgets/approval_gate.dart'; // Removed - no approval needed for admin-created accounts
 import 'jobs_screen.dart';
 import 'home_profile_screen.dart';
-import 'requests_screen.dart';
-import '../../widgets/real_time_notification_widget.dart';
+// import 'requests_screen.dart'; // Requests removed
+// import '../../widgets/real_time_notification_widget.dart';
 
 /// Helper function to safely convert Timestamp to DateTime
 DateTime? _safeConvertToDateTime(dynamic value) {
@@ -179,7 +179,6 @@ class _HomeScreenSkilledState extends State<HomeScreenSkilled> {
     final List<Widget> pages = [
       _buildHomeBody(),
       const SkilledWorkerJobsScreen(),
-      const SkilledWorkerRequestsScreen(),
       const HomeProfileScreen(),
     ];
 
@@ -218,6 +217,61 @@ class _HomeScreenSkilledState extends State<HomeScreenSkilled> {
               onTap: () {
                 Navigator.pop(context);
                 _showContactUsDialog(context);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.person_off, color: Colors.red),
+              title: const Text('Deactivate Account'),
+              onTap: () async {
+                Navigator.pop(context);
+                final confirm = await showDialog<bool>(
+                  context: context,
+                  builder:
+                      (context) => AlertDialog(
+                        title: const Text('Deactivate Account'),
+                        content: const Text(
+                          'This will permanently delete your account and data. Continue?',
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.of(context).pop(false),
+                            child: const Text('Cancel'),
+                          ),
+                          ElevatedButton(
+                            onPressed: () => Navigator.of(context).pop(true),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.red,
+                              foregroundColor: Colors.white,
+                            ),
+                            child: const Text('Delete'),
+                          ),
+                        ],
+                      ),
+                );
+
+                if (confirm == true) {
+                  final success = await Provider.of<SkilledWorkerProvider>(
+                    context,
+                    listen: false,
+                  ).deactivateAndDeleteCurrentUser(context);
+                  if (!mounted) return;
+                  if (success) {
+                    Navigator.pushNamedAndRemoveUntil(
+                      context,
+                      '/skilled-worker-login',
+                      (route) => false,
+                    );
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          'Could not delete account. Re-login may be required.',
+                        ),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
+                }
               },
             ),
             // Rate Job Poster functionality removed from drawer but kept for automatic opening
@@ -584,8 +638,6 @@ class _HomeScreenSkilledState extends State<HomeScreenSkilled> {
       case 1:
         return 'All Ads';
       case 2:
-        return 'Requests';
-      case 3:
         return 'Profile';
       default:
         return 'All Jobs';

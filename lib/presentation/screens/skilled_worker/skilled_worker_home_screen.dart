@@ -9,7 +9,7 @@ import '../../providers/skilled_worker_provider.dart';
 import '../../providers/ui_state_provider.dart';
 import 'jobs_screen.dart';
 import 'home_profile_screen.dart';
-import 'requests_screen.dart';
+// import 'requests_screen.dart'; // Requests removed
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../../core/services/job_request_service.dart';
 
@@ -199,7 +199,6 @@ class _HomeContentState extends State<_HomeContent> {
     final List<Widget> pages = [
       HomeScreenSkilled(),
       const SkilledWorkerJobsScreen(),
-      const SkilledWorkerRequestsScreen(),
       const HomeProfileScreen(),
     ];
 

@@ -34,8 +34,8 @@ android {
         versionName = flutter.versionName
         
         // reCAPTCHA Enterprise configuration
-        // Replace YOUR_RECAPTCHA_SITE_KEY with your actual site key from Firebase Console
-        resValue("string", "recaptcha_site_key", "YOUR_RECAPTCHA_SITE_KEY_HERE")
+        // Get your site key from Firebase Console > Authentication > Sign-in method > Phone
+        resValue("string", "recaptcha_site_key", "6Lf...") // Replace with your actual site key
     }
     // Load key.properties
     val keystoreProperties = Properties()

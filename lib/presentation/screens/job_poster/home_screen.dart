@@ -143,7 +143,6 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   );
                 }
-
                 return PerformanceGridView(
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 2,

@@ -1,16 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb_auth;
-import 'package:skillzaar/core/examples/services/recaptcha_service.dart';
 import 'package:skillzaar/core/examples/services/user_data_service.dart';
 import 'dart:async';
 import '../../core/services/firestore_retry_service.dart';
-
 import '../../core/services/job_request_service.dart';
-
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:skillzaar/core/examples/services/notification_service.dart'
     as example_notif;
+import 'package:skillzaar/core/services/firebase_test_service.dart';
 
 String formatPhoneNumber(String input) {
   input = input.trim();
@@ -52,6 +50,12 @@ class PhoneAuthProvider with ChangeNotifier {
   bool _isLoading = false;
   String? _error;
   String? _currentPhoneNumber;
+
+  // Basic resend cooldown/backoff to avoid Firebase throttle
+  DateTime? _nextAllowedRequestAt;
+  int _baseCooldownSeconds = 30; // initial cooldown between requests
+  int _maxCooldownSeconds = 600; // cap at 10 minutes
+  // Tracks cooldown only; no need for separate failure counter
 
   // Text controllers
   final TextEditingController phoneController = TextEditingController();
@@ -123,43 +127,6 @@ class PhoneAuthProvider with ChangeNotifier {
     print('🔐 Verifying OTP (job poster)');
 
     try {
-      // DEV TEST BYPASS: Accept Firebase Console test number without network
-      final pnInput = (_currentPhoneNumber ?? '').replaceAll(' ', '');
-      final testPosterPhones = <String>{
-        '+923055526288',
-        '03055526288',
-        '3055526288',
-      };
-      if (testPosterPhones.contains(pnInput) &&
-          (smsCode.trim() == '123465' || smsCode.trim() == '123456')) {
-        final pn = _currentPhoneNumber ?? '';
-        _isLoggedIn = true;
-        _loggedInUserId =
-            'JOB_POSTER_TEST_${pn.replaceAll(RegExp(r'[^0-9]'), '')}';
-        _loggedInPhoneNumber = pn;
-
-        await _saveFcmTokenAndStartListener();
-        await _createJobPosterDocument();
-        await _checkAndSetActiveJobFlags();
-
-        _isLoading = false;
-        notifyListeners();
-
-        if (context.mounted) {
-          if (isSignUp) {
-            Navigator.pushNamedAndRemoveUntil(
-              context,
-              '/job-poster-home',
-              (route) => false,
-              arguments: {'userId': _loggedInUserId},
-            );
-          } else {
-            await checkJobOnLogin(pn, context);
-          }
-        }
-        return true;
-      }
-
       if (_verificationId == null) {
         _error = 'No verification ID. Please request OTP again.';
         _isLoading = false;
@@ -217,7 +184,6 @@ class PhoneAuthProvider with ChangeNotifier {
     }
   }
 
-  /// Check for active job and set SharedPreferences flags for immediate redirect
   Future<void> _checkAndSetActiveJobFlags() async {
     if (_loggedInUserId == null) return;
 
@@ -510,6 +476,12 @@ class PhoneAuthProvider with ChangeNotifier {
   String? get error => _error;
   String? get currentPhoneNumber => _currentPhoneNumber;
   bool get isOtpSent => _verificationId != null;
+  int get cooldownRemainingSeconds {
+    if (_nextAllowedRequestAt == null) return 0;
+    final now = DateTime.now();
+    final remaining = _nextAllowedRequestAt!.difference(now).inSeconds;
+    return remaining > 0 ? remaining : 0;
+  }
 
   // Method to clear errors and reset state
   void clearError() {
@@ -538,6 +510,17 @@ class PhoneAuthProvider with ChangeNotifier {
     bool isUser = false,
     bool isSignUp = false,
   }) async {
+    // Test Firebase configuration first
+    await testFirebaseConfiguration();
+
+    // Guard against spamming verifyPhoneNumber
+    final remaining = cooldownRemainingSeconds;
+    if (remaining > 0) {
+      _error = 'Please wait ${remaining}s before requesting a new code.';
+      notifyListeners();
+      return;
+    }
+
     _isLoading = true;
     _error = null;
     _verificationId = null;
@@ -545,39 +528,15 @@ class PhoneAuthProvider with ChangeNotifier {
 
     final input = formatPhoneNumber(phoneNumber);
     print('📱 Sending OTP to: $input');
+    print('🔐 isSignUp: $isSignUp');
 
-    // Check if reCAPTCHA is required
-    if (ReCaptchaService.isRecaptchaRequired) {
-      try {
-        await ReCaptchaService.verifyWithReCaptcha(
-          phoneNumber: input,
-          onSuccess: () {
-            print('✅ reCAPTCHA verification successful');
-            _proceedWithPhoneVerification(input, context, isSignUp);
-          },
-          onError: (error) {
-            print('❌ reCAPTCHA verification failed: $error');
-            _error = 'reCAPTCHA verification failed: $error';
-            _isLoading = false;
-            notifyListeners();
-          },
-          onExpired: () {
-            print('⏰ reCAPTCHA verification expired');
-            _error = 'reCAPTCHA verification expired. Please try again.';
-            _isLoading = false;
-            notifyListeners();
-          },
-        );
-      } catch (e) {
-        print('❌ reCAPTCHA error: $e');
-        _error = 'reCAPTCHA verification failed: $e';
-        _isLoading = false;
-        notifyListeners();
-      }
-    } else {
-      // For mobile platforms, proceed directly with phone verification
-      _proceedWithPhoneVerification(input, context, isSignUp);
-    }
+    // Set the next allowed request time preemptively to enforce cooldown
+    _nextAllowedRequestAt = DateTime.now().add(
+      Duration(seconds: _baseCooldownSeconds),
+    );
+
+    // Always proceed with Firebase phone verification using real OTP
+    _proceedWithPhoneVerification(input, context, isSignUp);
   }
 
   // Direct-login helper kept for reference (unused when OTP is enabled)
@@ -591,6 +550,9 @@ class PhoneAuthProvider with ChangeNotifier {
     BuildContext context,
     bool isSignUp,
   ) {
+    print('🔐 Starting phone verification for: $input');
+    print('🔐 isSignUp: $isSignUp');
+
     fb_auth.FirebaseAuth.instance.verifyPhoneNumber(
       phoneNumber: input,
       forceResendingToken: _resendToken,
@@ -618,7 +580,33 @@ class PhoneAuthProvider with ChangeNotifier {
         }
       },
       verificationFailed: (fb_auth.FirebaseAuthException e) {
+        print('❌ Phone verification failed: ${e.code} - ${e.message}');
         _error = e.message ?? e.code;
+
+        // Handle specific error codes
+        if (e.code == 'too-many-requests') {
+          _error = 'Too many requests. Please wait before trying again.';
+          final doubled = _baseCooldownSeconds * 2;
+          _baseCooldownSeconds =
+              doubled > _maxCooldownSeconds ? _maxCooldownSeconds : doubled;
+          _nextAllowedRequestAt = DateTime.now().add(
+            Duration(seconds: _baseCooldownSeconds),
+          );
+        } else if (e.code == 'invalid-phone-number') {
+          _error = 'Invalid phone number format. Please check and try again.';
+        } else if (e.code == 'quota-exceeded') {
+          _error = 'SMS quota exceeded. Please try again later.';
+        } else if (e.code == 'app-not-authorized') {
+          _error =
+              'App not authorized for phone authentication. Please contact support.';
+        } else if (e.code == 'missing-client-identifier') {
+          _error =
+              'App configuration issue. Please restart the app and try again.';
+          print('❌ Missing client identifier - check Firebase configuration');
+        } else {
+          _error = 'Phone verification failed: ${e.message ?? e.code}';
+        }
+
         _isLoading = false;
         notifyListeners();
       },
@@ -626,11 +614,20 @@ class PhoneAuthProvider with ChangeNotifier {
         _verificationId = verificationId;
         _resendToken = resendToken;
         _currentPhoneNumber = input;
+        _baseCooldownSeconds = 30; // reset to base after successful send
         _isLoading = false;
         notifyListeners();
+        print('✅ OTP sent to: $input');
+        print('📱 verificationId received');
 
-        // OTP verification removed - direct login/registration
-        // This code is no longer used as we bypass OTP verification
+        // Navigate to OTP screen only after code is actually sent
+        if (context.mounted) {
+          Navigator.pushNamed(
+            context,
+            '/job-poster-otp',
+            arguments: {'phoneNumber': input, 'isSignUp': isSignUp},
+          );
+        }
       },
       codeAutoRetrievalTimeout: (String verificationId) {
         _verificationId = verificationId;
@@ -730,4 +727,98 @@ class PhoneAuthProvider with ChangeNotifier {
   }
 
   // Removed test and local verification logic. Now uses Firebase only.
+
+  /// Test Firebase configuration for debugging
+  Future<void> testFirebaseConfiguration() async {
+    print('🔍 Testing Firebase configuration...');
+    final result = await FirebaseTestService.testFirebaseConfiguration();
+    print('🔍 Firebase test result: $result');
+
+    if (result['success'] == true) {
+      print('✅ Firebase configuration is working');
+    } else {
+      print('❌ Firebase configuration issue: ${result['error']}');
+      _error = 'Firebase configuration issue: ${result['error']}';
+      notifyListeners();
+    }
+  }
+
+  /// Deactivate and permanently delete the current job poster account.
+  /// This deletes the Firestore user document and then deletes the Auth user.
+  /// Returns true if deletion succeeded, false otherwise.
+  Future<bool> deactivateAndDeleteCurrentUser(BuildContext context) async {
+    try {
+      final user = fb_auth.FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        _error = 'No authenticated user.';
+        notifyListeners();
+        return false;
+      }
+
+      final String userId = user.uid;
+
+      // Stop notifications and clear token if any
+      try {
+        example_notif.NotificationService().stopFirestoreNotificationListener();
+        await FirebaseFirestore.instance
+            .collection('notifcation')
+            .doc(userId)
+            .set({
+              'fcmToken': null,
+              'updatedAt': FieldValue.serverTimestamp(),
+            }, SetOptions(merge: true));
+      } catch (_) {}
+
+      // Delete Firestore profile document for Job Poster
+      try {
+        await FirebaseFirestore.instance
+            .collection('JobPosters')
+            .doc(userId)
+            .delete();
+      } catch (e) {
+        // If document already gone, continue
+        print('⚠️ Firestore JobPoster delete warning: $e');
+      }
+
+      // Optionally: clean lightweight user-related flags in SharedPreferences
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.remove('active_job_${userId}');
+        await prefs.remove('active_job_${userId}_jobId');
+        await prefs.remove('active_job_${userId}_requestId');
+      } catch (_) {}
+
+      // Finally delete the Firebase Auth user
+      try {
+        await user.delete();
+      } on fb_auth.FirebaseAuthException catch (e) {
+        // If requires recent login, inform caller
+        if (e.code == 'requires-recent-login') {
+          _error =
+              'Please reauthenticate to delete your account. Log in again and retry.';
+          notifyListeners();
+          return false;
+        }
+        _error = 'Failed to delete account: ${e.message ?? e.code}';
+        notifyListeners();
+        return false;
+      }
+
+      // Clear local session state
+      _isLoggedIn = false;
+      _loggedInUserId = null;
+      _loggedInPhoneNumber = null;
+      _currentPhoneNumber = null;
+      _verificationId = null;
+      _error = null;
+      notifyListeners();
+
+      return true;
+    } catch (e) {
+      print('❌ Deactivate/delete failed: $e');
+      _error = 'Account deletion failed. Please try again.';
+      notifyListeners();
+      return false;
+    }
+  }
 }

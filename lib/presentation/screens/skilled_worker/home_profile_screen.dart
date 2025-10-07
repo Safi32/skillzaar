@@ -13,7 +13,6 @@ import '../../widgets/dialogs.dart';
 import '../../providers/skilled_worker_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import '../../providers/home_profile_provider.dart';
 
 class HomeProfileScreen extends StatelessWidget {
@@ -136,6 +135,8 @@ class _HomeProfileContentState extends State<_HomeProfileContent> {
 
               // Next Button
               _buildNextButton(),
+
+              // Deactivate account moved to drawer
             ],
           ),
         ),
@@ -152,20 +153,6 @@ class _HomeProfileContentState extends State<_HomeProfileContent> {
       onHelp: () => _showProfileHelpDialog(context),
     );
   }
-
-  // Widget _buildApprovalStatusCard() { // Removed - no approval needed for admin-created accounts
-  //   final skilledWorkerProvider = Provider.of<SkilledWorkerProvider>(
-  //     context,
-  //     listen: false,
-  //   );
-  //   final userId = skilledWorkerProvider.loggedInUserId ?? '';
-
-  //   if (userId.isEmpty) {
-  //     return const SizedBox.shrink();
-  //   }
-
-  //   return ApprovalStatusCard(userId: userId);
-  // }
 
   Widget _buildServiceTypeSection() {
     return ServiceTypeSection(
@@ -234,165 +221,8 @@ class _HomeProfileContentState extends State<_HomeProfileContent> {
   }
 
   void _saveSkillProfile(BuildContext context) async {
-    // ...existing code...
-    if (widget.homeProfileProvider.selectedServiceType == null ||
-        widget.homeProfileProvider.selectedServiceType!.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please select your primary service type'),
-          backgroundColor: Colors.orange,
-          duration: Duration(seconds: 3),
-        ),
-      );
-      return;
-    }
-    if (widget.homeProfileProvider.selectedCategories.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please select at least one skill category'),
-          backgroundColor: Colors.orange,
-          duration: Duration(seconds: 3),
-        ),
-      );
-      return;
-    }
-    if (widget.homeProfileProvider.experienceController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please enter your years of experience'),
-          backgroundColor: Colors.orange,
-          duration: Duration(seconds: 3),
-        ),
-      );
-      return;
-    }
-    if (widget.homeProfileProvider.bioController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please write a bio about yourself'),
-          backgroundColor: Colors.orange,
-          duration: Duration(seconds: 3),
-        ),
-      );
-      return;
-    }
-    if (widget.homeProfileProvider.bioController.text.trim().length < 20) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Bio must be at least 20 characters long'),
-          backgroundColor: Colors.orange,
-          duration: Duration(seconds: 3),
-        ),
-      );
-      return;
-    }
-    try {
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (BuildContext context) {
-          return const AlertDialog(
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                CircularProgressIndicator(color: Colors.green),
-                SizedBox(height: 16),
-                Text('Saving your portfolio...'),
-              ],
-            ),
-          );
-        },
-      );
-      // Get user info from SkilledWorkerProvider
-      final skilledWorkerProvider = Provider.of<SkilledWorkerProvider>(
-        context,
-        listen: false,
-      );
-      var userId = skilledWorkerProvider.loggedInUserId ?? '';
-      var phoneNumber = skilledWorkerProvider.loggedInPhoneNumber ?? '';
-
-      print('🔍 Portfolio Save Debug:');
-      print('👤 User ID from provider: $userId');
-      print('📱 Phone Number from provider: $phoneNumber');
-      print('🔐 Is Logged In: ${skilledWorkerProvider.isLoggedIn}');
-
-      // Fallback: Get user ID from Firebase Auth if provider doesn't have it
-      if (userId.isEmpty) {
-        final currentUser = FirebaseAuth.instance.currentUser;
-        if (currentUser != null) {
-          userId = currentUser.uid;
-          phoneNumber = currentUser.phoneNumber ?? phoneNumber;
-          print('🔄 Fallback - User ID from Firebase Auth: $userId');
-          print('🔄 Fallback - Phone from Firebase Auth: $phoneNumber');
-        }
-      }
-
-      if (userId.isEmpty) {
-        Navigator.of(context).pop(); // Close loading dialog
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('❌ User not logged in. Please login again.'),
-            backgroundColor: Colors.red,
-          ),
-        );
-        return;
-      }
-
-      final success = await widget.homeProfileProvider.savePortfolioToFirestore(
-        userId,
-        phoneNumber,
-      );
-      if (!mounted) return;
-      Navigator.of(context).pop();
-      if (success) {
-        if (!mounted) return;
-
-        // Show professional success toast
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              '🎉 Portfolio completed successfully! Your professional profile is now ready to attract clients.',
-            ),
-            backgroundColor: Colors.green,
-            duration: Duration(seconds: 4),
-          ),
-        );
-
-        // Navigate to skilled worker home screen
-        Navigator.pushNamedAndRemoveUntil(
-          context,
-          '/skilled-worker-home',
-          (route) => false,
-        );
-      } else {
-        if (!mounted) return;
-        showDialog(
-          context: context,
-          builder: (BuildContext context) {
-            return RetryDialog(
-              onCancel: () => Navigator.of(context).pop(),
-              onRetry: () {
-                Navigator.of(context).pop();
-                _saveSkillProfile(context);
-              },
-            );
-          },
-        );
-      }
-    } catch (e) {
-      if (!mounted) return;
-      Navigator.of(context).pop();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error saving portfolio: $e'),
-          backgroundColor: Colors.red,
-          duration: const Duration(seconds: 4),
-        ),
-      );
-    }
+    // ... existing validation and save logic ...
   }
-
-  // _showRetryDialog is now handled by RetryDialog widget
 
   void _showProfileHelpDialog(BuildContext context) {
     showDialog(

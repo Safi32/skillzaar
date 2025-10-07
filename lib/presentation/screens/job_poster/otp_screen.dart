@@ -88,17 +88,7 @@ class _JobPosterOTPScreenState extends State<JobPosterOTPScreen> {
       _isVerifying = false;
     });
 
-    if (success) {
-      // OTP verification successful, navigation will be handled by the provider
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Phone number verified successfully!'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
-    } else {
+    if (!success) {
       // Show error message
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

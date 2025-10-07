@@ -250,17 +250,7 @@ class _JobPosterSignUpScreenState extends State<JobPosterSignUpScreen> {
                                           context,
                                           isSignUp: true,
                                         );
-
-                                        if (mounted) {
-                                          Navigator.pushNamed(
-                                            context,
-                                            '/job-poster-otp',
-                                            arguments: {
-                                              'phoneNumber': formattedPhone,
-                                              'isSignUp': true,
-                                            },
-                                          );
-                                        }
+                                        // Navigation now handled in provider after OTP is sent
                                       } catch (e) {
                                         if (mounted) {
                                           ScaffoldMessenger.of(

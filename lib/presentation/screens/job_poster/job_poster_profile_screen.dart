@@ -117,6 +117,60 @@ class JobPosterProfileScreen extends StatelessWidget {
                         );
                       },
                     ),
+                    ProfileActionButton(
+                      icon: Icons.person_off,
+                      label: 'Deactivate Account',
+                      onTap: () async {
+                        final shouldDelete = await showDialog<bool>(
+                          context: context,
+                          builder:
+                              (context) => AlertDialog(
+                                title: const Text('Deactivate Account'),
+                                content: const Text(
+                                  'This will permanently delete your account and data. Continue?',
+                                ),
+                                actions: [
+                                  TextButton(
+                                    onPressed:
+                                        () => Navigator.of(context).pop(false),
+                                    child: const Text('Cancel'),
+                                  ),
+                                  ElevatedButton(
+                                    onPressed:
+                                        () => Navigator.of(context).pop(true),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.red,
+                                      foregroundColor: Colors.white,
+                                    ),
+                                    child: const Text('Delete'),
+                                  ),
+                                ],
+                              ),
+                        );
+
+                        if (shouldDelete == true) {
+                          final ui = context.read<UIStateProvider>();
+                          final success = await context
+                              .read<PhoneAuthProvider>()
+                              .deactivateAndDeleteCurrentUser(context);
+
+                          if (success && context.mounted) {
+                            // Navigate to login/landing
+                            Navigator.pushNamedAndRemoveUntil(
+                              context,
+                              '/job-poster-login',
+                              (route) => false,
+                            );
+                          } else {
+                            ui.showErrorToast(
+                              context,
+                              'Delete failed',
+                              'Could not delete account. Re-login may be required.',
+                            );
+                          }
+                        }
+                      },
+                    ),
                   ],
                 ),
               ],
