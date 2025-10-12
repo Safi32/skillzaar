@@ -181,7 +181,14 @@ class _HomeScreenState extends State<HomeScreen> {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => SkilledWorkerProfile(),
+                            builder:
+                                (context) => SkilledWorkerProfile(
+                                  workerId: docs[index].id,
+                                  workerName: name,
+                                  workerImage: imageUrl,
+                                  workerRate: rate,
+                                  workerService: service,
+                                ),
                           ),
                         );
                       },

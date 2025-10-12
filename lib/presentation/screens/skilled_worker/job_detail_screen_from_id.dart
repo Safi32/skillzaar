@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 import '../../providers/ui_state_provider.dart';
 import '../../../core/services/job_request_service.dart';
 import 'navigate_to_job_screen.dart';
-import '../../providers/skilled_worker_provider.dart';
 
 class JobDetailScreenFromId extends StatelessWidget {
   final String jobId;
@@ -15,52 +14,144 @@ class JobDetailScreenFromId extends StatelessWidget {
   Widget build(BuildContext context) {
     return Consumer<UIStateProvider>(
       builder: (context, uiProvider, child) {
-        return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-          stream:
-              FirebaseFirestore.instance
-                  .collection('Job')
-                  .doc(jobId)
-                  .snapshots(),
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Scaffold(
-                body: Center(child: CircularProgressIndicator()),
-              );
-            }
-
-            if (snapshot.hasError) {
-              return Scaffold(
-                body: Center(
-                  child: Text('Error loading job: ${snapshot.error}'),
-                ),
-              );
-            }
-
-            final data = snapshot.data?.data();
-            if (data == null) {
-              return const Scaffold(body: Center(child: Text('Job not found')));
-            }
-
-            return _JobDetailContent(
-              uiProvider: uiProvider,
-              imageUrl: data['jobImage'] ?? '',
-              title: data['title_en'] ?? data['jobTitle'] ?? 'No Title',
-              location: data['jobLocation'] ?? 'No Location',
-              date:
-                  data['createdAt'] != null
-                      ? (data['createdAt'] as Timestamp).toDate()
-                      : null,
-              description:
-                  data['description_en'] ??
-                  data['jobDescription'] ??
-                  'No Description',
-              jobId: jobId,
-              jobPosterId: data['jobPosterId'] ?? '',
-              requestId: null,
-            );
-          },
+        return _JobDetailScreenFromIdContent(
+          uiProvider: uiProvider,
+          jobId: jobId,
         );
       },
+    );
+  }
+}
+
+class _JobDetailScreenFromIdContent extends StatefulWidget {
+  final UIStateProvider uiProvider;
+  final String jobId;
+
+  const _JobDetailScreenFromIdContent({
+    required this.uiProvider,
+    required this.jobId,
+  });
+
+  @override
+  State<_JobDetailScreenFromIdContent> createState() =>
+      _JobDetailScreenFromIdContentState();
+}
+
+class _JobDetailScreenFromIdContentState
+    extends State<_JobDetailScreenFromIdContent> {
+  bool _isCheckingAssignment = true;
+  bool _isAssigned = false;
+  Map<String, dynamic>? _jobData;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkAssignmentAndLoadJob();
+  }
+
+  Future<void> _checkAssignmentAndLoadJob() async {
+    try {
+      // First check if the skilled worker is assigned to this job
+      final skilledWorkerId = await JobRequestService.getSkilledWorkerId();
+      if (skilledWorkerId == null) {
+        if (!mounted) return;
+        _showAssignmentError();
+        return;
+      }
+
+      final isAssigned = await JobRequestService.isSkilledWorkerAssignedToJob(
+        jobId: widget.jobId,
+        skilledWorkerId: skilledWorkerId,
+      );
+
+      if (!isAssigned) {
+        if (!mounted) return;
+        _showAssignmentError();
+        return;
+      }
+
+      // If assigned, load job data
+      final jobData = await JobRequestService.getJobDetails(widget.jobId);
+      if (!mounted) return;
+
+      setState(() {
+        _isAssigned = true;
+        _jobData = jobData;
+        _isCheckingAssignment = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      _showAssignmentError();
+    }
+  }
+
+  void _showAssignmentError() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Icon(Icons.warning, color: Colors.white),
+            SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'This job is not assigned to you. Please contact admin for more information.',
+                style: TextStyle(fontSize: 14),
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: Colors.red,
+        duration: Duration(seconds: 4),
+        behavior: SnackBarBehavior.floating,
+        margin: EdgeInsets.only(top: 50, left: 16, right: 16),
+      ),
+    );
+
+    // Navigate back to previous screen after showing the message
+    Future.delayed(const Duration(seconds: 2), () {
+      if (mounted) {
+        Navigator.pop(context);
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isCheckingAssignment) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
+    if (!_isAssigned || _jobData == null) {
+      return const Scaffold(
+        body: Center(child: Text('Job not found or not assigned')),
+      );
+    }
+
+    return _JobDetailContent(
+      uiProvider: widget.uiProvider,
+      imageUrl: _jobData!['jobImage'] ?? _jobData!['Image'] ?? '',
+      title:
+          _jobData!['title_en'] ??
+          _jobData!['jobTitle'] ??
+          _jobData!['title'] ??
+          'No Title',
+      location:
+          _jobData!['jobLocation'] ??
+          _jobData!['Address'] ??
+          _jobData!['Location'] ??
+          'No Location',
+      date:
+          _jobData!['createdAt'] != null
+              ? (_jobData!['createdAt'] as Timestamp).toDate()
+              : null,
+      description:
+          _jobData!['description_en'] ??
+          _jobData!['jobDescription'] ??
+          _jobData!['description'] ??
+          'No Description',
+      jobId: widget.jobId,
+      jobPosterId: _jobData!['jobPosterId'] ?? _jobData!['userId'] ?? '',
+      requestId: null,
     );
   }
 }
@@ -93,87 +184,8 @@ class _JobDetailContent extends StatefulWidget {
 }
 
 class _JobDetailContentState extends State<_JobDetailContent> {
-  bool _isLoading = false;
-  bool _isJobAssigned = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _checkJobAssignment();
-  }
-
-  Future<void> _checkJobAssignment() async {
-    setState(() {
-      _isLoading = true;
-    });
-
-    try {
-      // Get the current skilled worker ID from provider
-      final skilledWorkerProvider = Provider.of<SkilledWorkerProvider>(
-        context,
-        listen: false,
-      );
-      final skilledWorkerId = skilledWorkerProvider.loggedInUserId;
-
-      if (skilledWorkerId != null && skilledWorkerId.isNotEmpty) {
-        final isAssigned = await JobRequestService.isSkilledWorkerAssignedToJob(
-          jobId: widget.jobId,
-          skilledWorkerId: skilledWorkerId,
-        );
-
-        setState(() {
-          _isJobAssigned = isAssigned;
-        });
-
-        if (!isAssigned) {
-          _showAssignmentError();
-        }
-      }
-    } catch (e) {
-      print('Error checking job assignment: $e');
-    } finally {
-      setState(() {
-        _isLoading = false;
-      });
-    }
-  }
-
-  void _showAssignmentError() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            Icon(Icons.warning, color: Colors.white),
-            SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                'This job is not assigned to you. Please contact admin for more information.',
-                style: TextStyle(fontSize: 14),
-              ),
-            ),
-          ],
-        ),
-        backgroundColor: Colors.red,
-        duration: Duration(seconds: 4),
-        behavior: SnackBarBehavior.floating,
-        margin: EdgeInsets.only(top: 50, left: 16, right: 16),
-      ),
-    );
-
-    // Navigate back to jobs screen after showing the message
-    Future.delayed(const Duration(seconds: 2), () {
-      if (mounted) {
-        Navigator.pop(context);
-      }
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
-    }
-
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -294,54 +306,34 @@ class _JobDetailContentState extends State<_JobDetailContent> {
                   const SizedBox(height: 32),
 
                   // Action Buttons
-                  if (_isJobAssigned) ...[
-                    Row(
-                      children: [
-                        Expanded(
-                          child: ElevatedButton.icon(
-                            onPressed: () => _navigateToJob(),
-                            icon: const Icon(
-                              Icons.navigation,
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () => _navigateToJob(),
+                          icon: const Icon(
+                            Icons.navigation,
+                            color: Colors.white,
+                          ),
+                          label: const Text(
+                            "Get Direction",
+                            style: TextStyle(
                               color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
                             ),
-                            label: const Text(
-                              "Get Direction",
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                              ),
-                            ),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.green,
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.green,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
                             ),
                           ),
                         ),
-                      ],
-                    ),
-                  ] else ...[
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.red.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.red.withOpacity(0.3)),
                       ),
-                      child: const Text(
-                        "This job is not assigned to you. Please contact admin for more information.",
-                        style: TextStyle(
-                          color: Colors.red,
-                          fontWeight: FontWeight.w600,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ],
               ),
             ),

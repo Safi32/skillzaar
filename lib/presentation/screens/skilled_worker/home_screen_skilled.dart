@@ -103,6 +103,79 @@ class _HomeScreenSkilledState extends State<HomeScreenSkilled> {
     }
   }
 
+  Future<void> _navigateToJobDetailWithAssignmentCheck(
+    BuildContext context,
+    String jobId,
+    String imageUrl,
+    String title,
+    String location,
+    DateTime? date,
+    String description,
+    String jobPosterId,
+  ) async {
+    try {
+      // Check if the skilled worker is assigned to this job before navigating
+      final skilledWorkerId = await JobRequestService.getSkilledWorkerId();
+      if (skilledWorkerId == null) {
+        _showAssignmentError(context);
+        return;
+      }
+
+      final isAssigned = await JobRequestService.isSkilledWorkerAssignedToJob(
+        jobId: jobId,
+        skilledWorkerId: skilledWorkerId,
+      );
+
+      if (!isAssigned) {
+        _showAssignmentError(context);
+        return;
+      }
+
+      // If assigned, navigate to job detail screen
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder:
+              (_) => JobDetailScreen(
+                imageUrl: imageUrl,
+                title: title,
+                location: location,
+                date: date,
+                description: description,
+                jobId: jobId,
+                jobPosterId: jobPosterId,
+              ),
+        ),
+      );
+    } catch (e) {
+      print('Error navigating to job detail: $e');
+      _showAssignmentError(context);
+    }
+  }
+
+  void _showAssignmentError(BuildContext context) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Icon(Icons.warning, color: Colors.white),
+            SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'This job is not assigned to you. Please contact admin for more information.',
+                style: TextStyle(fontSize: 14),
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: Colors.red,
+        duration: Duration(seconds: 4),
+        behavior: SnackBarBehavior.floating,
+        margin: EdgeInsets.only(top: 50, left: 16, right: 16),
+      ),
+    );
+  }
+
   Future<void> _maybeRedirectToActiveJob() async {
     try {
       final provider = Provider.of<SkilledWorkerProvider>(
@@ -459,25 +532,17 @@ class _HomeScreenSkilledState extends State<HomeScreenSkilled> {
                     );
                   }
                   return JobCard(
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder:
-                              (_) => JobDetailScreen(
-                                imageUrl: imageUrl,
-                                title: title,
-                                location:
-                                    data['Address'] ?? data['Location'] ?? '',
-                                date: postedDate,
-                                description: description,
-                                jobId: jobId,
-                                jobPosterId:
-                                    data['jobPosterId'] ?? data['userId'] ?? '',
-                              ),
+                    onTap:
+                        () => _navigateToJobDetailWithAssignmentCheck(
+                          context,
+                          jobId,
+                          imageUrl,
+                          title,
+                          data['Address'] ?? data['Location'] ?? '',
+                          postedDate,
+                          description,
+                          data['jobPosterId'] ?? data['userId'] ?? '',
                         ),
-                      );
-                    },
                     title: title,
                     company: (data['jobPosterName'] ?? 'Job Poster').toString(),
                     location: data['Address'] ?? data['Location'] ?? '—',

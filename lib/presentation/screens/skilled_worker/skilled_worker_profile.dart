@@ -1,7 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:skillzaar/core/services/job_request_service.dart';
 
 class SkilledWorkerProfile extends StatefulWidget {
-  const SkilledWorkerProfile({super.key});
+  final String? workerId;
+  final String? workerName;
+  final String? workerImage;
+  final String? workerRate;
+  final String? workerService;
+
+  const SkilledWorkerProfile({
+    super.key,
+    this.workerId,
+    this.workerName,
+    this.workerImage,
+    this.workerRate,
+    this.workerService,
+  });
 
   @override
   State<SkilledWorkerProfile> createState() => _SkilledWorkerProfileState();
@@ -29,9 +43,11 @@ class _SkilledWorkerProfileState extends State<SkilledWorkerProfile> {
                         bottomLeft: Radius.circular(24),
                         bottomRight: Radius.circular(24),
                       ),
-                      image: const DecorationImage(
+                      image: DecorationImage(
                         image: NetworkImage(
-                          "https://picsum.photos/800/400", // Dummy image
+                          widget.workerImage?.isNotEmpty == true
+                              ? widget.workerImage!
+                              : "https://via.placeholder.com/800x400.png?text=Worker+Image",
                         ),
                         fit: BoxFit.cover,
                       ),
@@ -69,119 +85,292 @@ class _SkilledWorkerProfileState extends State<SkilledWorkerProfile> {
 
               const SizedBox(height: 20),
 
-              // 🔹 Title + Price
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Row(
+              // 🔹 Dynamic Content with Data Fetching
+              if (widget.workerId != null)
+                FutureBuilder<Map<String, dynamic>?>(
+                  future: JobRequestService.getSkilledWorkerDetails(
+                    widget.workerId!,
+                  ),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Padding(
+                        padding: EdgeInsets.all(20),
+                        child: Center(child: CircularProgressIndicator()),
+                      );
+                    }
+
+                    if (snapshot.hasError) {
+                      return Padding(
+                        padding: const EdgeInsets.all(20),
+                        child: Center(
+                          child: Column(
+                            children: [
+                              const Icon(
+                                Icons.error,
+                                color: Colors.red,
+                                size: 48,
+                              ),
+                              const SizedBox(height: 16),
+                              const Text(
+                                'Error loading worker details',
+                                style: TextStyle(
+                                  color: Colors.red,
+                                  fontSize: 16,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text('Name: ${widget.workerName ?? 'Unknown'}'),
+                              Text('Service: ${widget.workerService ?? 'N/A'}'),
+                            ],
+                          ),
+                        ),
+                      );
+                    }
+
+                    final workerData = snapshot.data;
+                    final displayName =
+                        workerData?['displayName']?.toString() ??
+                        workerData?['name']?.toString() ??
+                        widget.workerName ??
+                        'Skilled Worker';
+                    final hourlyRate =
+                        workerData?['rate']?.toString() ??
+                        workerData?['Rate']?.toString() ??
+                        workerData?['hourlyRate']?.toString() ??
+                        widget.workerRate ??
+                        'Not specified';
+                    final rating = workerData?['rating']?.toString() ?? '4.5';
+                    final experience =
+                        workerData?['experience']?.toString() ??
+                        workerData?['Experience']?.toString() ??
+                        'Not specified';
+                    final bio =
+                        workerData?['description']?.toString() ??
+                        workerData?['Description']?.toString() ??
+                        workerData?['bio']?.toString() ??
+                        'No description available';
+                    final skills =
+                        workerData?['skills']?.toString() ??
+                        workerData?['Skills']?.toString() ??
+                        widget.workerService ??
+                        'General Service';
+
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // 🔹 Title + Price
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  displayName,
+                                  style: const TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                              Text(
+                                hourlyRate != 'Not specified'
+                                    ? 'Rs $hourlyRate'
+                                    : 'Rate N/A',
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.green,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        const SizedBox(height: 10),
+
+                        // 🔹 Ratings
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          child: Row(
+                            children: [
+                              ...List.generate(
+                                5,
+                                (index) => Icon(
+                                  index <
+                                          (double.tryParse(rating) ?? 4.5)
+                                              .floor()
+                                      ? Icons.star
+                                      : Icons.star_border,
+                                  color: Colors.amber,
+                                  size: 20,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                rating,
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                  color: Colors.amber,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        const SizedBox(height: 10),
+
+                        // 🔹 Service Type chip
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          child: Chip(
+                            label: Text(
+                              skills,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                                color: Colors.green,
+                              ),
+                            ),
+                            backgroundColor: Colors.green.withOpacity(0.1),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        ),
+
+                        const SizedBox(height: 20),
+
+                        // 🔹 Experience
+                        if (experience != 'Not specified')
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 20),
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  Icons.work,
+                                  color: Colors.blue,
+                                  size: 20,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Experience: $experience',
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+
+                        const SizedBox(height: 20),
+
+                        // 🔹 Description
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          child: Text(
+                            bio,
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey[700],
+                              height: 1.5,
+                            ),
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                )
+              else
+                // Fallback content when no workerId is provided
+                Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(
-                      child: Text(
-                        "Senior Flutter Developer",
-                        style: const TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
+                    // 🔹 Title + Price
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              widget.workerName ?? 'Skilled Worker',
+                              style: const TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                          Text(
+                            widget.workerRate != null
+                                ? 'Rs ${widget.workerRate}'
+                                : 'Rate N/A',
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.green,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 10),
+
+                    // 🔹 Ratings
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: Row(
+                        children: List.generate(
+                          5,
+                          (index) => Icon(
+                            index < 4 ? Icons.star : Icons.star_border,
+                            color: Colors.amber,
+                            size: 20,
+                          ),
                         ),
                       ),
                     ),
-                    Text(
-                      "\$2000",
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.green,
+
+                    const SizedBox(height: 10),
+
+                    // 🔹 Service Type chip
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: Chip(
+                        label: Text(
+                          widget.workerService ?? 'General Service',
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.green,
+                          ),
+                        ),
+                        backgroundColor: Colors.green.withOpacity(0.1),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 20),
+
+                    // 🔹 Description
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: Text(
+                        'Professional skilled worker providing quality services.',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey[700],
+                          height: 1.5,
+                        ),
                       ),
                     ),
                   ],
                 ),
-              ),
-
-              const SizedBox(height: 10),
-
-              // 🔹 Ratings
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Row(
-                  children: List.generate(
-                    5,
-                    (index) => Icon(
-                      index < 4 ? Icons.star : Icons.star_border,
-                      color: Colors.amber,
-                      size: 20,
-                    ),
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 10),
-
-              // 🔹 Type chip
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Chip(
-                  label: const Text(
-                    "Full-time",
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                      color: Colors.green,
-                    ),
-                  ),
-                  backgroundColor: Colors.green.withOpacity(0.1),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 20),
-
-              // 🔹 Description
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Text(
-                  "We are looking for an experienced Flutter developer to join our dynamic team. "
-                  "You will work on exciting mobile applications, collaborate with designers and backend engineers, "
-                  "and deliver high-quality features on time.",
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey[700],
-                    height: 1.5,
-                  ),
-                ),
-              ),
-              Spacer(),
-              Align(
-                alignment: Alignment.bottomCenter,
-                child: SafeArea(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: SizedBox(
-                      width: double.infinity,
-                      height: 50,
-                      child: ElevatedButton(
-                        onPressed: () {
-                          // TODO: handle request action
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.green,
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        child: const Text(
-                          "Request",
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
             ],
           ),
         ),

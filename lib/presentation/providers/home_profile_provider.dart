@@ -3,6 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:provider/provider.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'dart:io';
 import 'skilled_worker_provider.dart';
 
 class HomeProfileProvider with ChangeNotifier {
@@ -66,10 +69,27 @@ class HomeProfileProvider with ChangeNotifier {
   String? get selectedServiceType => _selectedServiceType;
 
   // Portfolio image management
-  void addPortfolioImage() {
-    _portfolioImages.add('https://via.placeholder.com/120x80?text=Portfolio');
-    notifyListeners();
-    _updateProfileCompletion();
+  Future<void> addPortfolioImage() async {
+    try {
+      final ImagePicker picker = ImagePicker();
+      final XFile? image = await picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1920,
+        maxHeight: 1080,
+        imageQuality: 85,
+      );
+
+      if (image != null) {
+        // Upload image to Firebase Storage and get URL
+        final String imageUrl = await _uploadImageToStorage(image);
+        _portfolioImages.add(imageUrl);
+        notifyListeners();
+        _updateProfileCompletion();
+      }
+    } catch (e) {
+      print('Error picking image: $e');
+      // You might want to show a snackbar or dialog to inform the user
+    }
   }
 
   void removePortfolioImage(int index) {
@@ -77,6 +97,28 @@ class HomeProfileProvider with ChangeNotifier {
       _portfolioImages.removeAt(index);
       notifyListeners();
       _updateProfileCompletion();
+    }
+  }
+
+  Future<String> _uploadImageToStorage(XFile image) async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) throw Exception('User not authenticated');
+
+      final String fileName =
+          'portfolio_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final String path = 'skilled_workers/${user.uid}/portfolio/$fileName';
+
+      final Reference ref = FirebaseStorage.instance.ref().child(path);
+      final UploadTask uploadTask = ref.putFile(File(image.path));
+
+      final TaskSnapshot snapshot = await uploadTask;
+      final String downloadUrl = await snapshot.ref.getDownloadURL();
+
+      return downloadUrl;
+    } catch (e) {
+      print('Error uploading image: $e');
+      throw Exception('Failed to upload image: $e');
     }
   }
 

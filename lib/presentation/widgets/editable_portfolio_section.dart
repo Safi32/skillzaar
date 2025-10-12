@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 class EditablePortfolioSection extends StatelessWidget {
   final List<String> images;
-  final VoidCallback onAddImage;
+  final Future<void> Function() onAddImage;
   final void Function(int) onRemoveImage;
 
   const EditablePortfolioSection({
@@ -36,7 +36,9 @@ class EditablePortfolioSection extends StatelessWidget {
               if (index == images.length) {
                 // Add button
                 return GestureDetector(
-                  onTap: onAddImage,
+                  onTap: () async {
+                    await onAddImage();
+                  },
                   child: Container(
                     width: 140,
                     height: 100,

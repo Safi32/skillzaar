@@ -268,7 +268,103 @@ class _JobPosterDetailScreenState extends State<JobPosterDetailScreen> {
           FutureBuilder<Map<String, dynamic>?>(
             future: JobRequestService.getSkilledWorkerDetails(skilledWorkerId),
             builder: (context, workerSnap) {
+              if (workerSnap.connectionState == ConnectionState.waiting) {
+                return Card(
+                  elevation: 4,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      children: [
+                        Row(
+                          children: [
+                            Icon(Icons.person, color: Colors.blue, size: 24),
+                            const SizedBox(width: 8),
+                            const Text(
+                              'Skilled Worker Details',
+                              style: TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.blue,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 20),
+                        const Center(child: CircularProgressIndicator()),
+                        const SizedBox(height: 16),
+                        const Text(
+                          'Loading worker details...',
+                          style: TextStyle(fontSize: 14, color: Colors.grey),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }
+
+              if (workerSnap.hasError) {
+                return Card(
+                  elevation: 4,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      children: [
+                        Row(
+                          children: [
+                            Icon(Icons.person, color: Colors.blue, size: 24),
+                            const SizedBox(width: 8),
+                            const Text(
+                              'Skilled Worker Details',
+                              style: TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.blue,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 20),
+                        const Icon(
+                          Icons.error_outline,
+                          color: Colors.red,
+                          size: 48,
+                        ),
+                        const SizedBox(height: 16),
+                        const Text(
+                          'Error loading worker details',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.red,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Name: $skilledWorkerName',
+                          style: const TextStyle(fontSize: 14),
+                        ),
+                        Text(
+                          'Phone: $skilledWorkerPhone',
+                          style: const TextStyle(fontSize: 14),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }
+
               final worker = workerSnap.data;
+
+              // Debug logging
+              print('🔍 Worker data fetched: $worker');
+              print('🔍 Skilled Worker ID: $skilledWorkerId');
+
               final displayName =
                   (worker?['displayName'] ?? skilledWorkerName).toString();
               final displayPhone =
@@ -278,6 +374,54 @@ class _JobPosterDetailScreenState extends State<JobPosterDetailScreen> {
                   (worker?['skills'] is List)
                       ? (worker?['skills'] as List).join(', ')
                       : worker?['skills']?.toString();
+              // Try multiple field names for image
+              final workerImage =
+                  worker?['profileImage']?.toString() ??
+                  worker?['ProfilePicture']?.toString() ??
+                  worker?['profilePicture']?.toString() ??
+                  worker?['image']?.toString() ??
+                  worker?['Image']?.toString() ??
+                  '';
+
+              // Try multiple field names for rate
+              final hourlyRate =
+                  worker?['rate']?.toString() ??
+                  worker?['Rate']?.toString() ??
+                  worker?['hourlyRate']?.toString() ??
+                  'Not specified';
+
+              // Try multiple field names for experience
+              final experience =
+                  worker?['experience']?.toString() ??
+                  worker?['Experience']?.toString() ??
+                  worker?['yearsOfExperience']?.toString() ??
+                  worker?['YearsOfExperience']?.toString() ??
+                  'Not specified';
+
+              // Try multiple field names for bio
+              final bio =
+                  worker?['description']?.toString() ??
+                  worker?['Description']?.toString() ??
+                  worker?['bio']?.toString() ??
+                  worker?['Bio']?.toString() ??
+                  'No description available';
+
+              // Debug logging for extracted values
+              print('🔍 Display Name: $displayName');
+              print('🔍 Worker Image: $workerImage');
+              print('🔍 Hourly Rate: $hourlyRate');
+              print('🔍 Rating: $rating');
+              print('🔍 Experience: $experience');
+              print('🔍 Bio: $bio');
+
+              // Check if we have dynamic data
+              final hasDynamicData =
+                  workerImage.isNotEmpty ||
+                  hourlyRate != 'Not specified' ||
+                  experience != 'Not specified' ||
+                  bio != 'No description available';
+
+              print('🔍 Has Dynamic Data: $hasDynamicData');
 
               return Card(
                 elevation: 4,
@@ -301,15 +445,152 @@ class _JobPosterDetailScreenState extends State<JobPosterDetailScreen> {
                               color: Colors.blue,
                             ),
                           ),
+                          const Spacer(),
+                          IconButton(
+                            onPressed: () {
+                              // Force rebuild of the FutureBuilder
+                              setState(() {});
+                            },
+                            icon: const Icon(Icons.refresh, color: Colors.blue),
+                            tooltip: 'Refresh worker details',
+                          ),
                         ],
                       ),
                       const SizedBox(height: 16),
-                      _buildDetailRow(
-                        Icons.person_outline,
-                        'Name',
-                        displayName,
+
+                      // Worker Profile Section with Image
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Worker Image
+                          Container(
+                            width: 80,
+                            height: 80,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(40),
+                              border: Border.all(color: Colors.blue, width: 2),
+                            ),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(38),
+                              child:
+                                  workerImage.isNotEmpty
+                                      ? Image.network(
+                                        workerImage,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (
+                                          context,
+                                          error,
+                                          stackTrace,
+                                        ) {
+                                          return Container(
+                                            color: Colors.grey[300],
+                                            child: const Icon(
+                                              Icons.person,
+                                              size: 40,
+                                              color: Colors.grey,
+                                            ),
+                                          );
+                                        },
+                                      )
+                                      : Container(
+                                        color: Colors.grey[300],
+                                        child: const Icon(
+                                          Icons.person,
+                                          size: 40,
+                                          color: Colors.grey,
+                                        ),
+                                      ),
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          // Worker Basic Info
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  displayName,
+                                  style: const TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.black87,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                if (rating != null)
+                                  Row(
+                                    children: [
+                                      const Icon(
+                                        Icons.star,
+                                        color: Colors.amber,
+                                        size: 16,
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        rating,
+                                        style: const TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w500,
+                                          color: Colors.amber,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  'Rate: $hourlyRate/hour',
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w500,
+                                    color: Colors.green,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 12),
+
+                      const SizedBox(height: 20),
+
+                      // Dynamic Data Indicator
+                      if (hasDynamicData)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.green.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: Colors.green.withOpacity(0.3),
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.check_circle,
+                                color: Colors.green,
+                                size: 16,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                'Dynamic Data Loaded',
+                                style: TextStyle(
+                                  color: Colors.green[700],
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                      if (hasDynamicData) const SizedBox(height: 16),
+
+                      // Detailed Information
                       _buildDetailRow(Icons.phone, 'Phone', displayPhone),
                       const SizedBox(height: 12),
                       _buildDetailRow(
@@ -317,12 +598,13 @@ class _JobPosterDetailScreenState extends State<JobPosterDetailScreen> {
                         'Worker ID',
                         skilledWorkerId,
                       ),
-                      if (rating != null) const SizedBox(height: 12),
-                      if (rating != null)
-                        _buildDetailRow(Icons.star, 'Rating', rating),
+                      const SizedBox(height: 12),
+                      _buildDetailRow(Icons.work, 'Experience', experience),
                       if (skills != null) const SizedBox(height: 12),
                       if (skills != null)
                         _buildDetailRow(Icons.build, 'Skills', skills),
+                      const SizedBox(height: 12),
+                      _buildDetailRow(Icons.description, 'About', bio),
                     ],
                   ),
                 ),
