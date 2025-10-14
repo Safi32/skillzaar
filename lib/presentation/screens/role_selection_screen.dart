@@ -150,6 +150,16 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                       onPressed: () {
                         Navigator.pushNamed(context, '/job-poster-home');
                       },
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 12,
+                          horizontal: 24,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          side: BorderSide(color: Colors.green.shade200),
+                        ),
+                      ),
                       child: Text(
                         'Continue as Guest',
                         style: TextStyle(
@@ -164,7 +174,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
               ),
             ),
             Positioned(
-              bottom: -size.height * 0.20,
+              bottom: -size.height * 0.28,
               right: -size.width * 0.05,
               child: Container(
                 width: size.width * 0.8,
