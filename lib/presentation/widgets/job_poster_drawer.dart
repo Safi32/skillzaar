@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:skillzaar/presentation/providers/phone_auth_provider.dart';
 import 'package:skillzaar/presentation/screens/job_poster/contact_us_screen.dart';
 
 class JobPosterDrawer extends StatelessWidget {
@@ -32,8 +34,14 @@ class JobPosterDrawer extends StatelessWidget {
                   child: Icon(Icons.person, size: 30, color: Colors.green),
                 ),
                 const SizedBox(height: 12),
-                const Text(
-                  'Job Poster',
+                Text(
+                  Provider.of<PhoneAuthProvider>(
+                            context,
+                            listen: false,
+                          ).loggedInUserId ==
+                          null
+                      ? "Guest User"
+                      : 'Job Poster',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 20,

@@ -1,3 +1,5 @@
+import 'dart:developer';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:skillzaar/presentation/screens/job_poster/home_screen.dart';
@@ -53,9 +55,26 @@ class _JobPosterHomeContentState extends State<_JobPosterHomeContent> {
     });
     _pages = [
       HomeScreen(),
-      JobPosterAdsScreen(myAdsOnly: _showMyAdsOnly),
+      JobPosterAdsScreen(
+        myAdsOnly: _showMyAdsOnly,
+        isGuest:
+            Provider.of<PhoneAuthProvider>(
+                      context,
+                      listen: false,
+                    ).loggedInUserId ==
+                    null
+                ? true
+                : false,
+      ),
       const JobPosterProfileScreen(),
     ];
+
+    log(
+      Provider.of<PhoneAuthProvider>(
+        context,
+        listen: false,
+      ).loggedInUserId.toString(),
+    );
   }
 
   Future<void> _maybeRedirectToActiveJob() async {
@@ -242,7 +261,17 @@ class _JobPosterHomeContentState extends State<_JobPosterHomeContent> {
   void _switchAdsView({required bool myAds}) {
     setState(() {
       _showMyAdsOnly = myAds;
-      _pages[1] = JobPosterAdsScreen(myAdsOnly: _showMyAdsOnly);
+      _pages[1] = JobPosterAdsScreen(
+        myAdsOnly: _showMyAdsOnly,
+        isGuest:
+            Provider.of<PhoneAuthProvider>(
+                      context,
+                      listen: false,
+                    ).loggedInUserId ==
+                    null
+                ? true
+                : false,
+      );
       _selectedIndex = 1;
     });
     Navigator.pop(context);
@@ -252,7 +281,22 @@ class _JobPosterHomeContentState extends State<_JobPosterHomeContent> {
   Widget build(BuildContext context) {
     return Scaffold(
       drawer: JobPosterDrawer(
-        onPostJob: () => Navigator.pushNamed(context, '/job-poster-post-job'),
+        onPostJob: () {
+          Navigator.pop(context);
+          Provider.of<PhoneAuthProvider>(
+                    context,
+                    listen: false,
+                  ).loggedInUserId ==
+                  null
+              ? ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Please login first to post a job.'),
+                  backgroundColor: Colors.red,
+                  duration: Duration(seconds: 4),
+                ),
+              )
+              : Navigator.pushNamed(context, '/job-poster-post-job');
+        },
         onAllAds: () => _switchAdsView(myAds: false),
         onMyAds: () => _switchAdsView(myAds: true),
         onLogout: () => _showLogoutDialog(context),

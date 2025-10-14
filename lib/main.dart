@@ -1,4 +1,3 @@
-// import 'package:firebase_app_check/firebase_app_check.dart'; // Temporarily disabled
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:skillzaar/firebase_options.dart';
@@ -15,21 +14,13 @@ import 'presentation/providers/job_provider.dart';
 import 'presentation/providers/ui_state_provider.dart';
 import 'presentation/providers/location_state_provider.dart';
 import 'presentation/providers/notification_provider.dart';
-import 'presentation/widgets/splash_and_dialog_gate.dart';
 import 'presentation/widgets/notification_initializer.dart';
 import 'presentation/widgets/provider_connector.dart';
 import 'core/services/notification_handler_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-
-  
-  // await FirebaseAppCheck.instance.activate(
-  //   androidProvider: AndroidProvider.playIntegrity,
-  //   appleProvider: AppleProvider.appAttest,
-  // );
   runApp(
     MultiProvider(
       providers: [
@@ -64,7 +55,7 @@ class MyApp extends StatelessWidget {
       navigatorKey: navigatorKey,
       debugShowCheckedModeBanner: false,
       theme: AppTheme.themeData,
-      home: const SplashAndDialogGate(),
+      home: const RoleSelectionScreen(),
       routes: {
         '/role-selection': (context) => const RoleSelectionScreen(),
         ...AppRoutes.routes,

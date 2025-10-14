@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:skillzaar/presentation/providers/phone_auth_provider.dart';
+
 class LogoutDialog extends StatelessWidget {
   final VoidCallback onLogout;
   const LogoutDialog({super.key, required this.onLogout});
@@ -15,6 +18,10 @@ class LogoutDialog extends StatelessWidget {
         ElevatedButton(
           onPressed: () {
             Navigator.of(context).pop();
+            Provider.of<PhoneAuthProvider>(
+              context,
+              listen: false,
+            ).setLoggedInUserId(null);
             onLogout();
           },
           style: ElevatedButton.styleFrom(

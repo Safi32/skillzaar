@@ -6,8 +6,13 @@ import 'package:skillzaar/presentation/widgets/job_ads_empty_state.dart';
 
 class JobPosterAdsScreen extends StatelessWidget {
   final bool myAdsOnly;
+  final bool isGuest;
 
-  const JobPosterAdsScreen({super.key, this.myAdsOnly = false});
+  const JobPosterAdsScreen({
+    super.key,
+    this.myAdsOnly = false,
+    this.isGuest = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -17,7 +22,7 @@ class JobPosterAdsScreen extends StatelessWidget {
     print('🔍 Job Poster Ads Screen - User ID: $jobPosterId');
     print('🔍 Job Poster Ads Screen - My Ads Only: $myAdsOnly');
 
-    if (myAdsOnly && jobPosterId == null) {
+    if ((myAdsOnly && jobPosterId == null) || isGuest) {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(24.0),
@@ -32,16 +37,6 @@ class JobPosterAdsScreen extends StatelessWidget {
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 12),
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.pushNamedAndRemoveUntil(
-                    context,
-                    '/job-poster-home',
-                    (route) => false,
-                  );
-                },
-                child: const Text('Go to Login'),
-              ),
             ],
           ),
         ),
