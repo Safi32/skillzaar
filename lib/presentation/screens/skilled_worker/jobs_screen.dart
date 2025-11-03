@@ -317,12 +317,9 @@ class _JobCardWidgetState extends State<_JobCardWidget>
             : null;
     final posterPhone = widget.job['posterPhone'] ?? '';
 
-    final dynamic price =
-        widget.job['price'] ?? widget.job['Budget'] ?? widget.job['budget'];
+    // Hide price; only show distance if available
     final String salaryText =
-        (price != null && price.toString().trim().isNotEmpty)
-            ? '${(widget.job['currency'] ?? 'PKR').toString()} ${price.toString()}'
-            : (_distance != null ? '${_distance!.toStringAsFixed(1)} km' : '');
+        (_distance != null ? '${_distance!.toStringAsFixed(1)} km' : '');
 
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 10),
@@ -437,26 +434,27 @@ class _JobCardWidgetState extends State<_JobCardWidget>
                       ),
                     ],
                     const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Text(
-                          salaryText,
-                          style: const TextStyle(
-                            color: Colors.green,
-                            fontWeight: FontWeight.w600,
+                    if (salaryText.isNotEmpty)
+                      Row(
+                        children: [
+                          Text(
+                            salaryText,
+                            style: const TextStyle(
+                              color: Colors.green,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 12),
-                        const Text(
-                          'Tap for more details.',
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: Colors.green,
-                            fontStyle: FontStyle.italic,
+                          const SizedBox(width: 12),
+                          const Text(
+                            'Tap for more details.',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.green,
+                              fontStyle: FontStyle.italic,
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
+                        ],
+                      ),
                   ],
                 ),
               ),

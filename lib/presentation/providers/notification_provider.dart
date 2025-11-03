@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:skillzaar/core/examples/services/notification_service.dart';
 
-
 class NotificationProvider extends ChangeNotifier {
   final NotificationService _notificationService = NotificationService();
   NotificationService get notificationService => _notificationService;
@@ -43,7 +42,6 @@ class NotificationProvider extends ChangeNotifier {
     required String jobDescription,
     required String jobId,
     required String location,
-    required double budget,
   }) async {
     _setLoading(true);
     _clearError();
@@ -54,7 +52,6 @@ class NotificationProvider extends ChangeNotifier {
         jobDescription: jobDescription,
         jobId: jobId,
         location: location,
-        budget: budget,
       );
       print('✅ Job notification sent successfully');
     } catch (e) {

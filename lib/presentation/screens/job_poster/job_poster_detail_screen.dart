@@ -176,7 +176,7 @@ class _JobPosterDetailScreenState extends State<JobPosterDetailScreen> {
         'No Description';
     final jobLocation =
         jobData['Location'] ?? jobData['Address'] ?? 'No Location';
-    final jobSalary = jobData['budget']?.toString() ?? 'Not specified';
+    // Payment hidden per requirements
     final jobImage = (jobData['Image'] ?? '').toString();
     final createdAt = jobData['createdAt'];
     DateTime? createdAtDate;
@@ -252,11 +252,7 @@ class _JobPosterDetailScreenState extends State<JobPosterDetailScreen> {
                       createdAtDate.toString(),
                     ),
                   if (createdAtDate != null) const SizedBox(height: 12),
-                  _buildDetailRow(
-                    Icons.attach_money,
-                    'Budget',
-                    'Rs. $jobSalary',
-                  ),
+                  // Budget removed
                 ],
               ),
             ),

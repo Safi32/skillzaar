@@ -65,8 +65,7 @@ class JobDetailScreen extends StatelessWidget {
                     jobData?['Location'] ??
                     jobData?['Address'] ??
                     "No Location";
-                String jobSalary =
-                    jobData?['budget']?.toString() ?? "Not Specified";
+                // Payment hidden per requirements
 
                 return SingleChildScrollView(
                   padding: const EdgeInsets.all(20),
@@ -78,7 +77,7 @@ class JobDetailScreen extends StatelessWidget {
                           _buildInfoRow("📌 Title", jobTitle),
                           _buildInfoRow("📝 Description", jobDescription),
                           _buildInfoRow("📍 Location", jobLocation),
-                          _buildInfoRow("💰 Budget", jobSalary),
+                          // Budget removed
                         ],
                       ),
                       const SizedBox(height: 20),

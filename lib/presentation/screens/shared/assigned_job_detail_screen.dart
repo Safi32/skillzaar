@@ -105,10 +105,7 @@ class AssignedJobDetailScreen extends StatelessWidget {
                       "📍 Location",
                       jobDetails['jobLocation'] ?? 'No Location',
                     ),
-                    _buildInfoRow(
-                      "💰 Budget",
-                      jobDetails['budget']?.toString() ?? 'Not Specified',
-                    ),
+                    // Budget removed per requirements
                     _buildInfoRow(
                       "📝 Description",
                       jobDetails['jobDescription'] ?? 'No Description',

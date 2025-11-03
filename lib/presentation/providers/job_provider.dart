@@ -43,7 +43,6 @@ class JobProvider with ChangeNotifier {
     required String description_en,
     required String description_ur,
     required File? image,
-    required double price,
     required String location,
     required String address,
     required double latitude,
@@ -95,8 +94,7 @@ class JobProvider with ChangeNotifier {
       'description_en': description_en,
       'description_ur': description_ur,
       'Image': imageUrl,
-      'price': price,
-      'currency': 'PKR',
+      // No payment fields
       'Location': location,
       'Address': address,
       'Latitude': latitude,
@@ -122,7 +120,6 @@ class JobProvider with ChangeNotifier {
           jobDescription: description_en,
           jobId: docRef.id,
           location: location,
-          budget: price,
         );
 
         // Send push notification to job poster (self)

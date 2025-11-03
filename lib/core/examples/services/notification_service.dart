@@ -391,7 +391,6 @@ class NotificationService {
     required String jobDescription,
     required String jobId,
     required String location,
-    required double budget,
   }) async {
     try {
       // Get all skilled workers' FCM tokens
@@ -414,14 +413,12 @@ class NotificationService {
           await sendNotificationToToken(
             fcmToken: fcmToken,
             title: 'New Job Posted: $jobTitle',
-            body:
-                '$jobDescription\nLocation: $location\nBudget: \$${budget.toStringAsFixed(0)}',
+            body: '$jobDescription\nLocation: $location',
             data: {
               'jobId': jobId,
               'type': 'job_posting',
               'title': jobTitle,
               'location': location,
-              'budget': budget.toString(),
             },
           );
         }

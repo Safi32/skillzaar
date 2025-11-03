@@ -40,7 +40,7 @@ class _PostJobContent extends StatefulWidget {
 class _PostJobContentState extends State<_PostJobContent> {
   final TextEditingController titleController = TextEditingController();
   final TextEditingController descriptionController = TextEditingController();
-  final TextEditingController priceController = TextEditingController();
+  // Removed price input per requirements: no payment on posting
   final List<File> images = [];
 
   String selectedAddress = '';
@@ -91,7 +91,6 @@ class _PostJobContentState extends State<_PostJobContent> {
     if (titleController.text.isEmpty ||
         descriptionController.text.isEmpty ||
         selectedAddress.isEmpty ||
-        priceController.text.isEmpty ||
         selectedServiceType == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -104,18 +103,7 @@ class _PostJobContentState extends State<_PostJobContent> {
       return;
     }
 
-    final parsedPrice = double.tryParse(
-      priceController.text.replaceAll(',', ''),
-    );
-    if (parsedPrice == null || parsedPrice < 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Enter a valid price in PKR'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
-    }
+    // No price parsing/validation
 
     widget.uiProvider.setLoading(true);
     try {
@@ -125,7 +113,6 @@ class _PostJobContentState extends State<_PostJobContent> {
         description_en: descriptionController.text,
         description_ur: descriptionController.text,
         image: images.isNotEmpty ? images.first : null,
-        price: parsedPrice,
         location: selectedAddress,
         address: selectedAddress,
         latitude: selectedLatitude ?? 0.0,
@@ -144,7 +131,6 @@ class _PostJobContentState extends State<_PostJobContent> {
         );
         titleController.clear();
         descriptionController.clear();
-        priceController.clear();
         setState(() {
           images.clear();
           selectedAddress = '';
@@ -323,32 +309,7 @@ class _PostJobContentState extends State<_PostJobContent> {
                             },
                           ),
                         ),
-                        _buildCard(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'Price (PKR)',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              TextField(
-                                controller: priceController,
-                                keyboardType:
-                                    const TextInputType.numberWithOptions(
-                                      decimal: true,
-                                    ),
-                                decoration: _inputDecoration(
-                                  hint: "e.g. 1500",
-                                  prefix: "₨ ",
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
+                        // Price field removed per requirement
                         _buildCard(
                           child: JobLocationPicker(
                             onLocationSelected: (address, lat, lng) {

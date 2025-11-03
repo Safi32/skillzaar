@@ -147,7 +147,7 @@ class TestNotificationScreen extends StatelessWidget {
           'Need a skilled plumber to fix a leaking pipe in the kitchen. Urgent work required.',
       jobId: 'test_job_${DateTime.now().millisecondsSinceEpoch}',
       location: 'Karachi, Pakistan',
-      budget: 5000.0,
+
     );
   }
 }

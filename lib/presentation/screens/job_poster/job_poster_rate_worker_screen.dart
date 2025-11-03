@@ -96,9 +96,20 @@ class _JobPosterRateWorkerScreenState extends State<JobPosterRateWorkerScreen> {
           }, SetOptions(merge: true));
 
           // Best-effort: clear worker activeJobId and poster activeJobId
-          final data = assignedSnap.data() as Map<String, dynamic>?;
+          final data = assignedSnap.data();
           final workerId = data?['workerId']?.toString();
           final posterId = data?['jobPosterId']?.toString();
+          final jobId = data?['jobId']?.toString();
+          
+          // Update Job collection status to completed
+          if (jobId != null && jobId.isNotEmpty) {
+            await FirebaseFirestore.instance.collection('Job').doc(jobId).update({
+              'status': 'completed',
+              'completedAt': FieldValue.serverTimestamp(),
+              'updatedAt': FieldValue.serverTimestamp(),
+            });
+          }
+          
           if (workerId != null && workerId.isNotEmpty) {
             await FirebaseFirestore.instance
                 .collection('SkilledWorkers')
