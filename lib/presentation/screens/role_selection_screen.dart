@@ -1,9 +1,38 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import '../../core/theme/app_theme.dart';
 
-class RoleSelectionScreen extends StatelessWidget {
+class RoleSelectionScreen extends StatefulWidget {
   const RoleSelectionScreen({super.key});
+
+  @override
+  State<RoleSelectionScreen> createState() => _RoleSelectionScreenState();
+}
+
+class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
+  @override
+  void initState() {
+    getAppVersion();
+    super.initState();
+  }
+
+  late bool isLoading = false;
+
+  late String version;
+  late String buildNumber;
+  Future<void> getAppVersion() async {
+    setState(() {
+      isLoading = true;
+    });
+    final PackageInfo packageInfo = await PackageInfo.fromPlatform();
+
+    setState(() {
+      version = packageInfo.version; // e.g. 1.0.3
+      buildNumber = packageInfo.buildNumber; // e.g. 42
+      isLoading = false;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -107,29 +136,45 @@ class RoleSelectionScreen extends StatelessWidget {
                         );
                       },
                     ),
+                    SizedBox(height: 30),
+                    Text(
+                      "OR",
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.grey[600],
+                      ),
+                    ),
 
-                    const SizedBox(height: 40),
-
-                    // Admin Button
-                    // TextButton(
-                    //   onPressed: () {
-                    //     Navigator.pushNamed(context, '/admin-worker-approval');
-                    //   },
-                    //   child: const Text(
-                    //     'Admin Panel (Worker Approval)',
-                    //     style: TextStyle(
-                    //       color: Colors.grey,
-                    //       fontSize: 14,
-                    //       decoration: TextDecoration.underline,
-                    //     ),
-                    //   ),
-                    // ),
+                    TextButton(
+                      onPressed: () {
+                        Navigator.pushNamed(context, '/job-poster-home');
+                      },
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 12,
+                          horizontal: 24,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          side: BorderSide(color: Colors.green.shade200),
+                        ),
+                      ),
+                      child: Text(
+                        'Continue as Guest',
+                        style: TextStyle(
+                          color: Colors.green,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
                   ],
                 ),
               ),
             ),
             Positioned(
-              bottom: -size.height * 0.20,
+              bottom: -size.height * 0.28,
               right: -size.width * 0.05,
               child: Container(
                 width: size.width * 0.8,
@@ -137,6 +182,32 @@ class RoleSelectionScreen extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: AppColors.green.withOpacity(0.1),
                   shape: BoxShape.circle,
+                ),
+              ),
+            ),
+            Align(
+              alignment: Alignment.bottomCenter,
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 12.0),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // app version
+                    !isLoading
+                        ? Text(
+                          'Version: $version+$buildNumber',
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontSize: 12,
+                          ),
+                        )
+                        : Text("-"),
+                    const SizedBox(height: 4),
+                    Text(
+                      '© 2024 Skillzaar. All rights reserved.',
+                      style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                    ),
+                  ],
                 ),
               ),
             ),

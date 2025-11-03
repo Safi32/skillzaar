@@ -71,6 +71,11 @@ class PhoneAuthProvider with ChangeNotifier {
 
   bool get isLoggedIn => _isLoggedIn;
   String? get loggedInUserId => _loggedInUserId;
+  String? setLoggedInUserId(String? value) {
+    _loggedInUserId = value;
+    notifyListeners();
+  }
+
   String? get loggedInPhoneNumber => _loggedInPhoneNumber;
 
   Future<void> _saveFcmTokenAndStartListener() async {
