@@ -12,7 +12,16 @@ import '../../widgets/post_job_button.dart';
 import '../../widgets/simple_service_dropdown.dart';
 
 class PostJobScreen extends StatelessWidget {
-  const PostJobScreen({super.key});
+  final String? initialTitle;
+  final String? initialDescription;
+  final String? initialServiceType;
+
+  const PostJobScreen({
+    super.key,
+    this.initialTitle,
+    this.initialDescription,
+    this.initialServiceType,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -21,6 +30,9 @@ class PostJobScreen extends StatelessWidget {
         return _PostJobContent(
           jobProvider: jobProvider,
           uiProvider: uiProvider,
+          initialTitle: initialTitle,
+          initialDescription: initialDescription,
+          initialServiceType: initialServiceType,
         );
       },
     );
@@ -30,8 +42,17 @@ class PostJobScreen extends StatelessWidget {
 class _PostJobContent extends StatefulWidget {
   final JobProvider jobProvider;
   final UIStateProvider uiProvider;
+  final String? initialTitle;
+  final String? initialDescription;
+  final String? initialServiceType;
 
-  const _PostJobContent({required this.jobProvider, required this.uiProvider});
+  const _PostJobContent({
+    required this.jobProvider,
+    required this.uiProvider,
+    this.initialTitle,
+    this.initialDescription,
+    this.initialServiceType,
+  });
 
   @override
   State<_PostJobContent> createState() => _PostJobContentState();
@@ -47,6 +68,22 @@ class _PostJobContentState extends State<_PostJobContent> {
   double? selectedLatitude;
   double? selectedLongitude;
   String? selectedServiceType;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initialTitle != null && widget.initialTitle!.isNotEmpty) {
+      titleController.text = widget.initialTitle!;
+    }
+    if (widget.initialDescription != null &&
+        widget.initialDescription!.isNotEmpty) {
+      descriptionController.text = widget.initialDescription!;
+    }
+    if (widget.initialServiceType != null &&
+        widget.initialServiceType!.isNotEmpty) {
+      selectedServiceType = widget.initialServiceType;
+    }
+  }
 
   Future<void> pickImage() async {
     if (images.length >= 3) {

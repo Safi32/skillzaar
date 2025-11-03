@@ -1,9 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:skillzaar/core/examples/services/user_data_service.dart';
-import 'package:skillzaar/presentation/screens/skilled_worker/skilled_worker_profile.dart';
 import 'package:skillzaar/presentation/widgets/banner.dart';
-import 'package:skillzaar/core/services/performance_monitor.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:skillzaar/presentation/screens/job_poster/post_job_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -14,6 +11,316 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   String _selectedService = 'All';
+
+  List<Map<String, String>> _getSubcategoriesFor(String serviceType) {
+    final cleaning = [
+      {
+        'title': 'House Cleaning',
+        'desc': 'Rooms, kitchen, bathrooms',
+        'asset': 'assets/broom.png',
+      },
+      {
+        'title': 'Car Cleaning',
+        'desc': 'Interior & exterior',
+        'asset': 'assets/carwash.png',
+      },
+      {
+        'title': 'Sofa Cleaning',
+        'desc': 'Fabric & leather care',
+        'asset': 'assets/carpenter.png',
+      },
+      {
+        'title': 'Water Tank Cleaning',
+        'desc': 'Rooftop & underground',
+        'asset': 'assets/window-cleaning.png',
+      },
+    ];
+
+    switch (serviceType) {
+      case 'Cleaning Services':
+        return cleaning;
+      case 'Plumbing Services':
+        return [
+          {
+            'title': 'Leak Repair',
+            'desc': 'Tap, pipe, shower leaks',
+            'asset': 'assets/plumber.png',
+          },
+          {
+            'title': 'Drain Cleaning',
+            'desc': 'Clogs and slow drains',
+            'asset': 'assets/plumber.png',
+          },
+          {
+            'title': 'Fixture Install',
+            'desc': 'Faucets, toilets, valves',
+            'asset': 'assets/plumber.png',
+          },
+          {
+            'title': 'Pipe Replacement',
+            'desc': 'PVC & metal fitting',
+            'asset': 'assets/plumber.png',
+          },
+        ];
+      case 'Carpentry & Furniture':
+        return [
+          {
+            'title': 'Furniture Repair',
+            'desc': 'Chairs, tables, cabinets',
+            'asset': 'assets/carpenter.png',
+          },
+          {
+            'title': 'Assembly',
+            'desc': 'Beds, wardrobes, shelves',
+            'asset': 'assets/carpenter.png',
+          },
+          {
+            'title': 'Polishing',
+            'desc': 'Wood finishing & touch-ups',
+            'asset': 'assets/carpenter.png',
+          },
+          {
+            'title': 'Door/Frame Work',
+            'desc': 'Install & adjustment',
+            'asset': 'assets/carpenter.png',
+          },
+        ];
+      case 'Painting & Finishing':
+        return [
+          {
+            'title': 'Wall Painting',
+            'desc': 'Per room or full house',
+            'asset': 'assets/painter.png',
+          },
+          {
+            'title': 'Furniture Paint',
+            'desc': 'Doors, windows, frames',
+            'asset': 'assets/painter.png',
+          },
+          {
+            'title': 'Patch & Repair',
+            'desc': 'Cracks, plaster, putty',
+            'asset': 'assets/painter.png',
+          },
+          {
+            'title': 'Polishing',
+            'desc': 'Wood/marble finishing',
+            'asset': 'assets/painter.png',
+          },
+        ];
+      case 'Masonry & Metalwork':
+        return [
+          {
+            'title': 'Brickwork Repair',
+            'desc': 'Walls, edges, gaps',
+            'asset': 'assets/brickwork.png',
+          },
+          {
+            'title': 'Boundary Wall',
+            'desc': 'Repair & rebuild',
+            'asset': 'assets/brickwork.png',
+          },
+          {
+            'title': 'Gate/Grill Welding',
+            'desc': 'Repair & fabrication',
+            'asset': 'assets/brickwork.png',
+          },
+          {
+            'title': 'Metal Frames',
+            'desc': 'Fix & reinforce',
+            'asset': 'assets/brickwork.png',
+          },
+        ];
+      case 'Roofing Services':
+        return [
+          {
+            'title': 'Leak Repair',
+            'desc': 'Seal and waterproof',
+            'asset': 'assets/roof.png',
+          },
+          {
+            'title': 'Tile Replacement',
+            'desc': 'Shingle & sheet fix',
+            'asset': 'assets/roof.png',
+          },
+          {
+            'title': 'Roof Cleaning',
+            'desc': 'Debris & wash',
+            'asset': 'assets/roof.png',
+          },
+          {
+            'title': 'Coating',
+            'desc': 'Heat & waterproof layer',
+            'asset': 'assets/roof.png',
+          },
+        ];
+      case 'Glass & Installation':
+        return [
+          {
+            'title': 'Glass Replace',
+            'desc': 'Windows & mirrors',
+            'asset': 'assets/window-cleaning.png',
+          },
+          {
+            'title': 'TV Mount/Shelf',
+            'desc': 'Install & leveling',
+            'asset': 'assets/window-cleaning.png',
+          },
+          {
+            'title': 'Curtains/Blinds',
+            'desc': 'Rod & blind install',
+            'asset': 'assets/window-cleaning.png',
+          },
+          {
+            'title': 'Door/Window Align',
+            'desc': 'Adjust & fix',
+            'asset': 'assets/window-cleaning.png',
+          },
+        ];
+      case 'Outdoor & Gardening':
+        return [
+          {
+            'title': 'Lawn Mowing',
+            'desc': 'Trim & edging',
+            'asset': 'assets/gardener.png',
+          },
+          {
+            'title': 'Hedge Trimming',
+            'desc': 'Shape & prune',
+            'asset': 'assets/gardener.png',
+          },
+          {
+            'title': 'Exterior Wash',
+            'desc': 'Driveway & house front',
+            'asset': 'assets/gardener.png',
+          },
+          {
+            'title': 'Planting',
+            'desc': 'New plants & care',
+            'asset': 'assets/gardener.png',
+          },
+        ];
+      case 'Electrical Services':
+        return [
+          {
+            'title': 'Install/Replace',
+            'desc': 'Lights, fans, sockets',
+            'asset': 'assets/electrician.png',
+          },
+          {
+            'title': 'Repair',
+            'desc': 'Fan/light, small wiring',
+            'asset': 'assets/electrician.png',
+          },
+          {
+            'title': 'Troubleshoot',
+            'desc': 'Faults & fuses',
+            'asset': 'assets/electrician.png',
+          },
+          {
+            'title': 'Outdoor Lighting',
+            'desc': 'Garden & facade',
+            'asset': 'assets/electrician.png',
+          },
+        ];
+      case 'Labour & Moving':
+        return [
+          {
+            'title': 'General Labour',
+            'desc': 'Per hour help',
+            'asset': 'assets/labour-day.png',
+          },
+          {
+            'title': 'Load/Unload',
+            'desc': 'Furniture & goods',
+            'asset': 'assets/labour-day.png',
+          },
+          {
+            'title': 'Packing',
+            'desc': 'Wrap & organize',
+            'asset': 'assets/labour-day.png',
+          },
+          {
+            'title': 'Moving Help',
+            'desc': 'Shifting support',
+            'asset': 'assets/labour-day.png',
+          },
+        ];
+      case 'Car Care Services':
+        return [
+          {
+            'title': 'Exterior Wash',
+            'desc': 'Foam & rinse',
+            'asset': 'assets/carwash.png',
+          },
+          {
+            'title': 'Interior Clean',
+            'desc': 'Vacuum & wipe',
+            'asset': 'assets/carwash.png',
+          },
+          {
+            'title': 'Detailing',
+            'desc': 'Polish & protect',
+            'asset': 'assets/carwash.png',
+          },
+          {
+            'title': 'Towing',
+            'desc': 'Recovery services',
+            'asset': 'assets/carwash.png',
+          },
+        ];
+      case 'Catering & Events':
+        return [
+          {
+            'title': 'Catering',
+            'desc': 'Small to large events',
+            'asset': 'assets/catering.png',
+          },
+          {
+            'title': 'Event Setup',
+            'desc': 'Serving & layout',
+            'asset': 'assets/catering.png',
+          },
+          {
+            'title': 'Snacks & Tea',
+            'desc': 'Quick service',
+            'asset': 'assets/catering.png',
+          },
+          {
+            'title': 'Cleanup',
+            'desc': 'Post-event',
+            'asset': 'assets/catering.png',
+          },
+        ];
+      case 'Outdoor Construction':
+        return [
+          {
+            'title': 'Landscaping',
+            'desc': 'Garden design',
+            'asset': 'assets/brickwork.png',
+          },
+          {
+            'title': 'Driveway/Walk',
+            'desc': 'Paving & repair',
+            'asset': 'assets/brickwork.png',
+          },
+          {
+            'title': 'Gates & Grills',
+            'desc': 'Install & repair',
+            'asset': 'assets/brickwork.png',
+          },
+          {
+            'title': 'Pergolas',
+            'desc': 'Outdoor spaces',
+            'asset': 'assets/brickwork.png',
+          },
+        ];
+      case 'All':
+        return const [];
+      default:
+        return const [];
+    }
+  }
 
   // Get all service types from the simple dropdown
   List<String> _getServiceTypes() {
@@ -97,111 +404,135 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           const SizedBox(height: 16),
           Expanded(
-            child: FutureBuilder<QuerySnapshot>(
-              future: UserDataService.getApprovedSkilledWorkersByService(
-                _selectedService,
-              ),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                if (snapshot.hasError) {
-                  return Center(
-                    child: Text('Failed to load workers: ${snapshot.error}'),
+            child: Builder(
+              builder: (context) {
+                if (_selectedService == 'All') {
+                  final categories =
+                      _getServiceTypes().where((e) => e != 'All').toList();
+                  return ListView.builder(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    itemCount: categories.length,
+                    itemBuilder: (context, sectionIndex) {
+                      final selected = categories[sectionIndex];
+                      final subcats = _getSubcategoriesFor(selected);
+                      if (subcats.isEmpty) return const SizedBox.shrink();
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Image.asset(
+                                _getServiceEmoji(selected),
+                                height: 28,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                selected,
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          GridView.builder(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            gridDelegate:
+                                const SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: 2,
+                                  mainAxisSpacing: 12,
+                                  crossAxisSpacing: 12,
+                                  childAspectRatio: 1.05,
+                                ),
+                            itemCount: subcats.length,
+                            itemBuilder: (context, index) {
+                              final item = subcats[index];
+                              return _SubCategoryCard(
+                                title: item['title'] ?? '',
+                                subtitle: item['desc'] ?? '',
+                                imageAsset:
+                                    item['asset'] ?? 'assets/workers.png',
+                                onTap: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder:
+                                          (_) => PostJobScreen(
+                                            initialTitle: item['title'] ?? '',
+                                            initialDescription:
+                                                item['desc'] ?? '',
+                                            initialServiceType: selected,
+                                          ),
+                                    ),
+                                  );
+                                },
+                              );
+                            },
+                          ),
+                          const SizedBox(height: 16),
+                        ],
+                      );
+                    },
                   );
                 }
-                final docs = snapshot.data?.docs ?? [];
-                if (docs.isEmpty) {
-                  return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
+
+                final subcats = _getSubcategoriesFor(_selectedService);
+                return ListView(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  children: [
+                    Row(
                       children: [
-                        Icon(
-                          Icons.work_off,
-                          size: 64,
-                          color: Colors.grey.shade400,
+                        Image.asset(
+                          _getServiceEmoji(_selectedService),
+                          height: 28,
                         ),
-                        const SizedBox(height: 16),
+                        const SizedBox(width: 8),
                         Text(
-                          _selectedService == 'All'
-                              ? 'No skilled workers found'
-                              : 'No $_selectedService workers available',
-                          style: TextStyle(
-                            color: Colors.grey.shade600,
-                            fontSize: 16,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Check back later for new workers',
-                          style: TextStyle(
-                            color: Colors.grey.shade500,
-                            fontSize: 14,
+                          _selectedService,
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
                       ],
                     ),
-                  );
-                }
-                return PerformanceGridView(
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    mainAxisSpacing: 12,
-                    crossAxisSpacing: 12,
-                    childAspectRatio: 1,
-                  ),
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  itemCount: docs.length,
-                  itemBuilder: (context, index) {
-                    final data = docs[index].data() as Map<String, dynamic>;
-                    final imageUrl =
-                        (data['ProfilePicture'] ??
-                                data['profilePicture'] ??
-                                data['image'] ??
-                                '')
-                            .toString();
-                    final name =
-                        (data['Name'] ??
-                                data['name'] ??
-                                data['displayName'] ??
-                                'Skilled Worker')
-                            .toString();
-                    final service =
-                        (data['categories']?.isNotEmpty == true
-                                ? (data['categories'][0]).toString()
-                                : data['skills']?.isNotEmpty == true
-                                ? (data['skills'][0]).toString()
-                                : 'Service')
-                            .toString();
-                    final rate =
-                        (data['hourlyRate'] ?? data['rate'] ?? '').toString();
-
-                    return _JobCard(
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder:
-                                (context) => SkilledWorkerProfile(
-                                  workerId: docs[index].id,
-                                  workerName: name,
-                                  workerImage: imageUrl,
-                                  workerRate: rate,
-                                  workerService: service,
-                                ),
+                    const SizedBox(height: 12),
+                    GridView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 2,
+                            mainAxisSpacing: 12,
+                            crossAxisSpacing: 12,
+                            childAspectRatio: 1.05,
                           ),
+                      itemCount: subcats.length,
+                      itemBuilder: (context, index) {
+                        final item = subcats[index];
+                        return _SubCategoryCard(
+                          title: item['title'] ?? '',
+                          subtitle: item['desc'] ?? '',
+                          imageAsset: item['asset'] ?? 'assets/workers.png',
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder:
+                                    (_) => PostJobScreen(
+                                      initialTitle: item['title'] ?? '',
+                                      initialDescription: item['desc'] ?? '',
+                                      initialServiceType: _selectedService,
+                                    ),
+                              ),
+                            );
+                          },
                         );
                       },
-                      title: name,
-                      subtitle: service,
-                      rating: 4.8, // static for now
-                      price: rate.isNotEmpty ? 'Rs $rate' : 'Rate N/A',
-                      imageUrl:
-                          imageUrl.isNotEmpty
-                              ? imageUrl
-                              : "https://via.placeholder.com/600x800.png?text=Worker",
-                    );
-                  },
+                    ),
+                  ],
                 );
               },
             ),
@@ -256,23 +587,17 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-// 🔹 Updated Job Card Widget
-class _JobCard extends StatelessWidget {
+class _SubCategoryCard extends StatelessWidget {
   final String title;
-  final double rating;
-  final String price;
   final String subtitle;
-  final String imageUrl;
+  final String imageAsset;
   final VoidCallback onTap;
 
-  const _JobCard({
+  const _SubCategoryCard({
     required this.title,
-    required this.rating,
     required this.subtitle,
-    required this.price,
+    required this.imageAsset,
     required this.onTap,
-    this.imageUrl =
-        "https://www.mnp.ca/-/media/foundation/integrations/personnel/2020/12/16/13/57/personnel-image-4483.jpg?h=800&iar=0&w=600&hash=833D605FDB6AC3C2D2915F6BF8B4ADA4", // dummy network image
   });
 
   @override
@@ -281,105 +606,46 @@ class _JobCard extends StatelessWidget {
       child: GestureDetector(
         onTap: onTap,
         child: Container(
-          margin: const EdgeInsets.only(bottom: 16),
-          height: 185,
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            image: DecorationImage(
-              image: NetworkImage(imageUrl),
-              fit: BoxFit.cover,
-            ),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.grey.shade300),
+            color: Colors.white,
           ),
-          child: Stack(
+          clipBehavior: Clip.antiAlias,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Gradient for readability
-              Positioned.fill(
-                child: Container(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(16),
-                    gradient: LinearGradient(
-                      begin: Alignment.bottomCenter,
-                      end: Alignment.topCenter,
-                      colors: [
-                        Colors.black.withOpacity(0.6),
-                        Colors.transparent,
-                        Colors.transparent,
-                      ],
+              Expanded(
+                child: SizedBox(
+                  width: double.infinity,
+                  child: Image.asset(imageAsset, fit: BoxFit.cover),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                  ),
-                ),
-              ),
-              Align(
-                alignment: Alignment.topRight,
-                child: Container(
-                  margin: const EdgeInsets.all(4),
-                  padding: const EdgeInsets.all(4.0),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.5),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.star, color: Colors.amber, size: 16),
-                      const SizedBox(width: 4),
-                      Text(
-                        rating.toStringAsFixed(1),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                        ),
+                    const SizedBox(height: 6),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey.shade700,
                       ),
-                    ],
-                  ),
-                ),
-              ),
-              // Title, Rating, Price
-              Align(
-                alignment: Alignment.bottomLeft,
-                child: Padding(
-                  padding: const EdgeInsets.all(10.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        title,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 13,
-                          fontWeight: FontWeight.bold,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                        maxLines: 1,
-                      ),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Expanded(
-                            child: Text(
-                              subtitle,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 11,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                              maxLines: 1,
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            price,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w600,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -389,3 +655,6 @@ class _JobCard extends StatelessWidget {
     );
   }
 }
+
+// 🔹 Updated Job Card Widget
+// Removed unused _JobCard (worker list) since we now display only categories/subcategories
