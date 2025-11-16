@@ -79,6 +79,34 @@ class SkilledWorkerProvider with ChangeNotifier {
     print('✅ Skilled Worker logged in state set: $userId, $phoneNumber');
   }
 
+  /// Persist lightweight session flags so app can restore role on cold start
+  Future<void> persistLoginRole(String role) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('role', role);
+      if (_loggedInUserId != null)
+        await prefs.setString('userId', _loggedInUserId!);
+      if (_loggedInPhoneNumber != null)
+        await prefs.setString('phoneNumber', _loggedInPhoneNumber!);
+      print('✅ Persisted login role: $role');
+    } catch (e) {
+      print('⚠️ Could not persist login role: $e');
+    }
+  }
+
+  /// Clear persisted session flags (call on explicit logout)
+  Future<void> clearPersistedSession() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('role');
+      await prefs.remove('userId');
+      await prefs.remove('phoneNumber');
+      print('✅ Cleared persisted session flags');
+    } catch (e) {
+      print('⚠️ Could not clear persisted session: $e');
+    }
+  }
+
   /// Deactivate and permanently delete the current skilled worker account.
   /// Deletes Firestore document and then deletes the Auth user.
   Future<bool> deactivateAndDeleteCurrentUser(BuildContext context) async {

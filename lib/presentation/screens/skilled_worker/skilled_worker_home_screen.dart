@@ -12,6 +12,7 @@ import 'home_profile_screen.dart';
 // import 'requests_screen.dart'; // Requests removed
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../../core/services/job_request_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class SkilledWorkerHomeScreen extends StatelessWidget {
   const SkilledWorkerHomeScreen({super.key});
@@ -187,6 +188,12 @@ class _HomeContentState extends State<_HomeContent> {
     );
 
     if (shouldLogout == true) {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.remove('role');
+        await prefs.remove('userId');
+        await prefs.remove('phoneNumber');
+      } catch (_) {}
       await FirebaseAuth.instance.signOut();
       if (mounted) {
         Navigator.of(context).pushReplacementNamed('/role-selection');

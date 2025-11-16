@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:skillzaar/presentation/providers/auth_state_provider.dart';
+import 'package:firebase_auth/firebase_auth.dart' as fb_auth;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:skillzaar/core/examples/services/recaptcha_service.dart';
 import '../../providers/skilled_worker_provider.dart';
@@ -330,6 +332,27 @@ class _SkilledWorkerOTPScreenState extends State<SkilledWorkerOTPScreen> {
                                   duration: Duration(seconds: 3),
                                 ),
                               );
+
+                              // Persist role centrally so app restores correct home on cold start
+                              try {
+                                final authState =
+                                    Provider.of<AuthStateProvider>(
+                                      context,
+                                      listen: false,
+                                    );
+                                final user =
+                                    fb_auth.FirebaseAuth.instance.currentUser;
+                                if (user != null) {
+                                  await authState.setSignedIn(
+                                    user: user,
+                                    role: 'skilled_worker',
+                                  );
+                                }
+                              } catch (e) {
+                                print(
+                                  '[OTP Screen] Could not persist auth state: $e',
+                                );
+                              }
 
                               if (isSignUp) {
                                 Navigator.pushReplacementNamed(

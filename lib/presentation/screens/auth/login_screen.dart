@@ -4,6 +4,8 @@ import 'package:skillzaar/core/services/job_request_service.dart';
 import 'package:skillzaar/core/examples/services/user_data_service.dart';
 import 'package:skillzaar/presentation/providers/phone_auth_provider.dart';
 import 'package:skillzaar/presentation/providers/skilled_worker_provider.dart';
+import 'package:skillzaar/presentation/providers/auth_state_provider.dart';
+import 'package:firebase_auth/firebase_auth.dart' as fb_auth;
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/animated_toast.dart';
 
@@ -357,6 +359,20 @@ class _LoginScreenState extends State<LoginScreen> {
             userId: userId,
             phoneNumber: formattedPhone,
           );
+
+          // Persist role locally and via AuthStateProvider if available
+          try {
+            await skilledWorkerProvider.persistLoginRole('skilled_worker');
+            final authState = Provider.of<AuthStateProvider>(
+              context,
+              listen: false,
+            );
+            final user = fb_auth.FirebaseAuth.instance.currentUser;
+            if (user != null)
+              await authState.setSignedIn(user: user, role: 'skilled_worker');
+          } catch (e) {
+            print('\u26a0\ufe0f Could not persist skilled worker role: $e');
+          }
 
           // Show portfolio setup reminder for skilled workers
           ToastOverlay.instance.showToast(

@@ -6,6 +6,8 @@ import 'dart:async';
 import '../../core/services/firestore_retry_service.dart';
 import '../../core/services/job_request_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:provider/provider.dart';
+import 'package:skillzaar/presentation/providers/auth_state_provider.dart';
 import 'package:skillzaar/core/examples/services/notification_service.dart'
     as example_notif;
 import 'package:skillzaar/core/services/firebase_test_service.dart';
@@ -71,7 +73,7 @@ class PhoneAuthProvider with ChangeNotifier {
 
   bool get isLoggedIn => _isLoggedIn;
   String? get loggedInUserId => _loggedInUserId;
-  String? setLoggedInUserId(String? value) {
+  void setLoggedInUserId(String? value) {
     _loggedInUserId = value;
     notifyListeners();
   }
@@ -119,6 +121,21 @@ class PhoneAuthProvider with ChangeNotifier {
     print('✅ Job Poster logged in state set: $userId, $phoneNumber');
   }
 
+  /// Persist lightweight session flags so app can restore role on cold start
+  Future<void> persistLoginRole(String role) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('role', role);
+      if (_loggedInUserId != null)
+        await prefs.setString('userId', _loggedInUserId!);
+      if (_loggedInPhoneNumber != null)
+        await prefs.setString('phoneNumber', _loggedInPhoneNumber!);
+      print('✅ Persisted login role: $role');
+    } catch (e) {
+      print('⚠️ Could not persist login role: $e');
+    }
+  }
+
   /// Verify OTP and sign in (job posters)
   Future<bool> verifyOtp(
     String smsCode,
@@ -152,6 +169,20 @@ class PhoneAuthProvider with ChangeNotifier {
       _isLoggedIn = true;
       _loggedInUserId = userCred.user?.uid;
       _loggedInPhoneNumber = pn;
+
+      // Persist role centrally so app can restore session on cold start
+      try {
+        final authState = Provider.of<AuthStateProvider>(
+          context,
+          listen: false,
+        );
+        if (userCred.user != null) {
+          await authState.setSignedIn(user: userCred.user!, role: 'job_poster');
+        }
+      } catch (e) {
+        // Non-fatal: provider may not be available in some contexts
+        print('\u26a0\ufe0f Could not persist auth state via provider: $e');
+      }
 
       // Save FCM token and start Firestore notifications listener
       await _saveFcmTokenAndStartListener();

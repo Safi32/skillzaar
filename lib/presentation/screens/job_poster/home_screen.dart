@@ -10,7 +10,7 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  String _selectedService = 'All';
+  String _selectedService = '';
 
   List<Map<String, String>> _getSubcategoriesFor(String serviceType) {
     final cleaning = [
@@ -325,8 +325,6 @@ class _HomeScreenState extends State<HomeScreen> {
   // Get all service types from the simple dropdown
   List<String> _getServiceTypes() {
     return [
-      'All',
-      'Cleaning Services',
       'Plumbing Services',
       'Carpentry & Furniture',
       'Painting & Finishing',
@@ -339,6 +337,7 @@ class _HomeScreenState extends State<HomeScreen> {
       'Car Care Services',
       'Catering & Events',
       'Outdoor Construction',
+      'Cleaning Services',
     ];
   }
 
@@ -406,9 +405,8 @@ class _HomeScreenState extends State<HomeScreen> {
           Expanded(
             child: Builder(
               builder: (context) {
-                if (_selectedService == 'All') {
-                  final categories =
-                      _getServiceTypes().where((e) => e != 'All').toList();
+                if (_selectedService.isEmpty) {
+                  final categories = _getServiceTypes();
                   return ListView.builder(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     itemCount: categories.length,
@@ -436,38 +434,34 @@ class _HomeScreenState extends State<HomeScreen> {
                             ],
                           ),
                           const SizedBox(height: 12),
-                          GridView.builder(
+                          ListView.builder(
                             shrinkWrap: true,
                             physics: const NeverScrollableScrollPhysics(),
-                            gridDelegate:
-                                const SliverGridDelegateWithFixedCrossAxisCount(
-                                  crossAxisCount: 2,
-                                  mainAxisSpacing: 12,
-                                  crossAxisSpacing: 12,
-                                  childAspectRatio: 1.05,
-                                ),
                             itemCount: subcats.length,
                             itemBuilder: (context, index) {
                               final item = subcats[index];
-                              return _SubCategoryCard(
-                                title: item['title'] ?? '',
-                                subtitle: item['desc'] ?? '',
-                                imageAsset:
-                                    item['asset'] ?? 'assets/workers.png',
-                                onTap: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder:
-                                          (_) => PostJobScreen(
-                                            initialTitle: item['title'] ?? '',
-                                            initialDescription:
-                                                item['desc'] ?? '',
-                                            initialServiceType: selected,
-                                          ),
-                                    ),
-                                  );
-                                },
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: 12),
+                                child: _SubCategoryCard(
+                                  title: item['title'] ?? '',
+                                  subtitle: item['desc'] ?? '',
+                                  imageAsset:
+                                      item['asset'] ?? 'assets/workers.png',
+                                  onTap: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder:
+                                            (_) => PostJobScreen(
+                                              initialTitle: item['title'] ?? '',
+                                              initialDescription:
+                                                  item['desc'] ?? '',
+                                              initialServiceType: selected,
+                                            ),
+                                      ),
+                                    );
+                                  },
+                                ),
                               );
                             },
                           ),
@@ -499,36 +493,32 @@ class _HomeScreenState extends State<HomeScreen> {
                       ],
                     ),
                     const SizedBox(height: 12),
-                    GridView.builder(
+                    ListView.builder(
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
-                      gridDelegate:
-                          const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 2,
-                            mainAxisSpacing: 12,
-                            crossAxisSpacing: 12,
-                            childAspectRatio: 1.05,
-                          ),
                       itemCount: subcats.length,
                       itemBuilder: (context, index) {
                         final item = subcats[index];
-                        return _SubCategoryCard(
-                          title: item['title'] ?? '',
-                          subtitle: item['desc'] ?? '',
-                          imageAsset: item['asset'] ?? 'assets/workers.png',
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder:
-                                    (_) => PostJobScreen(
-                                      initialTitle: item['title'] ?? '',
-                                      initialDescription: item['desc'] ?? '',
-                                      initialServiceType: _selectedService,
-                                    ),
-                              ),
-                            );
-                          },
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: _SubCategoryCard(
+                            title: item['title'] ?? '',
+                            subtitle: item['desc'] ?? '',
+                            imageAsset: item['asset'] ?? 'assets/workers.png',
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder:
+                                      (_) => PostJobScreen(
+                                        initialTitle: item['title'] ?? '',
+                                        initialDescription: item['desc'] ?? '',
+                                        initialServiceType: _selectedService,
+                                      ),
+                                ),
+                              );
+                            },
+                          ),
                         );
                       },
                     ),
@@ -603,54 +593,27 @@ class _SubCategoryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return RepaintBoundary(
-      child: GestureDetector(
+      child: ListTile(
         onTap: onTap,
-        child: Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.grey.shade300),
-            color: Colors.white,
-          ),
-          clipBehavior: Clip.antiAlias,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: SizedBox(
-                  width: double.infinity,
-                  child: Image.asset(imageAsset, fit: BoxFit.cover),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.all(10),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      subtitle,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey.shade700,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ),
-              ),
-            ],
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        leading: ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: Image.asset(
+            imageAsset,
+            width: 64,
+            height: 64,
+            fit: BoxFit.cover,
           ),
         ),
+        title: Text(
+          title,
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+        ),
+        subtitle: Text(
+          subtitle,
+          style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
+        ),
+        trailing: const Icon(Icons.chevron_right, color: Colors.grey),
       ),
     );
   }
