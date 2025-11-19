@@ -3,9 +3,6 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:geolocator/geolocator.dart';
 import 'dart:async';
-import 'dart:convert';
-import 'package:http/http.dart' as http;
-import '../../core/config/google_maps_config.dart';
 
 class WorkerTrackingMap extends StatefulWidget {
   final String jobId;
@@ -26,7 +23,6 @@ class WorkerTrackingMap extends StatefulWidget {
 class _WorkerTrackingMapState extends State<WorkerTrackingMap> {
   GoogleMapController? _mapController;
   Set<Marker> _markers = {};
-  Set<Polyline> _polylines = {};
   LatLng? _currentLocation;
   LatLng? _jobLocation;
   LatLng? _workerLocation;
@@ -173,130 +169,8 @@ class _WorkerTrackingMapState extends State<WorkerTrackingMap> {
         ),
       );
     }
+
     setState(() {});
-    _updateRoutePolyline();
-  }
-
-  Future<void> _updateRoutePolyline() async {
-    if (_jobLocation == null || _workerLocation == null) {
-      setState(() {
-        _polylines = {};
-      });
-      return;
-    }
-
-    try {
-      final origin =
-          '${_workerLocation!.latitude},${_workerLocation!.longitude}';
-      final destination =
-          '${_jobLocation!.latitude},${_jobLocation!.longitude}';
-
-      final url = Uri.parse(
-        'https://maps.googleapis.com/maps/api/directions/json'
-        '?origin=$origin&destination=$destination&mode=driving'
-        '&key=${GoogleMapsConfig.apiKey}',
-      );
-
-      final response = await http.get(url);
-      if (response.statusCode != 200) {
-        _setStraightLineRoute();
-        return;
-      }
-
-      final Map<String, dynamic> data = json.decode(response.body);
-      if (data['status'] != 'OK' ||
-          data['routes'] == null ||
-          (data['routes'] as List).isEmpty) {
-        _setStraightLineRoute();
-        return;
-      }
-
-      final encoded =
-          (data['routes'][0]['overview_polyline']['points'] as String?);
-      if (encoded == null || encoded.isEmpty) {
-        _setStraightLineRoute();
-        return;
-      }
-
-      final routePoints = _decodePolyline(encoded);
-
-      setState(() {
-        _polylines = {
-          Polyline(
-            polylineId: const PolylineId('job_worker_route'),
-            points: routePoints,
-            color: Colors.blue,
-            width: 5,
-          ),
-        };
-      });
-    } catch (e) {
-      print('Error fetching directions route: $e');
-      _setStraightLineRoute();
-    }
-  }
-
-  void _setStraightLineRoute() {
-    if (_jobLocation == null || _workerLocation == null) {
-      setState(() {
-        _polylines = {};
-      });
-      return;
-    }
-
-    setState(() {
-      _polylines = {
-        Polyline(
-          polylineId: const PolylineId('job_worker_route'),
-          points: [
-            _workerLocation!,
-            _jobLocation!,
-          ],
-          color: Colors.blue,
-          width: 5,
-        ),
-      };
-    });
-  }
-
-  List<LatLng> _decodePolyline(String encoded) {
-    final List<LatLng> points = [];
-    int index = 0;
-    int lat = 0;
-    int lng = 0;
-
-    while (index < encoded.length) {
-      int b;
-      int shift = 0;
-      int result = 0;
-
-      do {
-        b = encoded.codeUnitAt(index++) - 63;
-        result |= (b & 0x1f) << shift;
-        shift += 5;
-      } while (b >= 0x20);
-
-      final int dlat = (result & 1) != 0 ? ~(result >> 1) : (result >> 1);
-      lat += dlat;
-
-      shift = 0;
-      result = 0;
-
-      do {
-        b = encoded.codeUnitAt(index++) - 63;
-        result |= (b & 0x1f) << shift;
-        shift += 5;
-      } while (b >= 0x20);
-
-      final int dlng = (result & 1) != 0 ? ~(result >> 1) : (result >> 1);
-      lng += dlng;
-
-      final double latD = lat / 1e5;
-      final double lngD = lng / 1e5;
-      points.add(LatLng(latD, lngD));
-    }
-
-    return points;
   }
 
   void _onMapCreated(GoogleMapController controller) {
@@ -436,7 +310,6 @@ class _WorkerTrackingMapState extends State<WorkerTrackingMap> {
               zoom: 15,
             ),
             markers: _markers,
-            polylines: _polylines,
             myLocationEnabled: true,
             myLocationButtonEnabled: true,
             zoomControlsEnabled: true,

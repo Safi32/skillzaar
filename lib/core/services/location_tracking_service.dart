@@ -69,8 +69,6 @@ class LocationTrackingService {
                 position.latitude,
                 position.longitude,
               ),
-              'currentLatitude': position.latitude,
-              'currentLongitude': position.longitude,
               'lastLocationUpdate': FieldValue.serverTimestamp(),
               'isOnline': true,
             });
@@ -99,8 +97,6 @@ class LocationTrackingService {
                 position.latitude,
                 position.longitude,
               ),
-              'currentLatitude': position.latitude,
-              'currentLongitude': position.longitude,
               'lastLocationUpdate': FieldValue.serverTimestamp(),
               'isOnline': true,
             });
