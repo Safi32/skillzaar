@@ -20,23 +20,6 @@ class FilterDialog extends StatelessWidget {
             isExpanded: true,
             items: [
               'All',
-              'Software Engineer',
-              'Developer',
-              'Programmer',
-              'Plumber',
-              'Electrician',
-              'Carpenter',
-              'Painter',
-              'Welder',
-              'Mason',
-              'Designer',
-              'Marketing',
-              'Sales',
-              'Teacher',
-              'Driver',
-              'Chef',
-              'Cleaner',
-              'Security',
             ].map((String type) {
               return DropdownMenuItem<String>(
                 value: type,

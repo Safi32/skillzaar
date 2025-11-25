@@ -57,6 +57,9 @@ class _LoginScreenState extends State<LoginScreen> {
             ? 'Enter your mobile number to login as a Skilled Worker.'
             : 'Enter your mobile number to join as a Job Poster.';
     final size = MediaQuery.of(context).size;
+    final phoneAuthProvider = Provider.of<PhoneAuthProvider>(context);
+    final showLoading =
+        (role == 'job_poster') ? phoneAuthProvider.isLoading : isLoading;
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -97,7 +100,6 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: Image.asset("assets/applogo.png", fit: BoxFit.contain),
               ),
             ),
-
             Center(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.symmetric(vertical: 20.0),
@@ -195,9 +197,9 @@ class _LoginScreenState extends State<LoginScreen> {
                               shadowColor: AppColors.green.withOpacity(0.5),
                             ),
                             onPressed:
-                                isLoading ? null : () => _handleLogin(role),
+                                showLoading ? null : () => _handleLogin(role),
                             child:
-                                isLoading
+                                showLoading
                                     ? const SizedBox(
                                       width: 24,
                                       height: 24,

@@ -54,7 +54,7 @@ class _JobPosterHomeContentState extends State<_JobPosterHomeContent> {
       _maybeRedirectToActiveJob();
     });
     _pages = [
-      HomeScreen(),
+      HomeScreen(searchQuery: ''),
       JobPosterAdsScreen(
         myAdsOnly: _showMyAdsOnly,
         isGuest:

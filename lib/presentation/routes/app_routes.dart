@@ -18,6 +18,7 @@ import '../screens/skilled_worker/cnic_screen.dart';
 import '../screens/skilled_worker/profile_screen.dart';
 import '../screens/skilled_worker/home_screen_skilled.dart';
 import '../screens/skilled_worker/home_profile_screen.dart';
+import '../screens/skilled_worker/skilled_worker_home_screen.dart';
 import '../screens/skilled_worker/jobs_screen.dart';
 // import '../screens/skilled_worker/accepted_requests_screen.dart'; // Requests removed
 import '../screens/skilled_worker/job_detail_screen.dart' as skilled_worker;
@@ -64,7 +65,7 @@ class AppRoutes {
     '/skilled-worker-login': (context) => LoginScreen(),
     // '/skilled-worker-otp': (context) => const skilled_worker_otp.SkilledWorkerOTPScreen(), // OTP removed for skilled workers
     '/skilled-worker-cnic': (context) => const CnicScreen(),
-    '/skilled-worker-home': (context) => const HomeScreenSkilled(),
+    '/skilled-worker-home': (context) => const SkilledWorkerHomeScreen(),
     '/skilled-worker-jobs': (context) => const SkilledWorkerJobsScreen(),
     // '/skilled-worker-accepted-requests':
     //     (context) => const AcceptedRequestsScreen(), // Removed

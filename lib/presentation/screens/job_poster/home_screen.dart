@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:skillzaar/presentation/widgets/banner.dart';
 import 'package:skillzaar/presentation/screens/job_poster/post_job_screen.dart';
 
+
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  final String searchQuery;
+  const HomeScreen({Key? key, required this.searchQuery}) : super(key: key);
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -322,6 +324,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+
   // Get all service types from the simple dropdown
   List<String> _getServiceTypes() {
     return [
@@ -379,150 +382,121 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // --- Search and filter logic ---
+    final _searchQuery = widget.searchQuery;
+    List<String> filteredCategories =
+        _getServiceTypes().where((cat) {
+          if (_searchQuery.isEmpty) return true;
+          return cat.toLowerCase().contains(_searchQuery.toLowerCase());
+        }).toList();
+
+    String selected =
+        _selectedService.isEmpty
+            ? (filteredCategories.isNotEmpty ? filteredCategories.first : '')
+            : _selectedService;
+    List<Map<String, String>> subcats =
+        selected.isNotEmpty
+            ? _getSubcategoriesFor(selected).where((subcat) {
+              if (_searchQuery.isEmpty) return true;
+              return (subcat['title']?.toLowerCase().contains(
+                        _searchQuery.toLowerCase(),
+                      ) ??
+                      false) ||
+                  (subcat['desc']?.toLowerCase().contains(
+                        _searchQuery.toLowerCase(),
+                      ) ??
+                      false);
+            }).toList()
+            : [];
+
     return Scaffold(
       body: Column(
         children: [
           const HireBanner(),
           const SizedBox(height: 12),
-
+          // No extra search bar here, only the top one is used
           SizedBox(
             height: 90,
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 12),
-              itemCount: _getServiceTypes().length,
+              itemCount: filteredCategories.length,
               itemBuilder: (context, index) {
-                final serviceType = _getServiceTypes()[index];
-                return _buildChip(
-                  serviceType,
-                  _getServiceEmoji(serviceType),
-                  serviceType,
+                final serviceType = filteredCategories[index];
+                final isSelected = _selectedService == serviceType;
+                return GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      _selectedService = serviceType;
+                    });
+                  },
+                  child: Container(
+                    width: 70,
+                    margin: const EdgeInsets.only(right: 6),
+                    padding: const EdgeInsets.all(4.0),
+                    decoration: BoxDecoration(
+                      color:
+                          isSelected
+                              ? Colors.green.withOpacity(0.1)
+                              : Colors.transparent,
+                      borderRadius: BorderRadius.circular(8),
+                      border:
+                          isSelected
+                              ? Border.all(color: Colors.green, width: 2)
+                              : null,
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Image.asset(_getServiceEmoji(serviceType), height: 45),
+                        const SizedBox(height: 4),
+                        Text(
+                          serviceType,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: isSelected ? Colors.green : Colors.black87,
+                            fontSize: 9,
+                            fontWeight:
+                                isSelected ? FontWeight.bold : FontWeight.w500,
+                            height: 1.1,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
                 );
               },
             ),
           ),
           const SizedBox(height: 16),
           Expanded(
-            child: Builder(
-              builder: (context) {
-                if (_selectedService.isEmpty) {
-                  final categories = _getServiceTypes();
-                  return ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    itemCount: categories.length,
-                    itemBuilder: (context, sectionIndex) {
-                      final selected = categories[sectionIndex];
-                      final subcats = _getSubcategoriesFor(selected);
-                      if (subcats.isEmpty) return const SizedBox.shrink();
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Image.asset(
-                                _getServiceEmoji(selected),
-                                height: 28,
+            child: ListView.builder(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              itemCount: subcats.length,
+              itemBuilder: (context, index) {
+                final item = subcats[index];
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: _SubCategoryCard(
+                    title: item['title'] ?? '',
+                    subtitle: item['desc'] ?? '',
+                    imageAsset: item['asset'] ?? 'assets/workers.png',
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder:
+                              (_) => PostJobScreen(
+                                initialTitle: item['title'] ?? '',
+                                initialDescription: item['desc'] ?? '',
+                                initialServiceType: selected,
                               ),
-                              const SizedBox(width: 8),
-                              Text(
-                                selected,
-                                style: const TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          ListView.builder(
-                            shrinkWrap: true,
-                            physics: const NeverScrollableScrollPhysics(),
-                            itemCount: subcats.length,
-                            itemBuilder: (context, index) {
-                              final item = subcats[index];
-                              return Padding(
-                                padding: const EdgeInsets.only(bottom: 12),
-                                child: _SubCategoryCard(
-                                  title: item['title'] ?? '',
-                                  subtitle: item['desc'] ?? '',
-                                  imageAsset:
-                                      item['asset'] ?? 'assets/workers.png',
-                                  onTap: () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder:
-                                            (_) => PostJobScreen(
-                                              initialTitle: item['title'] ?? '',
-                                              initialDescription:
-                                                  item['desc'] ?? '',
-                                              initialServiceType: selected,
-                                            ),
-                                      ),
-                                    );
-                                  },
-                                ),
-                              );
-                            },
-                          ),
-                          const SizedBox(height: 16),
-                        ],
+                        ),
                       );
                     },
-                  );
-                }
-
-                final subcats = _getSubcategoriesFor(_selectedService);
-                return ListView(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  children: [
-                    Row(
-                      children: [
-                        Image.asset(
-                          _getServiceEmoji(_selectedService),
-                          height: 28,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          _selectedService,
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    ListView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: subcats.length,
-                      itemBuilder: (context, index) {
-                        final item = subcats[index];
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
-                          child: _SubCategoryCard(
-                            title: item['title'] ?? '',
-                            subtitle: item['desc'] ?? '',
-                            imageAsset: item['asset'] ?? 'assets/workers.png',
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder:
-                                      (_) => PostJobScreen(
-                                        initialTitle: item['title'] ?? '',
-                                        initialDescription: item['desc'] ?? '',
-                                        initialServiceType: _selectedService,
-                                      ),
-                                ),
-                              );
-                            },
-                          ),
-                        );
-                      },
-                    ),
-                  ],
+                  ),
                 );
               },
             ),
@@ -530,50 +504,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
     );
-  }
-
-  Widget _buildChip(String label, String emoji, String serviceType) {
-    final isSelected = _selectedService == serviceType;
-    return RepaintBoundary(
-      child: GestureDetector(
-        onTap: () {
-          setState(() {
-            _selectedService = serviceType;
-          });
-        },
-        child: Container(
-          width: 70,
-          margin: const EdgeInsets.only(right: 6),
-          padding: const EdgeInsets.all(4.0),
-          decoration: BoxDecoration(
-            color:
-                isSelected ? Colors.green.withOpacity(0.1) : Colors.transparent,
-            borderRadius: BorderRadius.circular(8),
-            border:
-                isSelected ? Border.all(color: Colors.green, width: 2) : null,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Image.asset(emoji, height: 45),
-              const SizedBox(height: 4),
-              Text(
-                label,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: isSelected ? Colors.green : Colors.black87,
-                  fontSize: 9,
-                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                  height: 1.1,
-                ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
+    // _SubCategoryCard class remains unchanged below
   }
 }
 
@@ -588,36 +519,35 @@ class _SubCategoryCard extends StatelessWidget {
     required this.subtitle,
     required this.imageAsset,
     required this.onTap,
-  });
+    Key? key,
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    return RepaintBoundary(
+    return Card(
+      elevation: 2,
+      margin: EdgeInsets.zero,
       child: ListTile(
         onTap: onTap,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         leading: ClipRRect(
           borderRadius: BorderRadius.circular(8),
           child: Image.asset(
             imageAsset,
-            width: 64,
-            height: 64,
+            width: 48,
+            height: 48,
             fit: BoxFit.cover,
           ),
         ),
         title: Text(
           title,
-          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
         ),
         subtitle: Text(
           subtitle,
-          style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
+          style: TextStyle(color: Colors.grey[700], fontSize: 13),
         ),
         trailing: const Icon(Icons.chevron_right, color: Colors.grey),
       ),
     );
   }
 }
-
-// 🔹 Updated Job Card Widget
-// Removed unused _JobCard (worker list) since we now display only categories/subcategories
