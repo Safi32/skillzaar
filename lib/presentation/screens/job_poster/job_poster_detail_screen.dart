@@ -5,8 +5,7 @@ import 'package:skillzaar/core/services/job_request_service.dart';
 import 'package:provider/provider.dart';
 import '../../providers/phone_auth_provider.dart' as app_auth;
 
-/// Normalized view model for job data coming from either legacy `Job`
-/// or new `jobs` collection. Keeps UI access keys stable.
+ 
 class JobViewData {
   final Map<String, dynamic> _data;
 
@@ -14,21 +13,14 @@ class JobViewData {
 
   static JobViewData fromFirestore(Map<String, dynamic> raw) {
     final details = (raw['details'] as Map<String, dynamic>?) ?? const {};
-
-    // Compute normalized fields with compatibility fallbacks
     final normalized = <String, dynamic>{
-      // Title/description
       'title_en': details['title'] ?? raw['title_en'] ?? raw['title'],
       'title_ur': raw['title_ur'],
       'description_en':
           details['description'] ?? raw['description_en'] ?? raw['description'],
       'description_ur': raw['description_ur'],
-
-      // Location/address
       'Address': details['address'] ?? raw['Address'] ?? raw['Location'],
-      'Location': details['location'] ?? raw['Location'] ?? raw['Address'],
-
-      // Media/date/budget
+      'Location': details['location'] ?? raw['Location'] ?? raw['Address'],      
       'Image': details['imageUrl'] ?? raw['Image'] ?? raw['imageUrl'],
       'createdAt': raw['createdAt'] ?? details['createdAt'],
       'budget': raw['budget'] ?? details['budget'],

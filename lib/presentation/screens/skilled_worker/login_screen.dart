@@ -16,10 +16,9 @@ class SkilledWorkerLoginScreen extends StatefulWidget {
 class _SkilledWorkerLoginScreenState extends State<SkilledWorkerLoginScreen> {
   final TextEditingController phoneController = TextEditingController();
   bool isLoading = false;
-
-  // Phone number validation function
+ 
   bool isValidPhoneNumber(String phone) {
-    // Remove any spaces, dashes, or parentheses
+   
     String cleanPhone = phone.replaceAll(RegExp(r'[\s\-\(\)]'), '');
 
     // Check if it's 11 digits (Pakistani number format)

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:skillzaar/presentation/providers/phone_auth_provider.dart';
+import 'package:skillzaar/presentation/providers/auth_state_provider.dart';
 import 'package:skillzaar/presentation/screens/job_poster/contact_us_screen.dart';
 
 class JobPosterDrawer extends StatelessWidget {
@@ -19,6 +19,7 @@ class JobPosterDrawer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final authState = Provider.of<AuthStateProvider>(context, listen: false);
     return Drawer(
       child: ListView(
         padding: EdgeInsets.zero,
@@ -35,13 +36,9 @@ class JobPosterDrawer extends StatelessWidget {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  Provider.of<PhoneAuthProvider>(
-                            context,
-                            listen: false,
-                          ).loggedInUserId ==
-                          null
-                      ? "Guest User"
-                      : 'Job Poster',
+                  (authState.role == 'job_poster' && authState.user != null)
+                      ? 'Job Poster'
+                      : 'Guest User',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 20,

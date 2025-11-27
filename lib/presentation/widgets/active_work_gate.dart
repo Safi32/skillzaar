@@ -55,17 +55,14 @@ class _ActiveWorkGateState extends State<ActiveWorkGate> {
     print('[ActiveWorkGate] Poster ID: ${poster.loggedInUserId}');
 
     // SharedPrefs short-circuit: if flag says active for this worker, go directly
+    final prefs = await SharedPreferences.getInstance();
     if (worker.isLoggedIn && worker.loggedInUserId != null) {
-      print('[ActiveWorkGate] Checking SharedPreferences for active job...');
-      final prefs = await SharedPreferences.getInstance();
+      print('[ActiveWorkGate] Checking SharedPreferences for active job (worker)...');
       final spKey = 'active_job_${worker.loggedInUserId!}';
       final spActive = prefs.getBool(spKey) ?? false;
       final spJobId = prefs.getString('${spKey}_jobId');
-      // Debug: dump SharedPreferences snapshot for this worker
       try {
         final keys = prefs.getKeys();
-        // Print a compact snapshot of all keys, and specifically the two we care about
-        // Note: printing maps directly in web console is fine.
         print('[ActiveWorkGate] WorkerId=${worker.loggedInUserId!}');
         print('[ActiveWorkGate] SharedPrefs keys: ' + keys.join(', '));
         print('[ActiveWorkGate] SP[$spKey] => ' + spActive.toString());
@@ -99,6 +96,47 @@ class _ActiveWorkGateState extends State<ActiveWorkGate> {
         }
         print(
           '[ActiveWorkGate] SharedPrefs indicated active, but job details not found for jobId=$spJobId',
+        );
+      }
+    }
+
+    // SharedPrefs short-circuit: if flag says active for this job poster, go directly
+    if (poster.isLoggedIn && poster.loggedInUserId != null) {
+      print(
+        '[ActiveWorkGate] Checking SharedPreferences for active job (poster)...',
+      );
+      final spKey = 'active_job_${poster.loggedInUserId!}';
+      final spActive = prefs.getBool(spKey) ?? false;
+      final spJobId = prefs.getString('${spKey}_jobId');
+      try {
+        final keys = prefs.getKeys();
+        print('[ActiveWorkGate] PosterId=${poster.loggedInUserId!}');
+        print('[ActiveWorkGate] SharedPrefs keys: ' + keys.join(', '));
+        print('[ActiveWorkGate] SP[$spKey] => ' + spActive.toString());
+        print('[ActiveWorkGate] SP[${spKey}_jobId] => ' + (spJobId ?? 'null'));
+      } catch (e) {
+        print('[ActiveWorkGate] Error reading SharedPreferences: $e');
+      }
+      if (spActive && spJobId != null && spJobId.isNotEmpty) {
+        final job = await JobRequestService.getJobDetails(spJobId);
+        if (!mounted) return;
+        if (job != null) {
+          print(
+            '[ActiveWorkGate] Redirecting poster via SharedPrefs to jobId=$spJobId',
+          );
+          Navigator.pushNamedAndRemoveUntil(
+            context,
+            '/job-poster-job-detail',
+            (route) => false,
+            arguments: {
+              'jobId': spJobId,
+              // Add more arguments if needed
+            },
+          );
+          return;
+        }
+        print(
+          '[ActiveWorkGate] SharedPrefs indicated active for poster, but job details not found for jobId=$spJobId',
         );
       }
     }
