@@ -21,10 +21,31 @@ class _JobAcceptedDetailsScreenState extends State<JobAcceptedDetailsScreen> {
   bool jobCancelled = false;
   String? _skilledWorkerId;
 
+  Map<String, dynamic>? _fallbackJobData;
+
   @override
   void initState() {
     super.initState();
     _loadWorkerId();
+    _loadFallbackJobData();
+  }
+
+  Future<void> _loadFallbackJobData() async {
+    if (widget.jobId.isEmpty) return;
+    try {
+      final doc =
+          await FirebaseFirestore.instance
+              .collection('Job')
+              .doc(widget.jobId)
+              .get();
+      if (doc.exists && mounted) {
+        setState(() {
+          _fallbackJobData = doc.data();
+        });
+      }
+    } catch (e) {
+      print('Error loading fallback job data: $e');
+    }
   }
 
   Future<void> _loadWorkerId() async {
@@ -47,34 +68,27 @@ class _JobAcceptedDetailsScreenState extends State<JobAcceptedDetailsScreen> {
     }
   }
 
-  void _onJobCompleted() async {
-    try {
-      final requestDoc =
-          await FirebaseFirestore.instance
-              .collection('AssignedJobs')
-              .doc(widget.requestId)
-              .get();
+  void _onJobCompleted(String workerId) {
+    if (workerId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Worker information missing. Cannot complete job.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
 
-      final requestData = requestDoc.data();
-
-      // Only pass the worker document ID; next screen fetches fresh details
-      final String skilledWorkerId =
-          (requestData?['skilledWorkerId'] ?? requestData?['workerId'] ?? '')
-              .toString();
-
-      if (mounted) {
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder:
-                (context) => JobPosterRateWorkerScreen(
-                  skilledWorkerDetails: {'docId': skilledWorkerId},
-                  requestId: widget.requestId,
-                ),
-          ),
-        );
-      }
-    } catch (e) {
-      print('Error getting skilled worker details: $e');
+    if (mounted) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder:
+              (context) => JobPosterRateWorkerScreen(
+                skilledWorkerDetails: {'docId': workerId},
+                requestId: widget.requestId,
+              ),
+        ),
+      );
     }
   }
 
@@ -145,30 +159,83 @@ class _JobAcceptedDetailsScreenState extends State<JobAcceptedDetailsScreen> {
                 }
                 final d = snap.data!.data() ?? <String, dynamic>{};
 
+                print('🔍 JobAcceptedDetailsScreen - AssignedJobs Data: $d');
+                print(
+                  '🔍 JobAcceptedDetailsScreen - Fallback Data: $_fallbackJobData',
+                );
+
+                // If both are missing, show loading or error
+                if (d.isEmpty && _fallbackJobData == null) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+
+                // Use fallback data if AssignedJobs data is missing
                 String jobTitle =
-                    (d['jobTitle'] ?? d['title'] ?? '').toString().trim();
+                    (d['jobTitle'] ??
+                            d['title'] ??
+                            _fallbackJobData?['title_en'] ??
+                            _fallbackJobData?['title_ur'] ??
+                            '')
+                        .toString()
+                        .trim();
                 if (jobTitle.isEmpty) jobTitle = 'No Title';
+
                 final jobDescription =
-                    (d['jobDescription'] ?? '').toString().trim().isNotEmpty
-                        ? d['jobDescription'].toString()
+                    (d['jobDescription'] ??
+                                _fallbackJobData?['description_en'] ??
+                                _fallbackJobData?['description_ur'] ??
+                                '')
+                            .toString()
+                            .trim()
+                            .isNotEmpty
+                        ? (d['jobDescription'] ??
+                                _fallbackJobData?['description_en'] ??
+                                _fallbackJobData?['description_ur'])
+                            .toString()
                         : 'No Description';
+
                 final jobLocation =
                     (d['jobLocationAddress'] ??
                             d['jobLocation'] ??
+                            _fallbackJobData?['Location'] ??
+                            _fallbackJobData?['location'] ??
                             'No Location')
                         .toString();
-                final jobCurrency = (d['jobCurrency'] ?? 'PKR').toString();
-                final jobPrice = d['jobPrice']?.toString() ?? 'Not Specified';
-                final jobServiceType = (d['jobServiceType'] ?? '').toString();
-                final jobStatus = (d['jobStatus'] ?? '').toString();
-                final posterPhone = (d['jobPosterPhone'] ?? '').toString();
+
+                final jobCurrency =
+                    (d['jobCurrency'] ?? _fallbackJobData?['currency'] ?? 'PKR')
+                        .toString();
+
+                final budget =
+                    d['budget']?.toString() ??
+                    d['jobPrice']?.toString() ??
+                    _fallbackJobData?['budget']?.toString() ??
+                    _fallbackJobData?['price']?.toString() ??
+                    'Not Specified';
+
+                final jobServiceType =
+                    (d['jobServiceType'] ??
+                            _fallbackJobData?['serviceType'] ??
+                            '')
+                        .toString();
+                final jobStatus =
+                    (d['jobStatus'] ?? _fallbackJobData?['status'] ?? '')
+                        .toString();
+                final posterPhone =
+                    (d['jobPosterPhone'] ??
+                            _fallbackJobData?['posterPhone'] ??
+                            '')
+                        .toString();
+
                 final workerName =
                     (d['workerName'] ?? d['skilledWorkerName'] ?? '')
                         .toString();
                 final workerPhone =
                     (d['workerPhone'] ?? d['skilledWorkerPhone'] ?? '')
                         .toString();
-                final jobImageUrl = (d['jobImage'] ?? '').toString();
+                final jobImageUrl =
+                    (d['jobImage'] ?? _fallbackJobData?['image'] ?? '')
+                        .toString();
                 final workerImageUrl =
                     (d['workerProfileImage'] ??
                             d['skilledWorkerProfileImage'] ??
@@ -181,7 +248,9 @@ class _JobAcceptedDetailsScreenState extends State<JobAcceptedDetailsScreen> {
                             .whereType<String>()
                             .toList()
                         : <String>[];
-                // Assignment status/timestamps removed from UI per request
+
+                final workerId =
+                    (d['workerId'] ?? d['skilledWorkerId'] ?? '').toString();
 
                 return SingleChildScrollView(
                   padding: const EdgeInsets.all(20),
@@ -212,9 +281,7 @@ class _JobAcceptedDetailsScreenState extends State<JobAcceptedDetailsScreen> {
                           ),
                           _buildInfoRow(
                             "💰 Budget",
-                            jobPrice == 'Not Specified'
-                                ? jobPrice
-                                : '$jobCurrency $jobPrice',
+                            budget == 'Not Specified' ? budget : 'Rs. $budget',
                           ),
                           _buildInfoRow(
                             "📄 Job Status",
@@ -224,7 +291,6 @@ class _JobAcceptedDetailsScreenState extends State<JobAcceptedDetailsScreen> {
                             "📞 Poster Phone",
                             posterPhone.isEmpty ? '-' : posterPhone,
                           ),
-                          // Removed: Assignment Status, Assigned At, Created At
                         ],
                       ),
                       const SizedBox(height: 20),
@@ -282,7 +348,7 @@ class _JobAcceptedDetailsScreenState extends State<JobAcceptedDetailsScreen> {
                             child: _neonButton(
                               text: "Complete Job",
                               color: Colors.green,
-                              onTap: _onJobCompleted,
+                              onTap: () => _onJobCompleted(workerId),
                             ),
                           ),
                           const SizedBox(width: 16),

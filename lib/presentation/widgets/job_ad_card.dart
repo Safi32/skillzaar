@@ -192,11 +192,36 @@ class AdCard extends StatelessWidget {
                 Expanded(
                   child: ElevatedButton(
                     onPressed: () {
-                      Navigator.pushNamed(
-                        context,
-                        '/job-poster-job-detail',
-                        arguments: {'jobId': adId, 'requestId': adId},
-                      );
+                      final status =
+                          (ad['status'] ?? '').toString().toLowerCase();
+                      if (status == 'assigned') {
+                        final assignedJobId = ad['assignedJobId']?.toString();
+                        if (assignedJobId != null && assignedJobId.isNotEmpty) {
+                          Navigator.pushNamed(
+                            context,
+                            '/job-poster-accepted-details',
+                            arguments: {
+                              'jobId': adId,
+                              'requestId': assignedJobId,
+                            },
+                          );
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Error: Assignment details missing.',
+                              ),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        }
+                      } else {
+                        Navigator.pushNamed(
+                          context,
+                          '/job-poster-job-detail',
+                          arguments: {'jobId': adId, 'requestId': adId},
+                        );
+                      }
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.blue,
