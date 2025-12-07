@@ -2,6 +2,7 @@ import 'dart:developer';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:skillzaar/presentation/providers/auth_state_provider.dart';
 import 'package:skillzaar/presentation/screens/job_poster/home_screen.dart';
 import 'package:skillzaar/presentation/widgets/bottom_bar_widget.dart';
 import '../../providers/ui_state_provider.dart';
@@ -371,6 +372,7 @@ class _JobPosterHomeContentState extends State<_JobPosterHomeContent> {
         return LogoutDialog(
           onLogout: () {
             Navigator.of(context).pushReplacementNamed('/role-selection');
+            Provider.of<AuthStateProvider>(context, listen: false).logout();
           },
         );
       },

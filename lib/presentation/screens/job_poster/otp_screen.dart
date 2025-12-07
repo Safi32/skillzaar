@@ -1,317 +1,168 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:skillzaar/core/examples/services/recaptcha_service.dart';
+import '../../providers/auth_state_provider.dart';
 import '../../providers/phone_auth_provider.dart';
-import '../../widgets/recaptcha_widget.dart';
+import '../job_poster/job_poster_home_screen.dart';
 
-class JobPosterOTPScreen extends StatefulWidget {
-  const JobPosterOTPScreen({super.key});
+class JobPosterOtpScreen extends StatefulWidget {
+  final String phone;
+
+  const JobPosterOtpScreen({super.key, required this.phone});
 
   @override
-  State<JobPosterOTPScreen> createState() => _JobPosterOTPScreenState();
+  State<JobPosterOtpScreen> createState() => _JobPosterOtpScreenState();
 }
 
-class _JobPosterOTPScreenState extends State<JobPosterOTPScreen> {
-  final List<TextEditingController> otpControllers = List.generate(
-    6,
-    (index) => TextEditingController(),
-  );
-  final List<FocusNode> focusNodes = List.generate(6, (index) => FocusNode());
-  String? phoneNumber;
-  bool _isVerifying = false;
+class _JobPosterOtpScreenState extends State<JobPosterOtpScreen> {
+  final List<TextEditingController> _otpControllers =
+      List.generate(6, (_) => TextEditingController());
+  final List<FocusNode> _focusNodes = List.generate(6, (_) => FocusNode());
 
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    // Get phone number from arguments (support both keys for safety)
-    final args =
-        ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
-    phoneNumber = args?['phoneNumber'] ?? args?['phone'];
-  }
+  String get _otpCode =>
+      _otpControllers.map((c) => c.text.trim()).join();
 
   @override
   void dispose() {
-    for (var controller in otpControllers) {
-      controller.dispose();
+    for (final c in _otpControllers) {
+      c.dispose();
     }
-    for (var node in focusNodes) {
-      node.dispose();
+    for (final f in _focusNodes) {
+      f.dispose();
     }
     super.dispose();
   }
 
   void _onOtpChanged(String value, int index) {
-    setState(() {}); // Ensure UI updates for button state
-    if (value.length == 1 && index < 5) {
-      focusNodes[index + 1].requestFocus();
+    if (value.length == 1 && index < _focusNodes.length - 1) {
+      _focusNodes[index + 1].requestFocus();
     } else if (value.isEmpty && index > 0) {
-      focusNodes[index - 1].requestFocus();
+      _focusNodes[index - 1].requestFocus();
     }
   }
 
-  String get otpCode =>
-      otpControllers.map((controller) => controller.text).join();
-
   Future<void> _verifyOtp() async {
-    if (otpCode.length != 6) {
+    final args =
+        ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+    final bool isSignUp = args?['isSignUp'] == true;
+
+    if (_otpCode.length != 6) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please enter the complete 6-digit OTP'),
-          backgroundColor: Colors.red,
-        ),
+        const SnackBar(content: Text('Please enter the 6-digit code')),
       );
       return;
     }
 
-    setState(() {
-      _isVerifying = true;
-    });
+    String? error;
 
-    final phoneAuthProvider = Provider.of<PhoneAuthProvider>(
-      context,
-      listen: false,
-    );
+    if (isSignUp) {
+      final phoneAuth =
+          Provider.of<PhoneAuthProvider>(context, listen: false);
+      error = await phoneAuth.verifyOtpCode(_otpCode);
 
-    // Get the isSignUp flag from arguments
-    final args =
-        ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
-    final isSignUp = args?['isSignUp'] ?? false;
-
-    final success = await phoneAuthProvider.verifyOtp(
-      otpCode,
-      context,
-      isSignUp: isSignUp,
-    );
-
-    setState(() {
-      _isVerifying = false;
-    });
-
-    if (!success) {
-      // Show error message
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(phoneAuthProvider.error ?? 'OTP verification failed'),
-            backgroundColor: Colors.red,
-          ),
+      if (error == null && mounted) {
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          '/job-poster-home',
+          (route) => false,
         );
+        return;
       }
-    }
-  }
-
-  Future<void> _resendOtp() async {
-    if (phoneNumber == null) return;
-
-    final phoneAuthProvider = Provider.of<PhoneAuthProvider>(
-      context,
-      listen: false,
-    );
-
-    // Clear previous OTP
-    for (var controller in otpControllers) {
-      controller.clear();
-    }
-    focusNodes[0].requestFocus();
-
-    // Send new OTP
-    phoneAuthProvider.sendOtp(phoneNumber!, context);
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('OTP sent successfully!'),
-          backgroundColor: Colors.green,
-        ),
+    } else {
+      final auth = Provider.of<AuthStateProvider>(context, listen: false);
+      error = await auth.verifyOtpCode(
+        _otpCode,
+        widget.phone,
       );
     }
+
+    if (error != null && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error)),
+      );
+      return;
+    }
+
+    // If login success → provider/status will handle navigation for login flow
   }
 
   @override
   Widget build(BuildContext context) {
+    final args =
+        ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+    final bool isSignUp = args?['isSignUp'] == true;
+
+    final auth = Provider.of<AuthStateProvider>(context);
+    final phoneAuth = Provider.of<PhoneAuthProvider>(context);
+
+    // AUTO NAVIGATE ON SUCCESS LOGIN (login flow only)
+    if (!isSignUp &&
+        auth.status == AuthStatus.loggedIn &&
+        auth.role == "job_poster") {
+      // Delay navigation so build() completes safely
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (_) => const JobPosterHomeScreen()),
+          (route) => false,
+        );
+      });
+    }
+
     return Scaffold(
-      resizeToAvoidBottomInset: false,
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: const Text(
-          'Verify Phone Number',
-          style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
-        ),
-      ),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0),
-          child: Column(
-            children: [
-              const SizedBox(height: 40),
-              // App logo or icon
-              Container(
-                margin: const EdgeInsets.only(bottom: 24),
-                child: CircleAvatar(
-                  radius: 32,
-                  backgroundColor: Colors.green.shade100,
-                  child: Icon(
-                    Icons.sms_outlined,
-                    color: Colors.green.shade700,
-                    size: 36,
-                  ),
-                ),
-              ),
-              const Text(
-                'Enter Verification Code',
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'We sent a 6-digit code to\n$phoneNumber',
-                style: const TextStyle(fontSize: 15, color: Colors.black87),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 40),
+      appBar: AppBar(title: const Text("Verify OTP")),
+      body: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text("OTP sent to ${widget.phone}"),
+            const SizedBox(height: 20),
 
-              // reCAPTCHA Widget (for web platforms)
-              if (ReCaptchaService.isRecaptchaRequired)
-                ReCaptchaWidget(
-                  phoneNumber: phoneNumber ?? '',
-                  onSuccess: () {
-                    print('✅ reCAPTCHA completed for job poster');
-                  },
-                  onError: (error) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('reCAPTCHA verification failed: $error'),
-                        backgroundColor: Colors.red,
-                      ),
-                    );
-                  },
-                  onExpired: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text(
-                          'reCAPTCHA verification expired. Please try again.',
-                        ),
-                        backgroundColor: Colors.orange,
-                      ),
-                    );
-                  },
-                ),
-
-              if (ReCaptchaService.isRecaptchaRequired)
-                const SizedBox(height: 20),
-
-              // OTP Input Fields
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: List.generate(6, (index) {
-                  return SizedBox(
-                    width: 45,
-                    height: 55,
-                    child: TextField(
-                      controller: otpControllers[index],
-                      focusNode: focusNodes[index],
-                      keyboardType: TextInputType.number,
-                      textAlign: TextAlign.center,
-                      maxLength: 1,
-                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                      onChanged: (value) => _onOtpChanged(value, index),
-                      decoration: InputDecoration(
-                        counterText: '',
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: Colors.grey),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(
-                            color: Colors.green,
-                            width: 2,
-                          ),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: Colors.grey),
-                        ),
-                      ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: List.generate(
+                6,
+                (index) => SizedBox(
+                  width: 50,
+                  height: 60,
+                  child: TextField(
+                    controller: _otpControllers[index],
+                    focusNode: _focusNodes[index],
+                    keyboardType: TextInputType.number,
+                    textAlign: TextAlign.center,
+                    maxLength: 1,
+                    onChanged: (value) => _onOtpChanged(value, index),
+                    decoration: const InputDecoration(
+                      counterText: '',
+                      border: OutlineInputBorder(),
                     ),
-                  );
-                }),
-              ),
-
-              const SizedBox(height: 40),
-
-              // Verify Button
-              SizedBox(
-                width: double.infinity,
-                height: 48,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    elevation: 0,
-                  ),
-                  onPressed: _isVerifying ? null : _verifyOtp,
-                  child:
-                      _isVerifying
-                          ? const SizedBox(
-                            width: 24,
-                            height: 24,
-                            child: CircularProgressIndicator(
-                              color: Colors.white,
-                              strokeWidth: 2,
-                            ),
-                          )
-                          : const Text(
-                            'Verify OTP',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 18,
-                              color: Colors.white,
-                            ),
-                          ),
-                ),
-              ),
-
-              const SizedBox(height: 24),
-
-              // Resend OTP
-              TextButton(
-                onPressed: _isVerifying ? null : _resendOtp,
-                child: const Text(
-                  'Resend OTP',
-                  style: TextStyle(
-                    color: Colors.green,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 16,
                   ),
                 ),
               ),
+            ),
 
-              const Spacer(),
+            const SizedBox(height: 20),
 
-              // Terms text
-              const Text(
-                'By continuing, you accept our Terms & Privacy Policy.',
-                style: TextStyle(fontSize: 12, color: Colors.grey),
-                textAlign: TextAlign.center,
-              ),
+            ElevatedButton(
+              onPressed:
+                  (isSignUp ? phoneAuth.isLoading : auth.status == AuthStatus.loggingIn)
+                      ? null
+                      : _verifyOtp,
+              child:
+                  (isSignUp ? phoneAuth.isLoading : auth.status == AuthStatus.loggingIn)
+                      ? const CircularProgressIndicator(color: Colors.white)
+                      : const Text("Verify"),
+            ),
 
-              const SizedBox(height: 20),
-            ],
-          ),
+            const SizedBox(height: 20),
+
+            TextButton(
+              onPressed: () {
+                // Implement resend OTP functionality if needed
+              },
+              child: const Text("Resend OTP"),
+            ),
+          ],
         ),
       ),
     );

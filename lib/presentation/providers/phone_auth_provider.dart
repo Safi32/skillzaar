@@ -136,90 +136,6 @@ class PhoneAuthProvider with ChangeNotifier {
     }
   }
 
-  /// Verify OTP and sign in (job posters)
-  Future<bool> verifyOtp(
-    String smsCode,
-    BuildContext context, {
-    bool isSignUp = false,
-  }) async {
-    _isLoading = true;
-    _error = null;
-    notifyListeners();
-
-    print('🔐 Verifying OTP (job poster)');
-
-    try {
-      if (_verificationId == null) {
-        _error = 'No verification ID. Please request OTP again.';
-        _isLoading = false;
-        notifyListeners();
-        return false;
-      }
-
-      final credential = fb_auth.PhoneAuthProvider.credential(
-        verificationId: _verificationId!,
-        smsCode: smsCode,
-      );
-
-      final userCred = await fb_auth.FirebaseAuth.instance.signInWithCredential(
-        credential,
-      );
-
-      final pn = _currentPhoneNumber ?? '';
-      _isLoggedIn = true;
-      _loggedInUserId = userCred.user?.uid;
-      _loggedInPhoneNumber = pn;
-
-      // Persist role centrally so app can restore session on cold start
-      try {
-        final authState = Provider.of<AuthStateProvider>(
-          context,
-          listen: false,
-        );
-        if (userCred.user != null) {
-          await authState.setSignedIn(user: userCred.user!, role: 'job_poster');
-        }
-      } catch (e) {
-        // Non-fatal: provider may not be available in some contexts
-        print('\u26a0\ufe0f Could not persist auth state via provider: $e');
-      }
-
-      // Save FCM token and start Firestore notifications listener
-      await _saveFcmTokenAndStartListener();
-
-      await _createJobPosterDocument();
-      await _checkAndSetActiveJobFlags();
-
-      print('✅ Job Poster OTP verification successful: $_loggedInUserId');
-      _isLoading = false;
-      notifyListeners();
-
-      // Navigate to appropriate screen after successful verification
-      if (context.mounted) {
-        if (isSignUp) {
-          // For signup, go to home screen
-          Navigator.pushNamedAndRemoveUntil(
-            context,
-            '/job-poster-home',
-            (route) => false,
-            arguments: {'userId': _loggedInUserId},
-          );
-        } else {
-          // For login, check for active jobs
-          await checkJobOnLogin(pn, context);
-        }
-      }
-
-      return true;
-    } catch (e) {
-      print('❌ OTP verify error: $e');
-      _error = 'Failed to verify OTP: ${e.toString()}';
-      _isLoading = false;
-      notifyListeners();
-      return false;
-    }
-  }
-
   Future<void> _checkAndSetActiveJobFlags() async {
     if (_loggedInUserId == null) return;
 
@@ -855,6 +771,53 @@ class PhoneAuthProvider with ChangeNotifier {
       _error = 'Account deletion failed. Please try again.';
       notifyListeners();
       return false;
+    }
+  }
+
+  /// Manually verify an OTP code using this provider's verificationId.
+  /// Used for the Job Poster signup flow.
+  /// Returns null on success or an error string on failure.
+  Future<String?> verifyOtpCode(String smsCode) async {
+    if (_verificationId == null) {
+      return 'Verification ID missing. Please resend OTP.';
+    }
+
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      final credential = fb_auth.PhoneAuthProvider.credential(
+        verificationId: _verificationId!,
+        smsCode: smsCode,
+      );
+
+      final userCred =
+          await fb_auth.FirebaseAuth.instance.signInWithCredential(credential);
+      final user = userCred.user;
+      if (user == null) {
+        _isLoading = false;
+        _error = 'Firebase sign-in failed.';
+        notifyListeners();
+        return _error;
+      }
+
+      _isLoggedIn = true;
+      _loggedInUserId = user.uid;
+      _loggedInPhoneNumber = _currentPhoneNumber ?? user.phoneNumber ?? 'unknown';
+
+      await _saveFcmTokenAndStartListener();
+      await _createJobPosterDocument();
+      await _checkAndSetActiveJobFlags();
+
+      _isLoading = false;
+      notifyListeners();
+      return null;
+    } catch (e) {
+      _isLoading = false;
+      _error = 'Invalid OTP. Please try again.';
+      notifyListeners();
+      return _error;
     }
   }
 }

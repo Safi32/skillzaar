@@ -1,107 +1,452 @@
-import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart' as fb_auth;
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:async';
+import 'dart:developer';
 
-/// AuthStateProvider centralizes session state so UI can reactively
-/// show the correct initial screen without manually calling setState.
-class AuthStateProvider with ChangeNotifier {
-  final fb_auth.FirebaseAuth _auth = fb_auth.FirebaseAuth.instance;
-  fb_auth.User? _user;
-  String? _role; // 'skilled_worker' | 'job_poster'
-  String? _persistedUserId;
-  bool _loading = true;
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:skillzaar/core/services/job_request_service.dart';
+import 'package:skillzaar/core/examples/services/user_data_service.dart';
+
+enum AuthStatus {
+  uninitialized,
+  checkingSession,
+  notLoggedIn,
+  loggingIn,
+  loggedIn
+}
+
+enum NextScreen {
+  login,
+  homeSkilledWorker,
+  homeJobPoster,
+  activeJobSkilledWorker,
+  activeJobJobPoster,
+  completeProfile,
+}
+
+/// Lightweight user model for provider memory
+class AuthUser {
+  final String id;
+  final String role;
+  final String? name;
+  final String? phone;
+
+  AuthUser({
+    required this.id,
+    required this.role,
+    this.name,
+    this.phone,
+  });
+
+  @override
+  String toString() {
+    return 'AuthUser(id: $id, role: $role, name: $name, phone: $phone)';
+  }
+}
+
+class AuthStateProvider extends ChangeNotifier {
+  final FirebaseFirestore _db = FirebaseFirestore.instance;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+
+   String? _name;
+
+  // public getters
+  AuthStatus _status = AuthStatus.uninitialized;
+  AuthStatus get status => _status;
+
+  AuthUser? _currentUser;
+  AuthUser? get currentUser => _currentUser;
+
+  String? get role => _currentUser?.role;
+  String? get userId => _currentUser?.id;
+  String? get name => _name;
+
+  // verificationId storage & completer used to notify callers when codeSent
+  String? _verificationId;
+  String? get verificationId => _verificationId;
+
+  Completer<String?>? _codeSentCompleter;
 
   AuthStateProvider() {
-    _init();
+    _restoreSession();
   }
 
-  fb_auth.User? get user => _user;
-  String? get role => _role;
-  bool get loading => _loading;
-  bool get isSignedIn => _user != null;
+  // ---------------------------
+  // Session restore / persistence
+  // ---------------------------
+  Future<void> _restoreSession() async {
+    _status = AuthStatus.checkingSession;
+    notifyListeners();
 
-  Future<void> _init() async {
     try {
-      _user = _auth.currentUser;
-
-      // Check SharedPreferences for persisted role first (fast, local)
       final prefs = await SharedPreferences.getInstance();
-      final persistedRole = prefs.getString('role');
-      final persistedUserId = prefs.getString('userId');
-      if (persistedRole != null) {
-        _role = persistedRole;
-        _persistedUserId = persistedUserId;
+      final savedRole = prefs.getString("role");
+      final savedUserId = prefs.getString("userId");
+      final savedName = prefs.getString("name");
+
+      log("Restoring session: role=$savedRole, userId=$savedUserId");
+
+      if (savedRole != null && savedUserId != null) {
+        _currentUser = AuthUser(id: savedUserId, role: savedRole, name: savedName);
+        _status = AuthStatus.loggedIn;
+        notifyListeners();
+        // optionally refresh profile data (non-blocking)
+        _refreshProfileData().catchError((e) => log("refresh profile error: $e"));
+        return;
       }
 
-      // If user exists and role not in prefs, do a Firestore lookup
-      if (_user != null && _role == null) {
-        final uid = _user!.uid;
-        try {
-          final skDoc =
-              await FirebaseFirestore.instance
-                  .collection('SkilledWorkers')
-                  .doc(uid)
-                  .get();
-          if (skDoc.exists) {
-            _role = 'skilled_worker';
-            await prefs.setString('role', _role!);
-            await prefs.setString('userId', uid);
-            _persistedUserId = uid;
-          } else {
-            final jpDoc =
-                await FirebaseFirestore.instance
-                    .collection('JobPosters')
-                    .doc(uid)
-                    .get();
-            if (jpDoc.exists) {
-              _role = 'job_poster';
-              await prefs.setString('role', _role!);
-              await prefs.setString('userId', uid);
-              _persistedUserId = uid;
-            }
-          }
-        } catch (_) {
-          // Firestore lookup failed; leave role null
-        }
-      }
-    } finally {
-      _loading = false;
+      _status = AuthStatus.notLoggedIn;
+      notifyListeners();
+    } catch (e) {
+      log("restoreSession error: $e");
+      _status = AuthStatus.notLoggedIn;
       notifyListeners();
     }
   }
 
-  /// Call this after a successful login to persist role and user
-  Future<void> setSignedIn({
-    required fb_auth.User user,
-    required String role,
-  }) async {
-    _user = user;
-    _role = role;
+  Future<void> _saveSession() async {
+    if (_currentUser == null) return;
+    log("Restoring session:- role=${_currentUser!.role}, userId=${_currentUser!.id}");
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('role', role);
-    if (user.uid.isNotEmpty) {
-      await prefs.setString('userId', user.uid);
-      _persistedUserId = user.uid;
+    await prefs.setString("role", _currentUser!.role);
+    await prefs.setString("userId", _currentUser!.id);
+    await prefs.setString("name", name ?? "");
+  }
+
+  Future<void> _clearSession() async {
+    log("Restoring session:--");
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove("role");
+    await prefs.remove("userId");
+    await prefs.remove("name");
+  }
+
+  // Refresh name/phone from Firestore (best-effort)
+  Future<void> _refreshProfileData() async {
+    if (_currentUser == null) return;
+    try {
+      if (_currentUser!.role == "skilled_worker") {
+        final doc = await _db.collection("SkilledWorkers").doc(_currentUser!.id).get();
+        if (doc.exists) {
+          _currentUser = AuthUser(
+            id: _currentUser!.id,
+            role: _currentUser!.role,
+            name: doc.data()?['Name'] as String?,
+            phone: doc.data()?['phoneNumber'] as String?,
+          );
+          notifyListeners();
+        }
+      } else if (_currentUser!.role == "job_poster") {
+        final doc = await _db.collection("JobPosters").doc(_currentUser!.id).get();
+        if (doc.exists) {
+          _currentUser = AuthUser(
+            id: _currentUser!.id,
+            role: _currentUser!.role,
+            name: doc.data()?['displayName'] as String?,
+            phone: doc.data()?['phone'] as String?,
+          );
+          notifyListeners();
+        }
+      }
+    } catch (e) {
+      log("refreshProfileData error: $e");
     }
+  }
+
+  /// Public helper: mark a skilled worker as signed in using Firestore-only identity.
+  /// This does not rely on a FirebaseAuth [User] and can be used after a successful
+  /// skilled worker OTP flow that creates/updates the `SkilledWorkers` document.
+  Future<void> setSkilledWorkerSignedIn({
+    required String id,
+    String? name,
+    String? phone,
+  }) async {
+    _currentUser = AuthUser(
+      id: id,
+      role: "skilled_worker",
+      name: name,
+      phone: phone,
+    );
+    _status = AuthStatus.loggedIn;
+    await _saveSession();
     notifyListeners();
   }
 
-  Future<void> signOut() async {
+  // ---------------------------
+  // Skilled Worker login (admin created accounts)
+  // ---------------------------
+  /// Returns null on success, or error string on failure.
+  Future<String?> loginSkilledWorker(String phone) async {
+    _status = AuthStatus.loggingIn;
+    notifyListeners();
+
     try {
-      await _auth.signOut();
-    } finally {
-      _user = null;
-      _role = null;
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.remove('role');
-      await prefs.remove('userId');
-      _persistedUserId = null;
+      final query = await _db
+          .collection("SkilledWorkers")
+          .where("phoneNumber", isEqualTo: phone)
+          .limit(1)
+          .get();
+
+      if (query.docs.isEmpty) {
+        _status = AuthStatus.notLoggedIn;
+        notifyListeners();
+        return "No skilled worker found with this phone.";
+      }
+
+      final doc = query.docs.first;
+      final id = doc.id;
+    _name = doc.data()['Name'] as String?;
+
+      _currentUser = AuthUser(id: id, role: "skilled_worker", name: name, phone: phone);
+
+      log("Login successful: ${_currentUser.toString()}");
+      await _saveSession();
+
+      _status = AuthStatus.loggedIn;
       notifyListeners();
+      return null;
+    } catch (e) {
+      log("loginSkilledWorker error: $e");
+      _status = AuthStatus.notLoggedIn;
+      notifyListeners();
+      return "Login error: ${e.toString()}";
     }
   }
 
-  /// Consider session present if Firebase user exists OR we have persisted role+userId.
-  bool get isSessionPersisted =>
-      _user != null || (_role != null && _persistedUserId != null);
+  // ---------------------------
+  // Job Poster OTP flow
+  // ---------------------------
+
+  /// Sends OTP and completes when Firebase `codeSent` is called.
+  /// Returns null on success (codeSent received), or error string.
+  Future<String?> sendOtpToPhone(String phone, {Duration waitForCodeSent = const Duration(seconds: 10)}) async {
+    // ensure not re-used completer
+    if (_codeSentCompleter != null && !(_codeSentCompleter!.isCompleted)) {
+      _codeSentCompleter!.complete(null);
+    }
+    _codeSentCompleter = Completer<String?>();
+
+    try {
+      // First check if a JobPoster exists with this phone.
+      final exists = await UserDataService.userExistsByPhone(
+        phoneNumber: phone,
+        userType: 'job_poster',
+      );
+
+      if (!exists) {
+        _status = AuthStatus.notLoggedIn;
+        notifyListeners();
+        return 'No job poster account found for this phone. Please sign up first.';
+      }
+
+      // set temporary status while waiting for codeSent
+      _status = AuthStatus.loggingIn;
+      notifyListeners();
+
+      await _auth.verifyPhoneNumber(
+        phoneNumber: phone,
+        timeout: const Duration(seconds: 60),
+        verificationCompleted: (PhoneAuthCredential cred) async {
+          // Auto verification (instant)
+          await _completeOtpLogin(cred);
+        },
+        verificationFailed: (FirebaseAuthException e) {
+          log("verifyPhoneNumber failed: ${e.code} ${e.message}");
+          if (!(_codeSentCompleter?.isCompleted ?? true)) {
+            _codeSentCompleter?.complete("Failed to send OTP: ${e.message}");
+          }
+          _status = AuthStatus.notLoggedIn;
+          notifyListeners();
+        },
+        codeSent: (String verificationId, int? forceResendingToken) {
+          _verificationId = verificationId;
+          // complete the completer successfully
+          if (!(_codeSentCompleter?.isCompleted ?? true)) {
+            _codeSentCompleter?.complete(null);
+          }
+          notifyListeners();
+        },
+        codeAutoRetrievalTimeout: (String verificationId) {
+          _verificationId = verificationId;
+          // don't complete as error — code might still be delivered manually
+          notifyListeners();
+        },
+      );
+
+      // Wait for completer to be completed (codeSent or failure). Fail after timeout.
+      String? res;
+      try {
+        res = await _codeSentCompleter!.future.timeout(waitForCodeSent);
+      } on TimeoutException {
+        res = "Timeout waiting for SMS. Please try again.";
+        // leave _verificationId as is if codeAutoRetrievalTimeout filled it later
+      }
+
+      if (res != null) {
+        // res contains error
+        return res;
+      }
+      return null;
+    } catch (e) {
+      log("sendOtpToPhone error: $e");
+      return "Error sending OTP: ${e.toString()}";
+    } finally {
+      // Do not clear _verificationId here; OTP verify needs it.
+      // Leave status as notLoggedIn until verifyOtpCode sets loggingIn.
+    }
+  }
+
+  /// Verify OTP code (smsCode) and sign in. Returns null on success or error string.
+  Future<String?> verifyOtpCode(String smsCode, String phone) async {
+    _status = AuthStatus.loggingIn;
+    notifyListeners();
+
+    try {
+      if (_verificationId == null) return "Verification ID missing. Please resend OTP.";
+
+      final credential = PhoneAuthProvider.credential(
+        verificationId: _verificationId!,
+        smsCode: smsCode,
+      );
+
+      return await _completeOtpLogin(credential, phone: phone);
+    } catch (e) {
+      log("verifyOtpCode error: $e");
+      _status = AuthStatus.notLoggedIn;
+      notifyListeners();
+      return "Invalid OTP";
+    }
+  }
+
+  /// Internal: completes OTP login (called by verificationCompleted or manual verify)
+  Future<String?> _completeOtpLogin(PhoneAuthCredential credential, {String? phone}) async {
+    try {
+      final userCredential = await _auth.signInWithCredential(credential);
+      final fbUser = userCredential.user ?? _auth.currentUser;
+
+      if (fbUser == null) {
+        _status = AuthStatus.notLoggedIn;
+        notifyListeners();
+        return "Firebase sign-in failed.";
+      }
+
+      // Ensure JobPosters doc exists for this uid.
+      final posterDocRef = _db.collection("JobPosters").doc(fbUser.uid);
+      final posterSnapshot = await posterDocRef.get();
+
+      if (!posterSnapshot.exists) {
+        _status = AuthStatus.notLoggedIn;
+        notifyListeners();
+        return "Job poster profile not found.";
+      }
+
+      // read doc to get displayName
+      final doc = await posterDocRef.get();
+
+      _currentUser = AuthUser(
+        id: fbUser.uid,
+        role: "job_poster",
+        name: doc.data()?['displayName'] as String? ?? fbUser.displayName,
+        phone: doc.data()?['phone'] as String? ?? fbUser.phoneNumber,
+      );
+
+      await _saveSession();
+
+      _status = AuthStatus.loggedIn;
+      notifyListeners();
+
+      return null;
+    } catch (e) {
+      log("_completeOtpLogin error: $e");
+      _status = AuthStatus.notLoggedIn;
+      notifyListeners();
+      return "OTP Login Error: ${e.toString()}";
+    }
+  }
+
+  // ---------------------------
+  // Logout
+  // ---------------------------
+  Future<void> logout() async {
+    try {
+      if (_currentUser?.role == "job_poster") {
+        await _auth.signOut();
+      }
+    } catch (e) {
+      log("logout firebase signout error: $e");
+    }
+
+    await _clearSession();
+    _currentUser = null;
+    _verificationId = null;
+    _status = AuthStatus.notLoggedIn;
+    notifyListeners();
+  }
+
+  // ---------------------------
+  // Determine next screen (based on role & active job)
+  // UI can call this to decide where to navigate next.
+  // ---------------------------
+  Future<NextScreen> determineNextScreen() async {
+    if (_status != AuthStatus.loggedIn || _currentUser == null) {
+      return NextScreen.login;
+    }
+
+    try {
+      final id = _currentUser!.id;
+      final r = _currentUser!.role;
+
+      if (r == "skilled_worker") {
+        // Mirror _checkForActiveJobSkilledWorker logic at a high level:
+        // 1) Active assigned job
+        // 2) Completed job needing rating
+        // 3) Otherwise go to skilled worker home
+
+        // 1) Check for active assigned job
+        final assignedJob =
+            await JobRequestService.getActiveAssignedJobForWorker(id);
+        if (assignedJob != null) {
+          return NextScreen.activeJobSkilledWorker;
+        }
+
+        // 2) Check for completed job that needs worker rating
+        final completedJob =
+            await JobRequestService.getCompletedJobNeedingWorkerRating(id);
+        if (completedJob != null) {
+          // For now we reuse the same enum; UI can route to rating screen
+          // when it sees this for a skilled worker.
+          return NextScreen.activeJobSkilledWorker;
+        }
+
+        // 3) Default to skilled worker home
+        return NextScreen.homeSkilledWorker;
+      }
+
+      if (r == "job_poster") {
+        final doc = await _db.collection("JobPosters").doc(id).get();
+        if (!doc.exists) return NextScreen.login;
+
+        final data = doc.data() ?? {};
+        final profileCompleted = data['profileCompleted'] as bool? ?? false;
+        final activeJobId = data['activeJobId'] as String?;
+        final hasActiveJob = data['hasActiveJob'] as bool? ?? false;
+
+        if (!profileCompleted) {
+          return NextScreen.completeProfile;
+        }
+
+        if ((activeJobId != null && activeJobId.isNotEmpty) || hasActiveJob) {
+          return NextScreen.activeJobJobPoster;
+        }
+
+        return NextScreen.homeJobPoster;
+      }
+
+      return NextScreen.login;
+    } catch (e) {
+      log("determineNextScreen error: $e");
+      return NextScreen.login;
+    }
+  }
 }

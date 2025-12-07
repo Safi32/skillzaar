@@ -1,13 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:skillzaar/core/services/job_request_service.dart';
-import 'package:skillzaar/core/examples/services/user_data_service.dart';
-import 'package:skillzaar/presentation/providers/phone_auth_provider.dart';
-import 'package:skillzaar/presentation/providers/skilled_worker_provider.dart';
 import 'package:skillzaar/presentation/providers/auth_state_provider.dart';
-import 'package:firebase_auth/firebase_auth.dart' as fb_auth;
+import 'package:skillzaar/presentation/screens/job_poster/otp_screen.dart';
+import 'package:skillzaar/core/services/job_request_service.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/widgets/animated_toast.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -18,7 +14,21 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController phoneController = TextEditingController();
-  bool isLoading = false;
+  late final AuthStateProvider auth;
+  bool _sending = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // init in didChangeDependencies would also work; we use this to cache provider
+    // but DO NOT call provider methods here that depend on context (we don't).
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    auth = Provider.of<AuthStateProvider>(context, listen: false);
+  }
 
   bool isValidPhoneNumber(String phone) {
     String cleanPhone = phone.replaceAll(RegExp(r'[\s\-\(\)]'), '');
@@ -47,19 +57,114 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
+  Future<void> _handleLogin(String role) async {
+    final raw = phoneController.text.trim();
+    if (raw.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter your phone number')),
+      );
+      return;
+    }
+    if (!isValidPhoneNumber(raw)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Phone number must be valid')),
+      );
+      return;
+    }
+
+    final phone = formatPhoneNumber(raw);
+
+    if (role == "skilled_worker") {
+      setState(() => _sending = true);
+      final error = await auth.loginSkilledWorker(phone);
+      setState(() => _sending = false);
+
+      if (error != null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error)));
+        }
+        return;
+      }
+
+      // After successful login, ask provider where to go
+      final next = await auth.determineNextScreen();
+      if (!mounted) return;
+
+      switch (next) {
+        case NextScreen.activeJobSkilledWorker:
+          // Fetch the active assigned job so we can pass a valid assignedJobId
+          final workerId = auth.userId;
+          if (workerId != null && workerId.isNotEmpty) {
+            final assignedJob =
+                await JobRequestService.getActiveAssignedJobForWorker(workerId);
+
+            final assignedJobId =
+                assignedJob != null ? assignedJob['assignedJobId'] as String? : null;
+
+            if (assignedJobId != null && assignedJobId.isNotEmpty) {
+              Navigator.pushNamedAndRemoveUntil(
+                context,
+                '/assigned-job-detail',
+                (r) => false,
+                arguments: {
+                  'assignedJobId': assignedJobId,
+                  'userType': 'skilled_worker',
+                },
+              );
+              break;
+            }
+          }
+          // Fallback: if for some reason we couldn't resolve an assigned job, go home
+          Navigator.pushNamedAndRemoveUntil(
+            context,
+            '/skilled-worker-home',
+            (r) => false,
+          );
+          break;
+        case NextScreen.homeSkilledWorker:
+        default:
+          Navigator.pushNamedAndRemoveUntil(context, '/skilled-worker-home', (r) => false);
+      }
+    } else {
+      // job_poster -> OTP flow
+      setState(() => _sending = true);
+      final error = await auth.sendOtpToPhone(phone);
+      setState(() => _sending = false);
+
+      if (error != null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error)));
+        }
+        return;
+      }
+
+      // sendOtpToPhone completes when codeSent was received -> verificationId available
+      if (!mounted) return;
+
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => JobPosterOtpScreen(phone: phone),
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final args =
         ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+
     final String role = args?['role'] ?? 'job_poster';
-    final String description =
-        role == 'skilled_worker'
-            ? 'Enter your mobile number to login as a Skilled Worker.'
-            : 'Enter your mobile number to join as a Job Poster.';
+    final String description = role == 'skilled_worker'
+        ? 'Enter your mobile number to login as a Skilled Worker.'
+        : 'Enter your mobile number to join as a Job Poster.';
     final size = MediaQuery.of(context).size;
-    final phoneAuthProvider = Provider.of<PhoneAuthProvider>(context);
-    final showLoading =
-        (role == 'job_poster') ? phoneAuthProvider.isLoading : isLoading;
+
+    // show loading when provider status is loggingIn OR our local _sending
+    final provider = context.watch<AuthStateProvider>();
+    final providerLoading = provider.status == AuthStatus.loggingIn;
+    final showLoading = providerLoading || _sending;
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -150,7 +255,6 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ),
                         const SizedBox(height: 32),
-
                         // Phone field
                         TextField(
                           controller: phoneController,
@@ -182,7 +286,6 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ),
                         const SizedBox(height: 28),
-
                         // Continue button
                         SizedBox(
                           width: double.infinity,
@@ -196,30 +299,27 @@ class _LoginScreenState extends State<LoginScreen> {
                               elevation: 8,
                               shadowColor: AppColors.green.withOpacity(0.5),
                             ),
-                            onPressed:
-                                showLoading ? null : () => _handleLogin(role),
-                            child:
-                                showLoading
-                                    ? const SizedBox(
-                                      width: 24,
-                                      height: 24,
-                                      child: CircularProgressIndicator(
-                                        color: Colors.white,
-                                        strokeWidth: 2,
-                                      ),
-                                    )
-                                    : Text(
-                                      "Continue",
-                                      style: TextStyle(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.white,
-                                      ),
+                            onPressed: showLoading ? null : () => _handleLogin(role),
+                            child: showLoading
+                                ? const SizedBox(
+                                    width: 24,
+                                    height: 24,
+                                    child: CircularProgressIndicator(
+                                      color: Colors.white,
+                                      strokeWidth: 2,
                                     ),
+                                  )
+                                : Text(
+                                    "Continue",
+                                    style: TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                    ),
+                                  ),
                           ),
                         ),
                         const SizedBox(height: 20),
-
                         // Signup link
                         if (role == 'job_poster')
                           Flexible(
@@ -235,10 +335,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 ),
                                 GestureDetector(
                                   onTap: () {
-                                    Navigator.pushNamed(
-                                      context,
-                                      '/job-poster-signup',
-                                    );
+                                    Navigator.pushNamed(context, '/job-poster-signup');
                                   },
                                   child: Text(
                                     "Sign up",
@@ -253,7 +350,6 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                           ),
                         const SizedBox(height: 16),
-
                         Flexible(
                           child: Text(
                             "By signing up, you accept our Terms & Privacy Policy.",
@@ -288,213 +384,5 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
       ),
     );
-  }
-
-  Future<void> _handleLogin(String role) async {
-    final input = phoneController.text.trim();
-    if (input.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please enter your phone number'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
-    }
-
-    if (!isValidPhoneNumber(input)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Phone number must be at least 11 digits'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
-    }
-
-    setState(() => isLoading = true);
-    try {
-      final formattedPhone = formatPhoneNumber(input);
-
-      // Check if user is already registered
-      final userType =
-          role == 'skilled_worker' ? 'skilled_worker' : 'job_poster';
-
-      print('🔍 Checking user existence:');
-      print('📱 Formatted phone: $formattedPhone');
-      print('👤 User type: $userType');
-
-      final userExists = await UserDataService.userExistsByPhone(
-        phoneNumber: formattedPhone,
-        userType: userType,
-      );
-
-      print('✅ User exists: $userExists');
-      print(
-        '📱 Checking for user with phone: $formattedPhone in collection: $userType',
-      );
-
-      if (userExists) {
-        if (role == 'skilled_worker') {
-          // Skilled worker continues with direct login (admin-created accounts)
-          print('🏠 Skilled worker exists; logging in directly');
-
-          // Get user data to get the actual user ID
-          final userData = await UserDataService.getUserDataByPhone(
-            phoneNumber: formattedPhone,
-            userType: userType,
-          );
-
-          String userId;
-          if (userData != null && userData.exists) {
-            userId = userData.id;
-          } else {
-            userId =
-                '${userType}_${formattedPhone.replaceAll('+', '').replaceAll(' ', '')}_${DateTime.now().millisecondsSinceEpoch}';
-          }
-
-          final skilledWorkerProvider = Provider.of<SkilledWorkerProvider>(
-            context,
-            listen: false,
-          );
-          skilledWorkerProvider.setLoggedInState(
-            userId: userId,
-            phoneNumber: formattedPhone,
-          );
-
-          // Persist role locally and via AuthStateProvider if available
-          try {
-            await skilledWorkerProvider.persistLoginRole('skilled_worker');
-            final authState = Provider.of<AuthStateProvider>(
-              context,
-              listen: false,
-            );
-            final user = fb_auth.FirebaseAuth.instance.currentUser;
-            if (user != null)
-              await authState.setSignedIn(user: user, role: 'skilled_worker');
-          } catch (e) {
-            print('\u26a0\ufe0f Could not persist skilled worker role: $e');
-          }
-
-          // Show portfolio setup reminder for skilled workers
-          ToastOverlay.instance.showToast(
-            context: context,
-            title: 'Portfolio Required',
-            message:
-                'Please complete your portfolio first. Without a portfolio, jobs cannot be assigned to you.',
-            type: ToastType.warning,
-            duration: const Duration(seconds: 4),
-          );
-
-          await _checkForActiveJobSkilledWorker(context, skilledWorkerProvider);
-        } else {
-          // Job poster now uses OTP flow
-          print('📨 Sending OTP to existing job poster: $formattedPhone');
-          final phoneAuthProvider = Provider.of<PhoneAuthProvider>(
-            context,
-            listen: false,
-          );
-          phoneAuthProvider.sendOtp(formattedPhone, context);
-          // Navigation now handled in provider after OTP is sent
-        }
-      } else {
-        print('📝 User not found, showing register message');
-        if (role == 'skilled_worker') {
-          // Skilled workers cannot self-register
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                'No account found with this phone number. Please contact admin to create your skilled worker account.',
-              ),
-              backgroundColor: Colors.red,
-              duration: Duration(seconds: 4),
-            ),
-          );
-        } else {
-          // Job poster: start OTP for registration
-          final formatted = formattedPhone;
-          final phoneAuthProvider = Provider.of<PhoneAuthProvider>(
-            context,
-            listen: false,
-          );
-          print('📝 New job poster; sending OTP for signup: $formatted');
-          phoneAuthProvider.sendOtp(formatted, context, isSignUp: true);
-          // Navigation now handled in provider after OTP is sent
-        }
-      }
-    } finally {
-      if (mounted) setState(() => isLoading = false);
-    }
-  }
-
-  Future<void> _checkForActiveJobSkilledWorker(
-    BuildContext context,
-    SkilledWorkerProvider skilledWorkerProvider,
-  ) async {
-    try {
-      print(
-        '[Login Screen] Checking for active job after skilled worker login...',
-      );
-
-      final skilledWorkerId = skilledWorkerProvider.loggedInUserId;
-
-      if (skilledWorkerId == null || skilledWorkerId.isEmpty) {
-        Navigator.pushNamedAndRemoveUntil(
-          context,
-          '/skilled-worker-home',
-          (route) => false,
-        );
-        return;
-      }
-
-      // Check for active assigned job
-      print(
-        '[Login Screen] Checking for assigned job with skilledWorkerId: $skilledWorkerId',
-      );
-      final assignedJob = await JobRequestService.getActiveAssignedJobForWorker(
-        skilledWorkerId,
-      );
-
-      print('[Login Screen] Active assigned job result: $assignedJob');
-
-      if (assignedJob != null) {
-        final assignedJobId = assignedJob['assignedJobId'] as String?;
-        final status = assignedJob['status'] as String?;
-
-        if (assignedJobId != null && assignedJobId.isNotEmpty) {
-          print(
-            '[Login Screen] Found active assigned job - AssignedJobId: $assignedJobId, Status: $status',
-          );
-
-          // Navigate to assigned job detail screen
-          Navigator.pushNamedAndRemoveUntil(
-            context,
-            '/assigned-job-detail',
-            (route) => false,
-            arguments: {
-              'assignedJobId': assignedJobId,
-              'userType': 'skilled_worker',
-            },
-          );
-          return;
-        }
-      }
-
-      // No active job found, proceed to home screen
-      print('[Login Screen] No active job found, going to home screen');
-      Navigator.pushNamedAndRemoveUntil(
-        context,
-        '/skilled-worker-home',
-        (route) => false,
-      );
-    } catch (e) {
-      print('[Login Screen] Error checking for active job: $e');
-      // On error, go to home screen
-      Navigator.pushNamedAndRemoveUntil(
-        context,
-        '/skilled-worker-home',
-        (route) => false,
-      );
-    }
   }
 }

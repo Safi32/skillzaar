@@ -53,7 +53,7 @@ class AppRoutes {
     '/job-poster-login': (context) => LoginScreen(),
     '/job-poster-quick-register': (context) => LoginScreen(),
     '/job-poster-signup': (context) => const JobPosterSignUpScreen(),
-    '/job-poster-otp': (context) => const job_poster_otp.JobPosterOTPScreen(),
+    '/job-poster-otp': (context) => const job_poster_otp.JobPosterOtpScreen(phone:''),
     '/job-poster-post-job': (context) => const PostJobScreen(),
     '/job-poster-home': (context) => const JobPosterHomeScreen(),
     // '/job-poster-requests': (context) => const JobRequestsScreen(), // Removed

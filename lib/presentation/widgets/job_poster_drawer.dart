@@ -19,6 +19,7 @@ class JobPosterDrawer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+
     final authState = Provider.of<AuthStateProvider>(context, listen: false);
     return Drawer(
       child: ListView(
@@ -36,8 +37,8 @@ class JobPosterDrawer extends StatelessWidget {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  (authState.role == 'job_poster' && authState.user != null)
-                      ? 'Job Poster'
+                  (authState.role == 'job_poster' && authState.userId != null)
+                      ? authState.name ?? 'Job Poster'
                       : 'Guest User',
                   style: TextStyle(
                     color: Colors.white,

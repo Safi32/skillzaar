@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:skillzaar/presentation/providers/auth_state_provider.dart';
-import 'package:firebase_auth/firebase_auth.dart' as fb_auth;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:skillzaar/core/examples/services/recaptcha_service.dart';
 import '../../providers/skilled_worker_provider.dart';
@@ -333,19 +332,17 @@ class _SkilledWorkerOTPScreenState extends State<SkilledWorkerOTPScreen> {
                                 ),
                               );
 
-                              // Persist role centrally so app restores correct home on cold start
+                              // Persist role in central auth state using Firestore-only identity
                               try {
-                                final authState =
-                                    Provider.of<AuthStateProvider>(
-                                      context,
-                                      listen: false,
-                                    );
-                                final user =
-                                    fb_auth.FirebaseAuth.instance.currentUser;
-                                if (user != null) {
-                                  await authState.setSignedIn(
-                                    user: user,
-                                    role: 'skilled_worker',
+                                if (skilledWorkerProvider.loggedInUserId != null) {
+                                  final authState =
+                                      Provider.of<AuthStateProvider>(
+                                        context,
+                                        listen: false,
+                                      );
+                                  await authState.setSkilledWorkerSignedIn(
+                                    id: skilledWorkerProvider.loggedInUserId!,
+                                    phone: skilledWorkerProvider.loggedInPhoneNumber,
                                   );
                                 }
                               } catch (e) {
