@@ -61,7 +61,7 @@ class _PostJobContent extends StatefulWidget {
 class _PostJobContentState extends State<_PostJobContent> {
   final TextEditingController titleController = TextEditingController();
   final TextEditingController descriptionController = TextEditingController();
-  final TextEditingController budgetController = TextEditingController();
+
   final List<File> images = [];
 
   String selectedAddress = '';
@@ -128,12 +128,11 @@ class _PostJobContentState extends State<_PostJobContent> {
     if (titleController.text.isEmpty ||
         descriptionController.text.isEmpty ||
         selectedAddress.isEmpty ||
-        selectedServiceType == null ||
-        budgetController.text.isEmpty) {
+        selectedServiceType == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
-            'Please fill all required fields including budget and service type',
+            'Please fill all required fields including service type',
           ),
           backgroundColor: Colors.red,
         ),
@@ -155,7 +154,6 @@ class _PostJobContentState extends State<_PostJobContent> {
         longitude: selectedLongitude ?? 0.0,
         context: context,
         serviceType: selectedServiceType,
-        budget: budgetController.text,
       );
 
       if (widget.jobProvider.success != null) {
@@ -168,7 +166,7 @@ class _PostJobContentState extends State<_PostJobContent> {
         );
         titleController.clear();
         descriptionController.clear();
-        budgetController.clear();
+
         setState(() {
           images.clear();
           selectedAddress = '';
@@ -218,27 +216,7 @@ class _PostJobContentState extends State<_PostJobContent> {
     );
   }
 
-  InputDecoration _inputDecoration({required String hint, String? prefix}) {
-    return InputDecoration(
-      hintText: hint,
-      prefixText: prefix,
-      filled: true,
-      fillColor: Colors.grey.shade50,
-      contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: Colors.grey),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: BorderSide(color: Colors.grey.shade300),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: Colors.green, width: 1.6),
-      ),
-    );
-  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -347,30 +325,7 @@ class _PostJobContentState extends State<_PostJobContent> {
                             },
                           ),
                         ),
-                        _buildCard(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                "Budget (Rs)",
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.black87,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              TextField(
-                                controller: budgetController,
-                                keyboardType: TextInputType.number,
-                                decoration: _inputDecoration(
-                                  hint: "e.g. 5000",
-                                  prefix: "Rs. ",
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
+
 
                         _buildCard(
                           child: JobLocationPicker(

@@ -7,7 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../widgets/skilled_worker_drawer_header.dart';
 import '../../widgets/contact_us_dialog.dart';
 
-class AssignedJobDetailScreen extends StatelessWidget {
+class AssignedJobDetailScreen extends StatefulWidget {
   final String assignedJobId;
   final String userType;
 
@@ -16,6 +16,57 @@ class AssignedJobDetailScreen extends StatelessWidget {
     required this.assignedJobId,
     this.userType = 'skilled_worker',
   });
+
+  @override
+  State<AssignedJobDetailScreen> createState() =>
+      _AssignedJobDetailScreenState();
+}
+
+class _AssignedJobDetailScreenState extends State<AssignedJobDetailScreen> {
+  String? _cachedBudget;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCachedBudget();
+  }
+
+  Future<void> _loadCachedBudget() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (mounted) {
+      setState(() {
+        _cachedBudget = prefs.getString('budget_${widget.assignedJobId}');
+      });
+    }
+  }
+
+  Future<void> _cacheBudget(String value) async {
+    if (value == '0' ||
+        value == 'Not Specified' ||
+        value.isEmpty ||
+        value == 'null') {
+      return;
+    }
+    if (_cachedBudget == value) return;
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('budget_${widget.assignedJobId}', value);
+    if (mounted) {
+      setState(() {
+        _cachedBudget = value;
+      });
+    }
+  }
+
+  Future<void> _clearCachedBudget() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('budget_${widget.assignedJobId}');
+    if (mounted) {
+      setState(() {
+        _cachedBudget = null;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -38,14 +89,14 @@ class AssignedJobDetailScreen extends StatelessWidget {
         iconTheme: const IconThemeData(color: Colors.black87),
       ),
       drawer:
-          userType == 'skilled_worker'
+          widget.userType == 'skilled_worker'
               ? _buildSkilledWorkerDrawer(context)
               : null,
       body: StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
         stream:
             FirebaseFirestore.instance
                 .collection('AssignedJobs')
-                .doc(assignedJobId)
+                .doc(widget.assignedJobId)
                 .snapshots(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
@@ -79,6 +130,16 @@ class AssignedJobDetailScreen extends StatelessWidget {
             'jobImage': data['jobImage'] ?? '',
           };
 
+          // Try to cache the budget from the main document if valid
+          final mainDocBudget = jobDetails['budget']!;
+          if (mainDocBudget != 'Not Specified' &&
+              mainDocBudget != '0' &&
+              mainDocBudget != 'null') {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              _cacheBudget(mainDocBudget);
+            });
+          }
+
           final skilledWorkerDetails = {
             'skilledWorkerName': data['workerName'] ?? 'Unknown',
             'phoneNumber': data['workerPhone'] ?? 'Not Available',
@@ -104,7 +165,6 @@ class AssignedJobDetailScreen extends StatelessWidget {
             padding: const EdgeInsets.all(20),
             child: Column(
               children: [
-                // Job Details Card
                 _buildGlassCard(
                   title: "Job Details",
                   children: [
@@ -116,7 +176,11 @@ class AssignedJobDetailScreen extends StatelessWidget {
                       "📍 Location",
                       jobDetails['jobLocation'] ?? 'No Location',
                     ),
-                    _buildInfoRow("💰 Budget", "Rs. ${jobDetails['budget']}"),
+                    _buildBudgetStreamRow(
+                      "💰 Budget",
+                      jobDetails['budget']!,
+                      widget.assignedJobId,
+                    ),
                     _buildInfoRow(
                       "📝 Description",
                       jobDetails['jobDescription'] ?? 'No Description',
@@ -208,8 +272,16 @@ class AssignedJobDetailScreen extends StatelessWidget {
                 const SizedBox(height: 30),
 
                 // Action Buttons - Different for each user type
-                if (userType == 'skilled_worker') ...[
+                if (widget.userType == 'skilled_worker') ...[
                   // Skilled Worker Buttons
+                  _neonButton(
+                    text: "Job Approval",
+                    color: Colors.blue,
+                    onTap: () {
+                      _requestJobApproval(context, data);
+                    },
+                  ),
+                  const SizedBox(height: 16),
                   Row(
                     children: [
                       Expanded(
@@ -261,7 +333,7 @@ class AssignedJobDetailScreen extends StatelessWidget {
                           text: "Complete Job",
                           color: Colors.green,
                           onTap: () {
-                            _completeJob(context, assignedJobId);
+                            _completeJob(context, widget.assignedJobId);
                           },
                         ),
                       ),
@@ -271,7 +343,7 @@ class AssignedJobDetailScreen extends StatelessWidget {
                           text: "Cancel Job",
                           color: Colors.red,
                           onTap: () {
-                            _cancelJob(context, assignedJobId);
+                            _cancelJob(context, widget.assignedJobId);
                           },
                         ),
                       ),
@@ -385,6 +457,146 @@ class AssignedJobDetailScreen extends StatelessWidget {
     );
   }
 
+  Widget _buildBudgetStreamRow(
+    String label,
+    String originalBudget,
+    String assignedJobId,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            "$label: ",
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: Colors.black87,
+            ),
+          ),
+          Expanded(
+            child: StreamBuilder<QuerySnapshot>(
+              stream:
+                  FirebaseFirestore.instance
+                      .collection('JobPayments')
+                      .where('assignedJobId', isEqualTo: assignedJobId)
+                      .snapshots(),
+              builder: (context, snapshot) {
+                // If waiting, try to show cached budget if available
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  if (_cachedBudget != null) {
+                    return Text(
+                      "Rs. $_cachedBudget (Cached)",
+                      style: const TextStyle(
+                        fontSize: 16,
+                        color: Colors.black54,
+                      ),
+                    );
+                  }
+                  return const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  );
+                }
+
+                String displayAmount = originalBudget;
+                Color textColor = Colors.black54;
+                FontWeight fontWeight = FontWeight.normal;
+                bool isPending = false;
+
+                if (snapshot.hasData && snapshot.data!.docs.isNotEmpty) {
+                  final docs = snapshot.data!.docs;
+                  final validDocs =
+                      docs.where((d) {
+                        final data = d.data() as Map<String, dynamic>;
+                        final a = data['amount']?.toString() ?? '0';
+                        return a != '0' &&
+                            a != 'Not Specified' &&
+                            a != 'null' &&
+                            a.isNotEmpty;
+                      }).toList();
+
+                  final validDoc =
+                      validDocs.isNotEmpty ? validDocs.first : docs.first;
+                  final data = validDoc.data() as Map<String, dynamic>;
+                  final status = data['status'] as String? ?? '';
+                  final amount = data['amount']?.toString() ?? '0';
+
+                  if (amount != '0' &&
+                      amount != 'Not Specified' &&
+                      amount != 'null' &&
+                      amount.isNotEmpty) {
+                    displayAmount = amount;
+                  }
+
+                  if (status == 'pending_admin_approval') {
+                    isPending = true;
+                  } else if ([
+                    'payment_approved',
+                    'approved',
+                    'completed',
+                  ].contains(status)) {
+                    textColor = Colors.green;
+                    fontWeight = FontWeight.bold;
+                  }
+                }
+
+                // If displayAmount is still default/zero, try cache
+                if ((displayAmount == '0' ||
+                        displayAmount == 'Not Specified' ||
+                        displayAmount == 'null') &&
+                    _cachedBudget != null) {
+                  displayAmount = _cachedBudget!;
+                }
+
+                // Cache the value if we found a good one from stream/original
+                if (displayAmount != '0' &&
+                    displayAmount != 'Not Specified' &&
+                    displayAmount != 'null' &&
+                    displayAmount != _cachedBudget) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    _cacheBudget(displayAmount);
+                  });
+                }
+
+                if (isPending &&
+                    displayAmount != '0' &&
+                    displayAmount != 'Not Specified') {
+                  return Text(
+                    "Rs. $displayAmount (Pending)",
+                    style: const TextStyle(
+                      fontSize: 16,
+                      color: Colors.orange,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  );
+                }
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "Rs. $displayAmount",
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: textColor,
+                        fontWeight: fontWeight,
+                      ),
+                      maxLines: 4,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   String _formatDate(dynamic date) {
     if (date == null) return 'Not Available';
     try {
@@ -408,7 +620,6 @@ class AssignedJobDetailScreen extends StatelessWidget {
       return;
     }
 
-    // TODO: Implement phone call functionality
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('Calling $phoneNumber...'),
@@ -422,7 +633,6 @@ class AssignedJobDetailScreen extends StatelessWidget {
     String assignedJobId,
     String currentStatus,
   ) {
-    // TODO: Implement job status update
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('Job status update functionality coming soon'),
@@ -432,7 +642,6 @@ class AssignedJobDetailScreen extends StatelessWidget {
   }
 
   void _completeJob(BuildContext context, String assignedJobId) {
-    // Navigate to rating screen
     Navigator.pushNamed(
       context,
       '/rate-skilled-worker',
@@ -441,7 +650,6 @@ class AssignedJobDetailScreen extends StatelessWidget {
   }
 
   void _cancelJob(BuildContext context, String assignedJobId) async {
-    // Show confirmation dialog
     final confirmed = await showDialog<bool>(
       context: context,
       builder:
@@ -465,7 +673,6 @@ class AssignedJobDetailScreen extends StatelessWidget {
 
     if (confirmed == true) {
       try {
-        // Update job status to cancelled
         await FirebaseFirestore.instance
             .collection('AssignedJobs')
             .doc(assignedJobId)
@@ -475,29 +682,31 @@ class AssignedJobDetailScreen extends StatelessWidget {
               'cancelledAt': FieldValue.serverTimestamp(),
             });
 
-        // Show success message
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Job cancelled successfully'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Job cancelled successfully'),
+              backgroundColor: Colors.red,
+            ),
+          );
 
-        // Navigate to home screen
-        Navigator.pushNamedAndRemoveUntil(
-          context,
-          userType == 'skilled_worker'
-              ? '/skilled-worker-home'
-              : '/job-poster-home',
-          (route) => false,
-        );
+          Navigator.pushNamedAndRemoveUntil(
+            context,
+            widget.userType == 'skilled_worker'
+                ? '/skilled-worker-home'
+                : '/job-poster-home',
+            (route) => false,
+          );
+        }
       } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error cancelling job: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error cancelling job: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
       }
     }
   }
@@ -510,7 +719,6 @@ class AssignedJobDetailScreen extends StatelessWidget {
     final jobTitle = assignedJobData['jobTitle'] ?? 'Job';
     final jobLocation = assignedJobData['jobLocation'] ?? 'Job Location';
 
-    // Get job coordinates
     final jobLocationCoordinates =
         assignedJobData['jobLocationCoordinates'] as Map<String, dynamic>?;
     final jobLat = jobLocationCoordinates?['latitude'] as double? ?? 0.0;
@@ -542,22 +750,19 @@ class AssignedJobDetailScreen extends StatelessWidget {
 
   void _navigateToJobDetail(BuildContext context, String? jobId) async {
     try {
-      // Get job details from the AssignedJobs collection
       final assignedJobDoc =
           await FirebaseFirestore.instance
               .collection('AssignedJobs')
-              .doc(assignedJobId)
+              .doc(widget.assignedJobId)
               .get();
 
       if (assignedJobDoc.exists) {
         final assignedJobData = assignedJobDoc.data()!;
 
-        // Extract job details from AssignedJobs collection
         final jobTitle = assignedJobData['jobTitle'] ?? 'Job';
         final jobLocation = assignedJobData['jobLocation'] ?? 'Job Location';
         final jobIdFromAssigned = assignedJobData['jobId'] as String?;
 
-        // Get coordinates directly from AssignedJobs collection
         final jobLocationCoordinates =
             assignedJobData['jobLocationCoordinates'] as Map<String, dynamic>?;
         final lat = jobLocationCoordinates?['latitude'] as double? ?? 0.0;
@@ -566,7 +771,6 @@ class AssignedJobDetailScreen extends StatelessWidget {
         print('🔍 Coordinates from AssignedJobs - Lat: $lat, Lng: $lng');
 
         if (lat != 0.0 && lng != 0.0) {
-          // Navigate directly to NavigateToJobScreen using data from AssignedJobs
           Navigator.push(
             context,
             MaterialPageRoute(
@@ -582,28 +786,34 @@ class AssignedJobDetailScreen extends StatelessWidget {
           );
         } else {
           print('❌ Invalid coordinates: lat=$lat, lng=$lng');
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                  'Job location coordinates not available in assigned job',
+                ),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+        }
+      } else {
+        if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text(
-                'Job location coordinates not available in assigned job',
-              ),
+              content: Text('Assigned job not found'),
               backgroundColor: Colors.red,
             ),
           );
         }
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Assigned job not found'),
-            backgroundColor: Colors.red,
-          ),
-        );
       }
     } catch (e) {
       print('Error navigating to job: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
-      );
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        );
+      }
     }
   }
 
@@ -645,6 +855,84 @@ class AssignedJobDetailScreen extends StatelessWidget {
 
   void _showContactUsDialog(BuildContext context) {
     showDialog(context: context, builder: (context) => const ContactUsDialog());
+  }
+
+  Future<void> _requestJobApproval(
+    BuildContext context,
+    Map<String, dynamic>? data,
+  ) async {
+    if (data == null) return;
+
+    final String? assignedJobId = data['assignedJobId'] ?? widget.assignedJobId;
+    final String? jobId = data['jobId'];
+    final String? workerId = data['workerId'];
+    final String? posterId = data['jobPosterId'];
+    final String? jobTitle = data['jobTitle'];
+
+    if (assignedJobId == null || jobId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Error: Missing job information'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    try {
+      final existingQuery =
+          await FirebaseFirestore.instance
+              .collection('JobPayments')
+              .where('assignedJobId', isEqualTo: assignedJobId)
+              .where('status', isEqualTo: 'pending_admin_approval')
+              .get();
+
+      if (existingQuery.docs.isNotEmpty) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Approval request is already pending review by Admin.',
+              ),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+        return;
+      }
+
+      await FirebaseFirestore.instance.collection('JobPayments').add({
+        'assignedJobId': assignedJobId,
+        'jobId': jobId,
+        'workerId': workerId,
+        'posterId': posterId,
+        'jobTitle': jobTitle,
+        'status': 'pending_admin_approval',
+        'requestedBy': 'skilled_worker',
+        'requestedAt': FieldValue.serverTimestamp(),
+        'amount': data['budget'] ?? data['jobPrice'],
+      });
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Job Approval Sent! Admin will review and add payment.',
+            ),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to send request: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   void _logout(BuildContext context) async {

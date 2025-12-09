@@ -211,7 +211,7 @@ class _JobDetailContentState extends State<_JobDetailContent> {
           await FirebaseFirestore.instance
               .collection('JobRequests')
               .where('jobId', isEqualTo: widget.jobId)
-              .where('status', isEqualTo: 'accepted')
+              .where('status', whereIn: ['accepted', 'in_progress'])
               .get();
 
       print(
@@ -1035,33 +1035,38 @@ class _JobDetailContentState extends State<_JobDetailContent> {
                             children: [
                               Expanded(
                                 child: FutureBuilder<bool>(
-                                  future: Provider.of<HomeProfileProvider>(
-                                    context,
-                                    listen: false,
-                                  ).canRequestJobs(context),
+                                  future: _isJobRequestAccepted(),
                                   builder: (context, snapshot) {
-                                    final isLoading =
-                                        snapshot.connectionState ==
-                                        ConnectionState.waiting;
-                                    final canRequest = snapshot.data ?? false;
-
-                                    if (isLoading) {
-                                      return ElevatedButton.icon(
-                                        onPressed: null,
-                                        icon: const SizedBox(
-                                          width: 20,
-                                          height: 20,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2,
-                                            valueColor:
-                                                AlwaysStoppedAnimation<Color>(
-                                                  Colors.white,
-                                                ),
-                                          ),
+                                    if (snapshot.connectionState ==
+                                        ConnectionState.waiting) {
+                                      return const SizedBox(
+                                        height: 50,
+                                        child: Center(
+                                          child: CircularProgressIndicator(),
                                         ),
-                                        label: const Text('Loading...'),
+                                      );
+                                    }
+
+                                    final isAccepted = snapshot.data ?? false;
+
+                                    if (isAccepted) {
+                                      return ElevatedButton.icon(
+                                        onPressed: () {
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
+                                            const SnackBar(
+                                              content: Text('Job Approved!'),
+                                              backgroundColor: Colors.green,
+                                            ),
+                                          );
+                                        },
+                                        icon: const Icon(
+                                          Icons.check_circle_outline,
+                                        ),
+                                        label: const Text('Job Approval'),
                                         style: ElevatedButton.styleFrom(
-                                          backgroundColor: Colors.grey.shade400,
+                                          backgroundColor: Colors.blue,
                                           foregroundColor: Colors.white,
                                           padding: const EdgeInsets.symmetric(
                                             vertical: 16,
@@ -1070,28 +1075,18 @@ class _JobDetailContentState extends State<_JobDetailContent> {
                                       );
                                     }
 
-                                    if (!canRequest) {
-                                      return ElevatedButton.icon(
-                                        onPressed:
-                                            null, // Disabled when portfolio incomplete
-                                        icon: const Icon(Icons.work),
-                                        label: const Text('Send Request'),
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: Colors.grey.shade400,
-                                          foregroundColor: Colors.white,
-                                          padding: const EdgeInsets.symmetric(
-                                            vertical: 16,
-                                          ),
-                                        ),
-                                      );
-                                    }
-
-                                    return FutureBuilder<String>(
-                                      future: _getJobRequestStatus(),
+                                    // Fallback to existing logic if not accepted
+                                    return FutureBuilder<bool>(
+                                      future: Provider.of<HomeProfileProvider>(
+                                        context,
+                                        listen: false,
+                                      ).canRequestJobs(context),
                                       builder: (context, snapshot) {
                                         final isLoading =
                                             snapshot.connectionState ==
                                             ConnectionState.waiting;
+                                        final canRequest =
+                                            snapshot.data ?? false;
 
                                         if (isLoading) {
                                           return ElevatedButton.icon(
@@ -1120,37 +1115,93 @@ class _JobDetailContentState extends State<_JobDetailContent> {
                                           );
                                         }
 
-                                        return Container(
-                                          padding: const EdgeInsets.all(16),
-                                          decoration: BoxDecoration(
-                                            color: Colors.blue.shade50,
-                                            borderRadius: BorderRadius.circular(
-                                              8,
+                                        if (!canRequest) {
+                                          return ElevatedButton.icon(
+                                            onPressed: null,
+                                            icon: const Icon(Icons.work),
+                                            label: const Text('Send Request'),
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor:
+                                                  Colors.grey.shade400,
+                                              foregroundColor: Colors.white,
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    vertical: 16,
+                                                  ),
                                             ),
-                                            border: Border.all(
-                                              color: Colors.blue.shade200,
-                                            ),
-                                          ),
-                                          child: Row(
-                                            children: [
-                                              Icon(
-                                                Icons.info_outline,
-                                                color: Colors.blue.shade600,
-                                                size: 20,
-                                              ),
-                                              const SizedBox(width: 12),
-                                              Expanded(
-                                                child: Text(
-                                                  'Job requests are not available. Please contact the job poster directly.',
-                                                  style: TextStyle(
-                                                    color: Colors.blue.shade800,
-                                                    fontSize: 14,
-                                                    fontWeight: FontWeight.w500,
+                                          );
+                                        }
+
+                                        return FutureBuilder<String>(
+                                          future: _getJobRequestStatus(),
+                                          builder: (context, snapshot) {
+                                            final isLoading =
+                                                snapshot.connectionState ==
+                                                ConnectionState.waiting;
+
+                                            if (isLoading) {
+                                              return ElevatedButton.icon(
+                                                onPressed: null,
+                                                icon: const SizedBox(
+                                                  width: 20,
+                                                  height: 20,
+                                                  child: CircularProgressIndicator(
+                                                    strokeWidth: 2,
+                                                    valueColor:
+                                                        AlwaysStoppedAnimation<
+                                                          Color
+                                                        >(Colors.white),
                                                   ),
                                                 ),
+                                                label: const Text('Loading...'),
+                                                style: ElevatedButton.styleFrom(
+                                                  backgroundColor:
+                                                      Colors.grey.shade400,
+                                                  foregroundColor: Colors.white,
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                    vertical: 16,
+                                                  ),
+                                                ),
+                                              );
+                                            }
+
+                                            return Container(
+                                              padding: const EdgeInsets.all(16),
+                                              decoration: BoxDecoration(
+                                                color: Colors.blue.shade50,
+                                                borderRadius:
+                                                    BorderRadius.circular(8),
+                                                border: Border.all(
+                                                  color: Colors.blue.shade200,
+                                                ),
                                               ),
-                                            ],
-                                          ),
+                                              child: Row(
+                                                children: [
+                                                  Icon(
+                                                    Icons.info_outline,
+                                                    color: Colors.blue.shade600,
+                                                    size: 20,
+                                                  ),
+                                                  const SizedBox(width: 12),
+                                                  Expanded(
+                                                    child: Text(
+                                                      'Job requests are not available. Please contact the job poster directly.',
+                                                      style: TextStyle(
+                                                        color:
+                                                            Colors
+                                                                .blue
+                                                                .shade800,
+                                                        fontSize: 14,
+                                                        fontWeight:
+                                                            FontWeight.w500,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            );
+                                          },
                                         );
                                       },
                                     );
@@ -1225,6 +1276,8 @@ class _JobDetailContentState extends State<_JobDetailContent> {
                               ),
                             ],
                           ),
+                          const SizedBox(height: 16),
+
                         ],
                       ),
                     ),

@@ -99,6 +99,7 @@ class _JobAcceptedDetailsScreenState extends State<JobAcceptedDetailsScreen> {
     // TODO: Add backend cancel logic
   }
 
+
   @override
   Widget build(BuildContext context) {
     if (widget.jobId.isEmpty || widget.requestId.isEmpty) {

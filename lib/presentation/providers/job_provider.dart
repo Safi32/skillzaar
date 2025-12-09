@@ -49,7 +49,6 @@ class JobProvider with ChangeNotifier {
     required double longitude,
     required BuildContext context,
     String? serviceType,
-    String? budget,
   }) async {
     _isLoading = true;
     _error = null;
@@ -95,7 +94,7 @@ class JobProvider with ChangeNotifier {
       'description_en': description_en,
       'description_ur': description_ur,
       'Image': imageUrl,
-      'budget': budget,
+
       'Location': location,
       'Address': address,
       'Latitude': latitude,
