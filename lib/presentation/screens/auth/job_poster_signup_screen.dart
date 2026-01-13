@@ -2,17 +2,21 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:skillzaar/core/examples/services/user_data_service.dart';
 import 'package:skillzaar/core/theme/app_theme.dart';
+import 'package:skillzaar/presentation/widgets/sign_up_widget.dart';
 import '../../providers/phone_auth_provider.dart';
 
 class JobPosterSignUpScreen extends StatefulWidget {
   const JobPosterSignUpScreen({Key? key}) : super(key: key);
 
   @override
-  State<JobPosterSignUpScreen> createState() => _JobPosterSignUpScreenState();
+  State<JobPosterSignUpScreen> createState() => JobPosterSignUpScreenState();
 }
 
-class _JobPosterSignUpScreenState extends State<JobPosterSignUpScreen> {
+class JobPosterSignUpScreenState extends State<JobPosterSignUpScreen> {
   final TextEditingController phoneController = TextEditingController();
+  final TextEditingController usernameController = TextEditingController();
+  final TextEditingController emailController = TextEditingController();
+  final TextEditingController passwordController = TextEditingController();
   bool isLoading = false;
 
   bool isValidPhoneNumber(String phone) {
@@ -53,7 +57,7 @@ class _JobPosterSignUpScreenState extends State<JobPosterSignUpScreen> {
     final size = MediaQuery.of(context).size;
 
     return Scaffold(
-      resizeToAvoidBottomInset: false,
+      resizeToAvoidBottomInset: true,
       backgroundColor: Colors.white,
       body: SafeArea(
         child: Stack(
@@ -73,7 +77,7 @@ class _JobPosterSignUpScreenState extends State<JobPosterSignUpScreen> {
             Align(
               alignment: Alignment.topLeft,
               child: Padding(
-                padding: const EdgeInsets.only(top: 40.0, left: 12.0),
+                padding: const EdgeInsets.only(top: 30.0, left: 12.0),
                 child: IconButton(
                   icon: const Icon(Icons.arrow_back_ios),
                   color: AppColors.green,
@@ -83,7 +87,7 @@ class _JobPosterSignUpScreenState extends State<JobPosterSignUpScreen> {
             ),
             // App Logo on top-right
             Positioned(
-              top: 20,
+            
               right: 20,
               child: Image.asset(
                 'assets/applogo.png', // your app logo path
@@ -123,47 +127,29 @@ class _JobPosterSignUpScreenState extends State<JobPosterSignUpScreen> {
                         const SizedBox(height: 40),
 
                         // Label
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            'Mobile Number',
-                            style: TextStyle(
-                              color: AppColors.green,
-                              fontWeight: FontWeight.w600,
-                              fontSize: 15,
-                            ),
-                          ),
+                        SignUpWidget(
+                          label: "Username",
+                          hintText: "Enter your name",
+                          icon: Icons.person,
+                          controller: usernameController,
                         ),
-                        const SizedBox(height: 8),
-
-                        // Phone Input
-                        TextField(
+                          SignUpWidget(
+                          label: "Email",
+                          hintText: "Enter your email",
+                          icon: Icons.email,
+                          controller: emailController,
+                        ),
+                          SignUpWidget(
+                          label: "Passowrd",
+                          hintText: "Enter your password",
+                          icon: Icons.lock,
+                          controller: passwordController,
+                        ),
+                          SignUpWidget(
+                          label: "Phone Number",
+                          hintText: "Enter your phone",
+                          icon: Icons.phone,
                           controller: phoneController,
-                          keyboardType: TextInputType.phone,
-                          decoration: InputDecoration(
-                            hintText: '03XXXXXXXXX',
-                            filled: true,
-                            fillColor: Colors.grey.shade100,
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(14),
-                              borderSide: BorderSide.none,
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(14),
-                              borderSide: BorderSide(
-                                color: AppColors.green,
-                                width: 2,
-                              ),
-                            ),
-                            prefixIcon: Icon(
-                              Icons.phone_rounded,
-                              color: AppColors.green,
-                            ),
-                            contentPadding: const EdgeInsets.symmetric(
-                              vertical: 18,
-                              horizontal: 16,
-                            ),
-                          ),
                         ),
                         const SizedBox(height: 32),
 
@@ -184,7 +170,29 @@ class _JobPosterSignUpScreenState extends State<JobPosterSignUpScreen> {
                                 isLoading
                                     ? null
                                     : () async {
+                                      final username =
+                                          usernameController.text.trim();
+                                      final email = emailController.text.trim();
+                                      final password =
+                                          passwordController.text.trim();
                                       final phone = phoneController.text.trim();
+
+                                      if (username.isEmpty ||
+                                          email.isEmpty ||
+                                          password.isEmpty) {
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
+                                          const SnackBar(
+                                            content: Text(
+                                              'Please enter username, email and password',
+                                            ),
+                                            backgroundColor: Colors.red,
+                                          ),
+                                        );
+                                        return;
+                                      }
+
                                       if (phone.isEmpty) {
                                         ScaffoldMessenger.of(
                                           context,
@@ -245,6 +253,14 @@ class _JobPosterSignUpScreenState extends State<JobPosterSignUpScreen> {
                                               context,
                                               listen: false,
                                             );
+
+                                        phoneAuthProvider
+                                            .setPendingJobPosterProfile(
+                                          displayName: username,
+                                          email: email,
+                                          password: password,
+                                        );
+
                                         phoneAuthProvider.sendOtp(
                                           formattedPhone,
                                           context,

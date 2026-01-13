@@ -31,12 +31,19 @@ class AuthUser {
   final String role;
   final String? name;
   final String? phone;
+  final String? email;
 
-  AuthUser({required this.id, required this.role, this.name, this.phone});
+  AuthUser({
+    required this.id,
+    required this.role,
+    this.name,
+    this.phone,
+    this.email,
+  });
 
   @override
   String toString() {
-    return 'AuthUser(id: $id, role: $role, name: $name, phone: $phone)';
+    return 'AuthUser(id: $id, role: $role, name: $name, phone: $phone, email: $email)';
   }
 }
 
@@ -142,14 +149,17 @@ class AuthStateProvider extends ChangeNotifier {
           notifyListeners();
         }
       } else if (_currentUser!.role == "job_poster") {
+        log("Refreshing profile data for job poster ${_currentUser!.id}");
         final doc =
             await _db.collection("JobPosters").doc(_currentUser!.id).get();
         if (doc.exists) {
+          final data = doc.data();
           _currentUser = AuthUser(
             id: _currentUser!.id,
             role: _currentUser!.role,
-            name: doc.data()?['displayName'] as String?,
-            phone: doc.data()?['phone'] as String?,
+            name: data?['displayName'] as String?,
+            phone: data?['phoneNumber'] as String?,
+            email: data?['email'] as String?,
           );
           notifyListeners();
         }
@@ -182,7 +192,7 @@ class AuthStateProvider extends ChangeNotifier {
   // Skilled Worker login (admin created accounts)
   // ---------------------------
   /// Returns null on success, or error string on failure.
-  Future<String?> loginSkilledWorker(String phone) async {
+  Future<String?> loginSkilledWorker(String phone, String password) async {
     _status = AuthStatus.loggingIn;
     notifyListeners();
 
@@ -201,8 +211,23 @@ class AuthStateProvider extends ChangeNotifier {
       }
 
       final doc = query.docs.first;
+      final data = doc.data();
       final id = doc.id;
-      _name = doc.data()['Name'] as String?;
+      _name = data['Name'] as String? ?? data['displayName'] as String?;
+
+      final storedPassword = (data['password'] as String?) ?? '';
+
+      if (storedPassword.isEmpty) {
+        _status = AuthStatus.notLoggedIn;
+        notifyListeners();
+        return "Password is not set for this account. Please contact support.";
+      }
+
+      if (storedPassword != password) {
+        _status = AuthStatus.notLoggedIn;
+        notifyListeners();
+        return "Incorrect password.";
+      }
 
       _currentUser = AuthUser(
         id: id,
@@ -219,6 +244,179 @@ class AuthStateProvider extends ChangeNotifier {
       return null;
     } catch (e) {
       log("loginSkilledWorker error: $e");
+      _status = AuthStatus.notLoggedIn;
+      notifyListeners();
+      return "Login error: ${e.toString()}";
+    }
+  }
+
+  /// ---------------------------
+  /// Job Poster login with phone/password
+  /// ---------------------------
+  /// Returns null on success, or error string on failure.
+  Future<String?> loginJobPosterWithPhonePassword(
+    String phone,
+    String password,
+  ) async {
+    _status = AuthStatus.loggingIn;
+    notifyListeners();
+
+    try {
+      final query = await _db
+          .collection("JobPosters")
+          .where("phoneNumber", isEqualTo: phone)
+          .limit(1)
+          .get();
+
+      if (query.docs.isEmpty) {
+        _status = AuthStatus.notLoggedIn;
+        notifyListeners();
+        return "No job poster found with this phone.";
+      }
+
+      final doc = query.docs.first;
+      final data = doc.data();
+
+      final storedPassword = (data['password'] as String?) ?? '';
+      final email = data['email'] as String? ?? '';
+
+      if (storedPassword.isEmpty) {
+        _status = AuthStatus.notLoggedIn;
+        notifyListeners();
+        return "Password is not set for this account. Please contact support.";
+      }
+
+      if (storedPassword != password) {
+        _status = AuthStatus.notLoggedIn;
+        notifyListeners();
+        return "Incorrect password.";
+      }
+
+      User? fbUser;
+
+      if (email.isNotEmpty) {
+        try {
+          final userCredential = await _auth.signInWithEmailAndPassword(
+            email: email,
+            password: storedPassword,
+          );
+          fbUser = userCredential.user;
+        } on FirebaseAuthException catch (e) {
+          String msg;
+          switch (e.code) {
+            case 'invalid-email':
+              msg = "Invalid email address.";
+              break;
+            case 'user-not-found':
+              msg = "No job poster found for this phone.";
+              break;
+            case 'wrong-password':
+              msg = "Incorrect password.";
+              break;
+            case 'user-disabled':
+              msg = "This account has been disabled.";
+              break;
+            default:
+              msg = "Login error: ${e.message ?? e.code}";
+          }
+          _status = AuthStatus.notLoggedIn;
+          notifyListeners();
+          return msg;
+        }
+      }
+
+      final userId = fbUser?.uid ?? doc.id;
+
+      _currentUser = AuthUser(
+        id: userId,
+        role: "job_poster",
+        name: data['displayName'] as String? ?? fbUser?.displayName,
+        phone: data['phoneNumber'] as String? ?? fbUser?.phoneNumber,
+        email: data['email'] as String? ?? fbUser?.email,
+      );
+
+      await _saveSession();
+
+      _status = AuthStatus.loggedIn;
+      notifyListeners();
+      return null;
+    } catch (e) {
+      _status = AuthStatus.notLoggedIn;
+      notifyListeners();
+      return "Login error: ${e.toString()}";
+    }
+  }
+
+  /// ---------------------------
+  /// Job Poster login with email/password
+  /// ---------------------------
+  /// Returns null on success, or error string on failure.
+  Future<String?> loginJobPosterWithEmailPassword(
+    String email,
+    String password,
+  ) async {
+    _status = AuthStatus.loggingIn;
+    notifyListeners();
+
+    try {
+      final userCredential = await _auth.signInWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+      final fbUser = userCredential.user;
+
+      if (fbUser == null) {
+        _status = AuthStatus.notLoggedIn;
+        notifyListeners();
+        return "Firebase sign-in failed.";
+      }
+
+      final posterDocRef = _db.collection("JobPosters").doc(fbUser.uid);
+      final snapshot = await posterDocRef.get();
+
+      if (!snapshot.exists) {
+        _status = AuthStatus.notLoggedIn;
+        notifyListeners();
+        return "Job poster profile not found.";
+      }
+
+      final data = snapshot.data();
+
+      _currentUser = AuthUser(
+        id: fbUser.uid,
+        role: "job_poster",
+        name: data?['displayName'] as String? ?? fbUser.displayName,
+        phone: data?['phoneNumber'] as String? ?? fbUser.phoneNumber,
+        email: data?['email'] as String? ?? fbUser.email,
+      );
+
+      await _saveSession();
+
+      _status = AuthStatus.loggedIn;
+      notifyListeners();
+      return null;
+    } on FirebaseAuthException catch (e) {
+      String msg;
+      switch (e.code) {
+        case 'invalid-email':
+          msg = "Invalid email address.";
+          break;
+        case 'user-not-found':
+          msg = "No job poster found with this email.";
+          break;
+        case 'wrong-password':
+          msg = "Incorrect password.";
+          break;
+        case 'user-disabled':
+          msg = "This account has been disabled.";
+          break;
+        default:
+          msg = "Login error: ${e.message ?? e.code}";
+      }
+      _status = AuthStatus.notLoggedIn;
+      notifyListeners();
+      return msg;
+    } catch (e) {
       _status = AuthStatus.notLoggedIn;
       notifyListeners();
       return "Login error: ${e.toString()}";
@@ -289,20 +487,20 @@ class AuthStateProvider extends ChangeNotifier {
       );
 
       // Wait for completer to be completed (codeSent or failure). Fail after timeout.
-      String? res;
-      try {
-        res = await _codeSentCompleter!.future.timeout(waitForCodeSent);
-      } on TimeoutException {
-        res = "Timeout waiting for SMS. Please try again.";
-        // leave _verificationId as is if codeAutoRetrievalTimeout filled it later
-      }
+      // String? res;
+      // try {
+      //   res = await _codeSentCompleter!.future.timeout(waitForCodeSent);
+      // } on TimeoutException {
+      //   res = "Timeout waiting for SMS. Please try again.";
+      //   // leave _verificationId as is if codeAutoRetrievalTimeout filled it later
+      // }
 
-      if (res != null) {
-        // res contains error
-        _status = AuthStatus.notLoggedIn;
-        notifyListeners();
-        return res;
-      }
+      // if (res != null) {
+      //   // res contains error
+      //   _status = AuthStatus.notLoggedIn;
+      //   notifyListeners();
+      //   return res;
+      // }
 
       // If we are not logged in (e.g. auto-verify didn't happen), reset status to notLoggedIn
       // so the UI doesn't show a loading spinner indefinitely.
@@ -374,14 +572,16 @@ class AuthStateProvider extends ChangeNotifier {
         return "Job poster profile not found.";
       }
 
-      // read doc to get displayName
+      // read doc to get profile fields
       final doc = await posterDocRef.get();
+      final data = doc.data();
 
       _currentUser = AuthUser(
         id: fbUser.uid,
         role: "job_poster",
-        name: doc.data()?['displayName'] as String? ?? fbUser.displayName,
-        phone: doc.data()?['phone'] as String? ?? fbUser.phoneNumber,
+        name: data?['displayName'] as String? ?? fbUser.displayName,
+        phone: data?['phoneNumber'] as String? ?? fbUser.phoneNumber,
+        email: data?['email'] as String?,
       );
 
       await _saveSession();
@@ -430,6 +630,8 @@ class AuthStateProvider extends ChangeNotifier {
       final id = _currentUser!.id;
       final r = _currentUser!.role;
 
+      log("determineNextScreen for user $id with role $r");
+
       if (r == "skilled_worker") {
         // Mirror _checkForActiveJobSkilledWorker logic at a high level:
         // 1) Active assigned job
@@ -461,17 +663,17 @@ class AuthStateProvider extends ChangeNotifier {
         if (!doc.exists) return NextScreen.login;
 
         final data = doc.data() ?? {};
-        final profileCompleted = data['profileCompleted'] as bool? ?? false;
-        final activeJobId = data['activeJobId'] as String?;
-        final hasActiveJob = data['hasActiveJob'] as bool? ?? false;
-
+        final profileCompleted = data['profileCompleted'] as bool? ?? true;
+        final hasActiveJob = data['isActive'] as bool? ?? false;
+        log('determineNextScreen: profileCompleted=$profileCompleted, hasActiveJob=$hasActiveJob , for job poster $id');
+        
+        if( hasActiveJob) {
+          return NextScreen.activeJobJobPoster;
+        }
         if (!profileCompleted) {
           return NextScreen.completeProfile;
         }
 
-        if ((activeJobId != null && activeJobId.isNotEmpty) || hasActiveJob) {
-          return NextScreen.activeJobJobPoster;
-        }
 
         return NextScreen.homeJobPoster;
       }

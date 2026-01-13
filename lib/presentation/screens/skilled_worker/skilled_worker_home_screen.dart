@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:skillzaar/presentation/screens/skilled_worker/home_screen_skilled.dart';
 import 'package:skillzaar/presentation/widgets/bottom_bar_widget.dart';
 import '../../widgets/contact_us_dialog.dart';
@@ -49,6 +52,8 @@ class _HomeContentState extends State<_HomeContent> {
   String _selectedJobType = 'All';
   double _selectedRadius = 50.0;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  StreamSubscription<QuerySnapshot>? _assignedJobsSub;
+  bool _navigatedToAssignedJob = false;
 
   @override
   void initState() {
@@ -57,6 +62,7 @@ class _HomeContentState extends State<_HomeContent> {
       _syncAuthProvider();
       _initializeLocationServices();
       _maybeRedirectToActiveJob();
+      _startAssignedJobListener();
     });
   }
 
@@ -122,6 +128,50 @@ class _HomeContentState extends State<_HomeContent> {
     }
   }
 
+  void _startAssignedJobListener() async {
+    try {
+      final provider = Provider.of<SkilledWorkerProvider>(
+        context,
+        listen: false,
+      );
+
+      String? workerId =
+          provider.loggedInUserId ?? FirebaseAuth.instance.currentUser?.uid;
+
+      if (workerId == null || workerId.isEmpty) return;
+
+      await _assignedJobsSub?.cancel();
+      _assignedJobsSub = FirebaseFirestore.instance
+          .collection('AssignedJobs')
+          .where('workerId', isEqualTo: workerId)
+          .where('assignmentStatus', whereIn: ['assigned', 'in_progress'])
+          .where('isActive', isEqualTo: true)
+          .snapshots()
+          .listen((snapshot) {
+        if (!mounted || _navigatedToAssignedJob) return;
+        if (snapshot.docs.isEmpty) return;
+
+        final doc = snapshot.docs.first;
+        final assignedJobId = doc.id;
+        if (assignedJobId.isEmpty) return;
+
+        _navigatedToAssignedJob = true;
+
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          '/assigned-job-detail',
+          (route) => false,
+          arguments: {
+            'assignedJobId': assignedJobId,
+            'userType': 'skilled_worker',
+          },
+        );
+      });
+    } catch (e) {
+      print('[SkilledWorkerHome] Error starting assigned job listener: $e');
+    }
+  }
+
   void _onItemTapped(int index) {
     widget.uiProvider.setLoading(true);
     setState(() {
@@ -162,7 +212,7 @@ class _HomeContentState extends State<_HomeContent> {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text(
-                    'Filters applied: \\${_selectedJobType} jobs within \\${_selectedRadius.round()} km',
+                    'Filters applied: ${_selectedJobType} jobs within ${_selectedRadius.round()} km',
                   ),
                   backgroundColor: Colors.green,
                   duration: const Duration(seconds: 2),
@@ -200,7 +250,8 @@ class _HomeContentState extends State<_HomeContent> {
         final prefs = await SharedPreferences.getInstance();
         await prefs.remove('role');
         await prefs.remove('userId');
-        await prefs.remove('phoneNumber');
+        await prefs.remove('name');
+
       } catch (_) {}
       await FirebaseAuth.instance.signOut();
       if (mounted) {

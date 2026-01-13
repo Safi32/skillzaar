@@ -952,9 +952,9 @@ class JobRequestService {
 
     final inProg =
         await _firestore
-            .collection('JobRequests')
+            .collection('AssignedJobs')
             .where('jobPosterId', isEqualTo: jobPosterId)
-            .where('status', isEqualTo: 'in_progress')
+            .where('isActive', isEqualTo: true)
             .limit(1)
             .get();
     print(
@@ -969,7 +969,7 @@ class JobRequestService {
 
     final acc =
         await _firestore
-            .collection('JobRequests')
+            .collection('AssignedJobs')
             .where('jobPosterId', isEqualTo: jobPosterId)
             .where('status', isEqualTo: 'accepted')
             .where('isActive', isEqualTo: true)

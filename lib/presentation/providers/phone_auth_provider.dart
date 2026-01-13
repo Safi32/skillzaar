@@ -70,6 +70,9 @@ class PhoneAuthProvider with ChangeNotifier {
   bool _isLoggedIn = false;
   String? _loggedInUserId;
   String? _loggedInPhoneNumber;
+  String? _pendingDisplayName;
+  String? _pendingEmail;
+  String? _pendingPassword;
 
   bool get isLoggedIn => _isLoggedIn;
   String? get loggedInUserId => _loggedInUserId;
@@ -79,6 +82,16 @@ class PhoneAuthProvider with ChangeNotifier {
   }
 
   String? get loggedInPhoneNumber => _loggedInPhoneNumber;
+
+  void setPendingJobPosterProfile({
+    required String displayName,
+    required String email,
+    required String password,
+  }) {
+    _pendingDisplayName = displayName;
+    _pendingEmail = email;
+    _pendingPassword = password;
+  }
 
   Future<void> _saveFcmTokenAndStartListener() async {
     try {
@@ -361,8 +374,13 @@ class PhoneAuthProvider with ChangeNotifier {
             .set({
               'userId': _loggedInUserId!,
               'phoneNumber': _loggedInPhoneNumber ?? 'unknown',
-              'displayName': 'Job Poster',
-              'email': '',
+              'displayName':
+                  _pendingDisplayName != null &&
+                          _pendingDisplayName!.trim().isNotEmpty
+                      ? _pendingDisplayName
+                      : 'Job Poster',
+              'email': _pendingEmail ?? '',
+              'password': _pendingPassword ?? '',
               'isActive': true,
               'isVerified': true,
               'userType': 'job_poster',
@@ -800,6 +818,32 @@ class PhoneAuthProvider with ChangeNotifier {
         _error = 'Firebase sign-in failed.';
         notifyListeners();
         return _error;
+      }
+
+      // Optionally link email/password credentials to this phone-based account
+      if (_pendingEmail != null &&
+          _pendingEmail!.trim().isNotEmpty &&
+          _pendingPassword != null &&
+          _pendingPassword!.isNotEmpty) {
+        try {
+          final emailCred = fb_auth.EmailAuthProvider.credential(
+            email: _pendingEmail!.trim(),
+            password: _pendingPassword!,
+          );
+          await user.linkWithCredential(emailCred);
+
+          // Best-effort: update FirebaseAuth user profile
+          await user.updateEmail(_pendingEmail!.trim());
+          if (_pendingDisplayName != null &&
+              _pendingDisplayName!.trim().isNotEmpty) {
+            await user.updateDisplayName(_pendingDisplayName!.trim());
+          }
+        } on fb_auth.FirebaseAuthException catch (e) {
+          // If email is already in use or provider already linked, log and continue
+          print('⚠️ Email/password link failed: ${e.code} - ${e.message}');
+        } catch (e) {
+          print('⚠️ Email/password link failed: $e');
+        }
       }
 
       _isLoggedIn = true;

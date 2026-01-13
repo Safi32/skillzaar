@@ -66,6 +66,8 @@ class JobDetailScreen extends StatelessWidget {
                     jobData?['Address'] ??
                     "No Location";
                 // Payment hidden per requirements
+                final String originalBudget =
+                    jobData?['budget']?.toString() ?? 'Not specified';
 
                 return SingleChildScrollView(
                   padding: const EdgeInsets.all(20),
@@ -77,7 +79,61 @@ class JobDetailScreen extends StatelessWidget {
                           _buildInfoRow("📌 Title", jobTitle),
                           _buildInfoRow("📝 Description", jobDescription),
                           _buildInfoRow("📍 Location", jobLocation),
-                          // Budget removed
+                          StreamBuilder<QuerySnapshot>(
+                            stream: FirebaseFirestore.instance
+                                .collection('JobPayments')
+                                .where('jobId', isEqualTo: jobId)
+                                .snapshots(),
+                            builder: (context, snapshot) {
+                              if (snapshot.connectionState ==
+                                  ConnectionState.waiting) {
+                                final value =
+                                    originalBudget == 'Not specified'
+                                        ? 'Not specified'
+                                        : 'Rs. $originalBudget';
+                                return _buildInfoRow("💰 Budget", value);
+                              }
+
+                              String displayAmount = originalBudget;
+
+                              if (snapshot.hasData &&
+                                  snapshot.data!.docs.isNotEmpty) {
+                                final docs = snapshot.data!.docs;
+                                final validDocs = docs.where((d) {
+                                  final data =
+                                      d.data() as Map<String, dynamic>;
+                                  final a =
+                                      data['amount']?.toString() ?? '0';
+                                  return a != '0' &&
+                                      a != 'Not Specified' &&
+                                      a != 'null' &&
+                                      a.isNotEmpty;
+                                }).toList();
+
+                                final doc = validDocs.isNotEmpty
+                                    ? validDocs.first
+                                    : docs.first;
+                                final data =
+                                    doc.data() as Map<String, dynamic>;
+                                final amount =
+                                    data['amount']?.toString() ?? '0';
+
+                                if (amount != '0' &&
+                                    amount != 'Not Specified' &&
+                                    amount != 'null' &&
+                                    amount.isNotEmpty) {
+                                  displayAmount = amount;
+                                }
+                              }
+
+                              final value =
+                                  displayAmount == 'Not specified'
+                                      ? 'Not specified'
+                                      : 'Rs. $displayAmount';
+
+                              return _buildInfoRow("💰 Budget", value);
+                            },
+                          ),
                         ],
                       ),
                       const SizedBox(height: 20),

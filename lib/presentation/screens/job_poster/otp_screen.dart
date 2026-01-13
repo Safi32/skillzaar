@@ -1,8 +1,11 @@
+import 'dart:developer';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:skillzaar/core/services/job_request_service.dart';
 import '../../providers/auth_state_provider.dart';
 import '../../providers/phone_auth_provider.dart';
-import '../job_poster/job_poster_home_screen.dart';
 
 class JobPosterOtpScreen extends StatefulWidget {
   final String phone;
@@ -73,6 +76,90 @@ class _JobPosterOtpScreenState extends State<JobPosterOtpScreen> {
         _otpCode,
         widget.phone,
       );
+
+      // On successful login, decide next screen based on active job/profile status
+      if (error == null && mounted) {
+        final next = await auth.determineNextScreen();
+        log("determine nextt: "+next.toString());
+        switch (next) {
+          case NextScreen.activeJobJobPoster:
+            final userId = auth.userId;
+            if (userId != null && userId.isNotEmpty) {
+              try {
+                // Resolve active request for this poster to get jobId + requestId
+                final active = await JobRequestService.getActiveRequestForPoster(
+                  userId,
+                  posterPhone: widget.phone,
+                );
+
+                final jobId = active != null ? active['jobId']?.toString() : null;
+                final requestId =
+                    active != null ? active['requestId']?.toString() : null;
+
+                if (jobId != null && jobId.isNotEmpty) {
+                  Navigator.pushNamedAndRemoveUntil(
+                    context,
+                    '/job-poster-accepted-details',
+                    (route) => false,
+                    arguments: {
+                      'jobId': jobId,
+                      'requestId': requestId ?? '',
+                    },
+                  );
+                  return;
+                }
+
+                // Fallback: if active request missing, but JobPosters has activeJobId
+                final doc = await FirebaseFirestore.instance
+                    .collection('JobPosters')
+                    .doc(userId)
+                    .get();
+                final data = doc.data() ?? {};
+                final activeJobId = data['activeJobId'] as String?;
+
+                if (activeJobId != null && activeJobId.isNotEmpty) {
+                  Navigator.pushNamedAndRemoveUntil(
+                    context,
+                    '/job-poster-accepted-details',
+                    (route) => false,
+                    arguments: {
+                      'jobId': activeJobId,
+                      // requestId optional under new schema
+                    },
+                  );
+                  return;
+                }
+              } catch (_) {
+                // Fallback handled below
+              }
+            }
+
+            // Fallback to home if no active job details found
+            Navigator.pushNamedAndRemoveUntil(
+              context,
+              '/job-poster-home',
+              (route) => false,
+            );
+            return;
+
+          case NextScreen.completeProfile:
+            Navigator.pushNamedAndRemoveUntil(
+              context,
+              '/job-poster-profile',
+              (route) => false,
+            );
+            return;
+
+          case NextScreen.homeJobPoster:
+          default:
+            Navigator.pushNamedAndRemoveUntil(
+              context,
+              '/job-poster-home',
+              (route) => false,
+            );
+            return;
+        }
+      }
     }
 
     if (error != null && mounted) {
@@ -93,20 +180,6 @@ class _JobPosterOtpScreenState extends State<JobPosterOtpScreen> {
 
     final auth = Provider.of<AuthStateProvider>(context);
     final phoneAuth = Provider.of<PhoneAuthProvider>(context);
-
-    // AUTO NAVIGATE ON SUCCESS LOGIN (login flow only)
-    if (!isSignUp &&
-        auth.status == AuthStatus.loggedIn &&
-        auth.role == "job_poster") {
-      // Delay navigation so build() completes safely
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        Navigator.pushAndRemoveUntil(
-          context,
-          MaterialPageRoute(builder: (_) => const JobPosterHomeScreen()),
-          (route) => false,
-        );
-      });
-    }
 
     return Scaffold(
       appBar: AppBar(title: const Text("Verify OTP")),

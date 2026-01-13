@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'dart:developer';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -43,6 +45,8 @@ class _JobPosterHomeContent extends StatefulWidget {
 class _JobPosterHomeContentState extends State<_JobPosterHomeContent> {
   int _selectedIndex = 0;
   bool _hasShownLocationPrompt = false;
+  StreamSubscription<QuerySnapshot>? _assignedJobsSub;
+  bool _navigatedToAssignedJob = false;
 
   late List<Widget> _pages;
   bool _showMyAdsOnly = false;
@@ -53,6 +57,7 @@ class _JobPosterHomeContentState extends State<_JobPosterHomeContent> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _showLocationPermissionPrompt();
       _maybeRedirectToActiveJob();
+      _startAssignedJobListener();
     });
     _pages = [
       HomeScreen(searchQuery: ''),
@@ -122,6 +127,49 @@ class _JobPosterHomeContentState extends State<_JobPosterHomeContent> {
       }
     } catch (e) {
       print('[JobPosterHome] Error checking for active job: $e');
+    }
+  }
+
+  void _startAssignedJobListener() async {
+    try {
+      final authProvider = Provider.of<AuthStateProvider>(
+        context,
+        listen: false,
+      );
+      final user = FirebaseAuth.instance.currentUser;
+      final jobPosterId = authProvider.userId ?? user?.uid;
+
+      if (jobPosterId == null || jobPosterId.isEmpty) return;
+
+      await _assignedJobsSub?.cancel();
+      _assignedJobsSub = FirebaseFirestore.instance
+          .collection('AssignedJobs')
+          .where('jobPosterId', isEqualTo: jobPosterId)
+          .where('assignmentStatus', whereIn: ['assigned', 'in_progress'])
+          .where('isActive', isEqualTo: true)
+          .snapshots()
+          .listen((snapshot) {
+        if (!mounted || _navigatedToAssignedJob) return;
+        if (snapshot.docs.isEmpty) return;
+
+        final doc = snapshot.docs.first;
+        final assignedJobId = doc.id;
+        if (assignedJobId.isEmpty) return;
+
+        _navigatedToAssignedJob = true;
+
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          '/assigned-job-detail',
+          (route) => false,
+          arguments: {
+            'assignedJobId': assignedJobId,
+            'userType': 'job_poster',
+          },
+        );
+      });
+    } catch (e) {
+      print('[JobPosterHome] Error starting assigned job listener: $e');
     }
   }
 
@@ -259,6 +307,12 @@ class _JobPosterHomeContentState extends State<_JobPosterHomeContent> {
       _selectedIndex = 1;
     });
     Navigator.pop(context);
+  }
+
+  @override
+  void dispose() {
+    _assignedJobsSub?.cancel();
+    super.dispose();
   }
 
   @override

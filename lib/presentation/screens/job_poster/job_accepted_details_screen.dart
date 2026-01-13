@@ -280,9 +280,65 @@ class _JobAcceptedDetailsScreenState extends State<JobAcceptedDetailsScreen> {
                             "🧰 Service Type",
                             jobServiceType.isEmpty ? '-' : jobServiceType,
                           ),
-                          _buildInfoRow(
-                            "💰 Budget",
-                            budget == 'Not Specified' ? budget : 'Rs. $budget',
+                          StreamBuilder<QuerySnapshot>(
+                            stream:
+                                FirebaseFirestore.instance
+                                    .collection('JobPayments')
+                                    .where(
+                                      'assignedJobId',
+                                      isEqualTo: widget.requestId,
+                                    )
+                                    .snapshots(),
+                            builder: (context, snapshot) {
+                              if (snapshot.connectionState ==
+                                  ConnectionState.waiting) {
+                                return _buildInfoRow(
+                                  "💰 Budget",
+                                  budget == 'Not Specified'
+                                      ? budget
+                                      : 'Rs. $budget',
+                                );
+                              }
+
+                              String displayAmount = budget;
+
+                              if (snapshot.hasData &&
+                                  snapshot.data!.docs.isNotEmpty) {
+                                final docs = snapshot.data!.docs;
+                                final validDocs = docs.where((d) {
+                                  final data =
+                                      d.data() as Map<String, dynamic>;
+                                  final a =
+                                      data['amount']?.toString() ?? '0';
+                                  return a != '0' &&
+                                      a != 'Not Specified' &&
+                                      a != 'null' &&
+                                      a.isNotEmpty;
+                                }).toList();
+
+                                final doc = validDocs.isNotEmpty
+                                    ? validDocs.first
+                                    : docs.first;
+                                final data =
+                                    doc.data() as Map<String, dynamic>;
+                                final amount =
+                                    data['amount']?.toString() ?? '0';
+
+                                if (amount != '0' &&
+                                    amount != 'Not Specified' &&
+                                    amount != 'null' &&
+                                    amount.isNotEmpty) {
+                                  displayAmount = amount;
+                                }
+                              }
+
+                              return _buildInfoRow(
+                                "💰 Budget",
+                                displayAmount == 'Not Specified'
+                                    ? displayAmount
+                                    : 'Rs. $displayAmount',
+                              );
+                            },
                           ),
                           _buildInfoRow(
                             "📄 Job Status",

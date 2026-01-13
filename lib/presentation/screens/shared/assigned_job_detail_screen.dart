@@ -1,5 +1,9 @@
+import 'dart:async';
+import 'dart:developer';
+
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:skillzaar/core/services/location_tracking_service.dart';
 import '../skilled_worker/navigate_to_job_screen.dart';
 import 'worker_tracking_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -24,11 +28,20 @@ class AssignedJobDetailScreen extends StatefulWidget {
 
 class _AssignedJobDetailScreenState extends State<AssignedJobDetailScreen> {
   String? _cachedBudget;
+  Timer? _locationUpdateTimer;
+  String? _locationWorkerId;
 
   @override
   void initState() {
     super.initState();
     _loadCachedBudget();
+  }
+
+  @override
+  void dispose() {
+    _locationUpdateTimer?.cancel();
+    _locationUpdateTimer = null;
+    super.dispose();
   }
 
   Future<void> _loadCachedBudget() async {
@@ -40,7 +53,38 @@ class _AssignedJobDetailScreenState extends State<AssignedJobDetailScreen> {
     }
   }
 
+  void _startPeriodicLocationUpdatesForWorker(String workerId) {
+    // Avoid restarting timer if already tracking same worker
+    if (_locationWorkerId == workerId && _locationUpdateTimer != null) {
+      return;
+    }
+
+    _locationWorkerId = workerId;
+    _locationUpdateTimer?.cancel();
+
+    _locationUpdateTimer = Timer.periodic(const Duration(seconds: 5), (_) async {
+      if (!mounted) return;
+
+      try {
+        final position = await LocationTrackingService().getCurrentLocation();
+        if (position == null) return;
+
+        await FirebaseFirestore.instance
+            .collection('SkilledWorkers')
+            .doc(workerId)
+            .update({
+              'currentLatitude': position.latitude,
+              'currentLongitude': position.longitude,
+              'lastLocationUpdate': FieldValue.serverTimestamp(),
+            });
+      } catch (e) {
+        log('Error updating worker lat/lng for $workerId: $e');
+      }
+    });
+  }
+
   Future<void> _cacheBudget(String value) async {
+    log('Caching budget: $value for job: ${widget.assignedJobId}');
     if (value == '0' ||
         value == 'Not Specified' ||
         value.isEmpty ||
@@ -114,6 +158,15 @@ class _AssignedJobDetailScreenState extends State<AssignedJobDetailScreen> {
             return const Center(child: Text('Job details not found'));
           }
 
+          // For skilled workers viewing their assigned job, start periodic
+          // location updates to SkilledWorkers.currentLatitude/currentLongitude.
+          if (widget.userType == 'skilled_worker') {
+            final workerId = data['workerId'] as String?;
+            if (workerId != null && workerId.isNotEmpty) {
+              _startPeriodicLocationUpdatesForWorker(workerId);
+            }
+          }
+
           // Map AssignedJobs fields to our expected structure
           final jobDetails = {
             'jobName': data['jobTitle'] ?? 'No Title',
@@ -178,7 +231,7 @@ class _AssignedJobDetailScreenState extends State<AssignedJobDetailScreen> {
                     ),
                     _buildBudgetStreamRow(
                       "💰 Budget",
-                      jobDetails['budget']!,
+                      jobDetails['budget']! == 0?_cachedBudget:jobDetails['budget']!,
                       widget.assignedJobId,
                     ),
                     _buildInfoRow(
@@ -274,13 +327,7 @@ class _AssignedJobDetailScreenState extends State<AssignedJobDetailScreen> {
                 // Action Buttons - Different for each user type
                 if (widget.userType == 'skilled_worker') ...[
                   // Skilled Worker Buttons
-                  _neonButton(
-                    text: "Job Approval",
-                    color: Colors.blue,
-                    onTap: () {
-                      _requestJobApproval(context, data);
-                    },
-                  ),
+                  _buildJobApprovalButton(context, data),
                   const SizedBox(height: 16),
                   Row(
                     children: [
@@ -424,6 +471,84 @@ class _AssignedJobDetailScreenState extends State<AssignedJobDetailScreen> {
     );
   }
 
+  Widget _buildJobApprovalButton(
+    BuildContext context,
+    Map<String, dynamic> data,
+  ) {
+    return StreamBuilder<QuerySnapshot>(
+      stream:
+          FirebaseFirestore.instance
+              .collection('JobPayments')
+              .where('assignedJobId', isEqualTo: widget.assignedJobId)
+              .snapshots(),
+      builder: (context, snapshot) {
+        String buttonText = "Job Approval";
+        Color buttonColor = Colors.blue;
+        VoidCallback onTap;
+
+        if (snapshot.hasData && snapshot.data!.docs.isNotEmpty) {
+          final docs = snapshot.data!.docs;
+          final latest = docs.first;
+          final paymentData = latest.data() as Map<String, dynamic>;
+          final status = paymentData['status'] as String? ?? '';
+
+          if (status == 'pending_admin_approval') {
+            buttonText = "Approval Pending";
+            buttonColor = Colors.grey;
+            onTap = () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text(
+                    'Approval already sent. Waiting for admin to add budget.',
+                  ),
+                  backgroundColor: Colors.orange,
+                ),
+              );
+            };
+          } else if ([
+            'payment_approved',
+            'approved',
+            'completed',
+          ].contains(status)) {
+            buttonText = "Payment Approved";
+            buttonColor = Colors.green;
+            onTap = () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Payment already approved for this job.'),
+                  backgroundColor: Colors.green,
+                ),
+              );
+            };
+          } else {
+            buttonText = "Approval Pending";
+            buttonColor = Colors.grey;
+            onTap = () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    'Approval already requested (status: $status).',
+                  ),
+                  backgroundColor: Colors.orange,
+                ),
+              );
+            };
+          }
+        } else {
+          onTap = () {
+            _requestJobApproval(context, data);
+          };
+        }
+
+        return _neonButton(
+          text: buttonText,
+          color: buttonColor,
+          onTap: onTap,
+        );
+      },
+    );
+  }
+
   Widget _neonButton({
     required String text,
     required Color color,
@@ -486,7 +611,7 @@ class _AssignedJobDetailScreenState extends State<AssignedJobDetailScreen> {
                 // If waiting, try to show cached budget if available
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   if (_cachedBudget != null) {
-                    return Text(
+                    return Text( 
                       "Rs. $_cachedBudget (Cached)",
                       style: const TextStyle(
                         fontSize: 16,
@@ -884,7 +1009,7 @@ class _AssignedJobDetailScreenState extends State<AssignedJobDetailScreen> {
           await FirebaseFirestore.instance
               .collection('JobPayments')
               .where('assignedJobId', isEqualTo: assignedJobId)
-              .where('status', isEqualTo: 'pending_admin_approval')
+              .limit(1)
               .get();
 
       if (existingQuery.docs.isNotEmpty) {
@@ -892,7 +1017,7 @@ class _AssignedJobDetailScreenState extends State<AssignedJobDetailScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text(
-                'Approval request is already pending review by Admin.',
+                'An approval/payment record already exists for this job.',
               ),
               backgroundColor: Colors.orange,
             ),

@@ -20,7 +20,7 @@ class JobPosterDrawer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
 
-    final authState = Provider.of<AuthStateProvider>(context, listen: false);
+    final authState = Provider.of<AuthStateProvider>(context);
     return Drawer(
       child: ListView(
         padding: EdgeInsets.zero,
@@ -37,9 +37,9 @@ class JobPosterDrawer extends StatelessWidget {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  (authState.role == 'job_poster' && authState.userId != null)
-                      ? authState.name ?? 'Job Poster'
-                      : 'Guest User',
+                  authState.userId == null
+                      ? 'Guest User'
+                      : authState.currentUser?.name ?? 'Job Poster',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 20,
@@ -60,11 +60,6 @@ class JobPosterDrawer extends StatelessWidget {
             onTap: onPostJob,
           ),
 
-          ListTile(
-            leading: const Icon(Icons.dashboard, color: Colors.green),
-            title: const Text('All Ads'),
-            onTap: onAllAds,
-          ),
           ListTile(
             leading: const Icon(Icons.work, color: Colors.green),
             title: const Text('My Ads'),

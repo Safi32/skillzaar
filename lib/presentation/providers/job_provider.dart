@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:skillzaar/presentation/providers/auth_state_provider.dart';
 import 'dart:io';
 import 'notification_provider.dart';
 import 'package:provider/provider.dart';
@@ -56,16 +57,16 @@ class JobProvider with ChangeNotifier {
     notifyListeners();
 
     // Get the actual logged-in user's ID from phone auth provider
-    final phoneAuthProvider = Provider.of<auth_provider.PhoneAuthProvider>(
+    final phoneAuthProvider = Provider.of<AuthStateProvider>(
       context,
       listen: false,
     );
 
     final String jobPosterId =
-        phoneAuthProvider.loggedInUserId ??
+        phoneAuthProvider.userId ??
         'job_poster_${DateTime.now().millisecondsSinceEpoch}';
     final String posterPhone =
-        phoneAuthProvider.loggedInPhoneNumber ?? 'unknown_phone';
+        phoneAuthProvider.userId ?? 'unknown_phone';
 
     print('🔍 Posting Job (Logged-in User):');
     print('  Job Poster ID: $jobPosterId');

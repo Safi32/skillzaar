@@ -6,6 +6,8 @@ import 'presentation/screens/role_selection_screen.dart';
 import 'core/theme/app_theme.dart';
 import 'presentation/routes/app_routes.dart';
 import 'package:provider/provider.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:skillzaar/core/services/job_request_service.dart';
 
 import 'presentation/providers/cnic_provider.dart';
 import 'presentation/providers/profile_provider.dart';
@@ -16,8 +18,6 @@ import 'presentation/providers/job_provider.dart';
 import 'presentation/providers/ui_state_provider.dart';
 import 'presentation/providers/location_state_provider.dart';
 import 'presentation/providers/notification_provider.dart';
-
-import 'presentation/screens/job_poster/job_poster_home_screen.dart';
 import 'presentation/screens/skilled_worker/skilled_worker_home_screen.dart';
 
 import 'presentation/widgets/notification_initializer.dart';
@@ -101,10 +101,140 @@ class AuthWrapper extends StatelessWidget {
           return const SkilledWorkerHomeScreen();
         }
         if (auth.role == "job_poster") {
-          return const JobPosterHomeScreen();
+          return const JobPosterSessionRouter();
         }
 
         return const RoleSelectionScreen();
     }
   }
 }
+
+/// Router widget used when a job poster session is already restored.
+/// It decides where to send the user on cold start based on active jobs
+/// and profile completion, using AuthStateProvider.determineNextScreen.
+class JobPosterSessionRouter extends StatefulWidget {
+  const JobPosterSessionRouter({Key? key}) : super(key: key);
+
+  @override
+  State<JobPosterSessionRouter> createState() => _JobPosterSessionRouterState();
+}
+
+class _JobPosterSessionRouterState extends State<JobPosterSessionRouter> {
+  bool _navigated = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_navigated) {
+      _navigated = true;
+      _handleRouting();
+    }
+  }
+
+  Future<void> _handleRouting() async {
+    final auth = Provider.of<AuthStateProvider>(context, listen: false);
+
+    // Safety: ensure we only run for logged-in job posters
+    if (auth.status != AuthStatus.loggedIn || auth.role != "job_poster") {
+      Navigator.pushNamedAndRemoveUntil(
+        context,
+        '/role-selection',
+        (route) => false,
+      );
+      return;
+    }
+
+    final next = await auth.determineNextScreen();
+
+    switch (next) {
+      case NextScreen.activeJobJobPoster:
+        final userId = auth.userId;
+        if (userId != null && userId.isNotEmpty) {
+          try {
+            // Best-effort: get active request to obtain jobId + requestId
+            final active = await JobRequestService.getActiveRequestForPoster(
+              userId,
+            );
+
+            final jobId = active != null ? active['jobId']?.toString() : null;
+            final requestId =
+                active != null ? active['requestId']?.toString() : null;
+
+            if (jobId != null && jobId.isNotEmpty) {
+              Navigator.pushNamedAndRemoveUntil(
+                context,
+                '/job-poster-accepted-details',
+                (route) => false,
+                arguments: {
+                  'jobId': jobId,
+                  'requestId': requestId ?? '',
+                },
+              );
+              return;
+            }
+
+            // Fallback: read activeJobId from JobPosters doc
+            final doc = await FirebaseFirestore.instance
+                .collection('JobPosters')
+                .doc(userId)
+                .get();
+            final data = doc.data() ?? {};
+            final activeJobId = data['activeJobId'] as String?;
+
+            if (activeJobId != null && activeJobId.isNotEmpty) {
+              Navigator.pushNamedAndRemoveUntil(
+                context,
+                '/job-poster-accepted-details',
+                (route) => false,
+                arguments: {
+                  'jobId': activeJobId,
+                  // requestId optional
+                },
+              );
+              return;
+            }
+          } catch (_) {
+            // If anything fails, drop to home below
+          }
+        }
+
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          '/job-poster-home',
+          (route) => false,
+        );
+        return;
+
+      case NextScreen.completeProfile:
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          '/job-poster-profile',
+          (route) => false,
+        );
+        return;
+
+      case NextScreen.homeJobPoster:
+      case NextScreen.login:
+      case NextScreen.homeSkilledWorker:
+      case NextScreen.activeJobSkilledWorker:
+      default:
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          '/job-poster-home',
+          (route) => false,
+        );
+        return;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Simple loading scaffold while we resolve next screen
+    return const Scaffold(
+      body: Center(
+        child: CircularProgressIndicator(),
+      ),
+    );
+  }
+}
+

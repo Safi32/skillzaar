@@ -169,6 +169,8 @@ class _JobPosterDetailScreenState extends State<JobPosterDetailScreen> {
     final jobLocation =
         jobData['Location'] ?? jobData['Address'] ?? 'No Location';
     // Payment hidden per requirements
+    final String originalBudget =
+        jobData['budget']?.toString() ?? 'Not specified';
     final jobImage = (jobData['Image'] ?? '').toString();
     final createdAt = jobData['createdAt'];
     DateTime? createdAtDate;
@@ -245,6 +247,71 @@ class _JobPosterDetailScreenState extends State<JobPosterDetailScreen> {
                     ),
                   if (createdAtDate != null) const SizedBox(height: 12),
                   // Budget removed
+                  StreamBuilder<QuerySnapshot>(
+                    stream:
+                        FirebaseFirestore.instance
+                            .collection('JobPayments')
+                            .where('jobId', isEqualTo: jobId)
+                            .snapshots(),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState ==
+                          ConnectionState.waiting) {
+                        final value =
+                            originalBudget == 'Not specified'
+                                ? 'Not specified'
+                                : 'Rs. $originalBudget';
+                        return _buildDetailRow(
+                          Icons.attach_money,
+                          'Budget',
+                          value,
+                        );
+                      }
+
+                      String displayAmount = originalBudget;
+
+                      if (snapshot.hasData &&
+                          snapshot.data!.docs.isNotEmpty) {
+                        final docs = snapshot.data!.docs;
+                        final validDocs =
+                            docs.where((d) {
+                              final data =
+                                  d.data() as Map<String, dynamic>;
+                              final a = data['amount']?.toString() ?? '0';
+                              return a != '0' &&
+                                  a != 'Not Specified' &&
+                                  a != 'null' &&
+                                  a.isNotEmpty;
+                            }).toList();
+
+                        final doc =
+                            validDocs.isNotEmpty
+                                ? validDocs.first
+                                : docs.first;
+                        final data =
+                            doc.data() as Map<String, dynamic>;
+                        final amount = data['amount']?.toString();
+
+                        if (amount != null &&
+                            amount != '0' &&
+                            amount != 'Not Specified' &&
+                            amount != 'null' &&
+                            amount.isNotEmpty) {
+                          displayAmount = amount;
+                        }
+                      }
+
+                      final value =
+                          displayAmount == 'Not specified'
+                              ? 'Not specified'
+                              : 'Rs. $displayAmount';
+
+                      return _buildDetailRow(
+                        Icons.attach_money,
+                        'Budget',
+                        value,
+                      );
+                    },
+                  ),
                 ],
               ),
             ),

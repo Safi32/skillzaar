@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:skillzaar/presentation/providers/auth_state_provider.dart';
-import 'package:skillzaar/presentation/screens/job_poster/otp_screen.dart';
 import 'package:skillzaar/core/services/job_request_service.dart';
 import '../../../core/theme/app_theme.dart';
 
@@ -14,21 +13,20 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController phoneController = TextEditingController();
+  final TextEditingController emailController = TextEditingController();
+  final TextEditingController passwordController = TextEditingController();
   late final AuthStateProvider auth;
   bool _sending = false;
+  bool isLoading = false;
 
   @override
   void initState() {
     super.initState();
     // init in didChangeDependencies would also work; we use this to cache provider
     // but DO NOT call provider methods here that depend on context (we don't).
+     auth = Provider.of<AuthStateProvider>(context, listen: false);
   }
 
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    auth = Provider.of<AuthStateProvider>(context, listen: false);
-  }
 
   bool isValidPhoneNumber(String phone) {
     String cleanPhone = phone.replaceAll(RegExp(r'[\s\-\(\)]'), '');
@@ -54,32 +52,61 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   void dispose() {
     phoneController.dispose();
+    emailController.dispose();
+    passwordController.dispose();
     super.dispose();
   }
 
   Future<void> _handleLogin(String role) async {
-    final raw = phoneController.text.trim();
-    if (raw.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter your phone number')),
-      );
-      return;
-    }
-    if (!isValidPhoneNumber(raw)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Phone number must be valid')),
-      );
-      return;
-    }
-
-    final phone = formatPhoneNumber(raw);
+    setState(() {
+      isLoading = true;
+    });
 
     if (role == "skilled_worker") {
+      final raw = phoneController.text.trim();
+      final password = passwordController.text.trim();
+      if (raw.isEmpty) {
+        setState(() {
+          isLoading = false;
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please enter your phone number')),
+        );
+        return;
+      }
+      if (!isValidPhoneNumber(raw)) {
+        setState(() {
+          isLoading = false;
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Phone number must be valid')),
+        );
+        return;
+      }
+      if (password.isEmpty) {
+        setState(() {
+          isLoading = false;
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please enter your password')),
+        );
+        return;
+      }
+
+      final phone = formatPhoneNumber(raw);
+
       setState(() => _sending = true);
-      final error = await auth.loginSkilledWorker(phone);
+      final error = await auth.loginSkilledWorker(phone, password);
       setState(() => _sending = false);
 
       if (error != null) {
+        setState(() {
+  isLoading = false;
+});
+    
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error)));
         }
@@ -126,27 +153,124 @@ class _LoginScreenState extends State<LoginScreen> {
           Navigator.pushNamedAndRemoveUntil(context, '/skilled-worker-home', (r) => false);
       }
     } else {
-      // job_poster -> OTP flow
+      // job_poster -> phone/password login
+      final raw = phoneController.text.trim();
+      final password = passwordController.text.trim();
+
+      if (raw.isEmpty) {
+        setState(() {
+          isLoading = false;
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please enter your phone number')),
+        );
+        return;
+      }
+
+      if (!isValidPhoneNumber(raw)) {
+        setState(() {
+          isLoading = false;
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Phone number must be valid')),
+        );
+        return;
+      }
+
+      if (password.isEmpty) {
+        setState(() {
+          isLoading = false;
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please enter your password')),
+        );
+        return;
+      }
+
+      final phone = formatPhoneNumber(raw);
+
       setState(() => _sending = true);
-      final error = await auth.sendOtpToPhone(phone);
+      final error = await auth.loginJobPosterWithPhonePassword(phone, password);
       setState(() => _sending = false);
 
       if (error != null) {
+        setState(() {
+          isLoading = false;
+        });
+
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error)));
         }
         return;
       }
 
-      // sendOtpToPhone completes when codeSent was received -> verificationId available
       if (!mounted) return;
 
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => JobPosterOtpScreen(phone: phone),
-        ),
-      );
+      // After successful login, route based on next screen
+      final next = await auth.determineNextScreen();
+      switch (next) {
+        case NextScreen.activeJobJobPoster:
+          // Best-effort: try to resolve active job and open details
+          final userId = auth.userId;
+          if (userId != null && userId.isNotEmpty) {
+            try {
+              final active = await JobRequestService.getActiveRequestForPoster(
+                userId,
+              );
+              final jobId = active != null ? active['jobId']?.toString() : null;
+              final requestId =
+                  active != null ? active['requestId']?.toString() : null;
+
+              if (jobId != null && jobId.isNotEmpty) {
+                Navigator.pushNamedAndRemoveUntil(
+                  context,
+                  '/job-poster-accepted-details',
+                  (route) => false,
+                  arguments: {
+                    'jobId': jobId,
+                    'requestId': requestId ?? '',
+                  },
+                );
+                setState(() {
+                  isLoading = false;
+                });
+                return;
+              }
+            } catch (_) {
+              // Fallback handled below
+            }
+          }
+
+          Navigator.pushNamedAndRemoveUntil(
+            context,
+            '/job-poster-home',
+            (route) => false,
+          );
+          break;
+
+        case NextScreen.completeProfile:
+          Navigator.pushNamedAndRemoveUntil(
+            context,
+            '/job-poster-profile',
+            (route) => false,
+          );
+          break;
+
+        case NextScreen.homeJobPoster:
+        default:
+          Navigator.pushNamedAndRemoveUntil(
+            context,
+            '/job-poster-home',
+            (route) => false,
+          );
+          break;
+      }
+      setState(() {
+        isLoading = false;
+      });
     }
   }
 
@@ -157,14 +281,12 @@ class _LoginScreenState extends State<LoginScreen> {
 
     final String role = args?['role'] ?? 'job_poster';
     final String description = role == 'skilled_worker'
-        ? 'Enter your mobile number to login as a Skilled Worker.'
-        : 'Enter your mobile number to join as a Job Poster.';
+        ? 'Enter your mobile number and password to login as a Skilled Worker.'
+        : 'Enter your mobile number and password to login as a Job Poster.';
     final size = MediaQuery.of(context).size;
 
     // show loading when provider status is loggingIn OR our local _sending
-    final provider = context.watch<AuthStateProvider>();
-    final providerLoading = provider.status == AuthStatus.loggingIn;
-    final showLoading = providerLoading || _sending;
+   
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -255,36 +377,129 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ),
                         const SizedBox(height: 32),
-                        // Phone field
-                        TextField(
-                          controller: phoneController,
-                          keyboardType: TextInputType.phone,
-                          decoration: InputDecoration(
-                            labelText: "Mobile Number",
-                            labelStyle: TextStyle(
-                              color: AppColors.green,
-                              fontWeight: FontWeight.w600,
-                            ),
-                            hintText: "Enter your phone number",
-                            filled: true,
-                            fillColor: Colors.grey[100],
-                            prefixIcon: Icon(
-                              Icons.phone,
-                              color: AppColors.green,
-                            ),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(16),
-                              borderSide: BorderSide.none,
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(16),
-                              borderSide: BorderSide(
+                        // Phone/password fields
+                        if (role == 'skilled_worker') ...[
+                          TextField(
+                            controller: phoneController,
+                            keyboardType: TextInputType.phone,
+                            decoration: InputDecoration(
+                              labelText: "Mobile Number",
+                              labelStyle: TextStyle(
                                 color: AppColors.green,
-                                width: 2,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              hintText: "Enter your phone number",
+                              filled: true,
+                              fillColor: Colors.grey[100],
+                              prefixIcon: Icon(
+                                Icons.phone,
+                                color: AppColors.green,
+                              ),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(16),
+                                borderSide: BorderSide.none,
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(16),
+                                borderSide: BorderSide(
+                                  color: AppColors.green,
+                                  width: 2,
+                                ),
                               ),
                             ),
                           ),
-                        ),
+                          const SizedBox(height: 16),
+                          TextField(
+                            controller: passwordController,
+                            obscureText: true,
+                            decoration: InputDecoration(
+                              labelText: "Password",
+                              labelStyle: TextStyle(
+                                color: AppColors.green,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              hintText: "Enter your password",
+                              filled: true,
+                              fillColor: Colors.grey[100],
+                              prefixIcon: Icon(
+                                Icons.lock,
+                                color: AppColors.green,
+                              ),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(16),
+                                borderSide: BorderSide.none,
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(16),
+                                borderSide: BorderSide(
+                                  color: AppColors.green,
+                                  width: 2,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ]
+                        else ...[
+                          TextField(
+                            controller: phoneController,
+                            keyboardType: TextInputType.phone,
+                            decoration: InputDecoration(
+                              labelText: "Mobile Number",
+                              labelStyle: TextStyle(
+                                color: AppColors.green,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              hintText: "Enter your phone number",
+                              filled: true,
+                              fillColor: Colors.grey[100],
+                              prefixIcon: Icon(
+                                Icons.phone,
+                                color: AppColors.green,
+                              ),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(16),
+                                borderSide: BorderSide.none,
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(16),
+                                borderSide: BorderSide(
+                                  color: AppColors.green,
+                                  width: 2,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          TextField(
+                            controller: passwordController,
+                            obscureText: true,
+                            decoration: InputDecoration(
+                              labelText: "Password",
+                              labelStyle: TextStyle(
+                                color: AppColors.green,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              hintText: "Enter your password",
+                              filled: true,
+                              fillColor: Colors.grey[100],
+                              prefixIcon: Icon(
+                                Icons.lock,
+                                color: AppColors.green,
+                              ),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(16),
+                                borderSide: BorderSide.none,
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(16),
+                                borderSide: BorderSide(
+                                  color: AppColors.green,
+                                  width: 2,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                         const SizedBox(height: 28),
                         // Continue button
                         SizedBox(
@@ -299,8 +514,9 @@ class _LoginScreenState extends State<LoginScreen> {
                               elevation: 8,
                               shadowColor: AppColors.green.withOpacity(0.5),
                             ),
-                            onPressed: showLoading ? null : () => _handleLogin(role),
-                            child: showLoading
+                            onPressed:
+                                (isLoading || _sending) ? null : () => _handleLogin(role),
+                            child: (isLoading || _sending)
                                 ? const SizedBox(
                                     width: 24,
                                     height: 24,
