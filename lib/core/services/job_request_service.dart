@@ -1330,15 +1330,17 @@ class JobRequestService {
         jobPosterData = await getJobPosterDetails(jobPosterId);
       }
 
-      // Create the AcceptedJobs entry
+      // Create the AssignedJobs entry
       final acceptedJobData = {
-        // Basic info
+        // Basic info - matching admin structure
         'requestId': requestId,
         'jobId': jobId,
-        'skilledWorkerId': skilledWorkerId,
+        'workerId': skilledWorkerId, // Changed from skilledWorkerId to workerId
         'jobPosterId': jobPosterId,
-        'acceptedAt': FieldValue.serverTimestamp(),
-        'status': 'accepted',
+        'assignedAt':
+            FieldValue.serverTimestamp(), // Changed from acceptedAt to assignedAt
+        'assignmentStatus':
+            'assigned', // Changed from status to assignmentStatus and 'assigned'
         'isActive': true,
 
         // Complete job details
@@ -1429,14 +1431,17 @@ class JobRequestService {
                 : null,
       };
 
-      // Save to AcceptedJobs collection
+      // Save to AssignedJobs collection
       final docRef = await _firestore
-          .collection('AcceptedJobs')
+          .collection('AssignedJobs')
           .add(acceptedJobData);
-      print('✅ AcceptedJobs entry created successfully with ID: ${docRef.id}');
-      print('🔍 AcceptedJobs data saved: $acceptedJobData');
+      print('✅ AssignedJobs entry created successfully with ID: ${docRef.id}');
+      print('🔍 AssignedJobs data saved: $acceptedJobData');
+      print('🔍 JobPosterId in AssignedJobs: $jobPosterId');
+      print('🔍 Status in AssignedJobs: assigned');
+      print('🔍 IsActive in AssignedJobs: true');
     } catch (e) {
-      print('❌ Error creating AcceptedJobs entry: $e');
+      print('❌ Error creating AssignedJobs entry: $e');
       rethrow;
     }
   }
@@ -1447,8 +1452,8 @@ class JobRequestService {
   ) {
     // Remove orderBy to avoid composite index; sort client-side where consumed
     return _firestore
-        .collection('AcceptedJobs')
-        .where('skilledWorkerId', isEqualTo: skilledWorkerId)
+        .collection('AssignedJobs')
+        .where('workerId', isEqualTo: skilledWorkerId)
         .where('isActive', isEqualTo: true)
         .snapshots();
   }
@@ -1456,7 +1461,7 @@ class JobRequestService {
   /// Get all accepted jobs for a job poster
   static Stream<QuerySnapshot> getAcceptedJobsForPoster(String jobPosterId) {
     return _firestore
-        .collection('AcceptedJobs')
+        .collection('AssignedJobs')
         .where('jobPosterId', isEqualTo: jobPosterId)
         .where('isActive', isEqualTo: true)
         .snapshots();
@@ -1465,7 +1470,7 @@ class JobRequestService {
   /// Get all accepted jobs (admin function)
   static Stream<QuerySnapshot> getAllAcceptedJobs() {
     return _firestore
-        .collection('AcceptedJobs')
+        .collection('AssignedJobs')
         .where('isActive', isEqualTo: true)
         .snapshots();
   }
