@@ -1,0 +1,414 @@
+import 'dart:async';
+import 'dart:developer';
+
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:skillzaar/presentation/providers/auth_state_provider.dart';
+import 'package:skillzaar/presentation/screens/job_poster/home_screen.dart';
+import 'package:skillzaar/presentation/widgets/bottom_bar_widget.dart';
+import '../../providers/ui_state_provider.dart';
+import 'job_poster_ads_screen.dart';
+// import 'job_requests_screen.dart'; // Requests removed
+import 'job_poster_profile_screen.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:skillzaar/presentation/widgets/job_poster_drawer.dart';
+import 'package:skillzaar/presentation/widgets/location_permission_dialog.dart';
+import 'package:skillzaar/presentation/widgets/location_settings_dialog.dart';
+import 'package:skillzaar/presentation/widgets/logout_dialog.dart';
+import '../../../core/services/job_request_service.dart';
+// import 'job_requests_screen.dart'; // Requests removed
+
+class JobPosterHomeScreen extends StatelessWidget {
+  const JobPosterHomeScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<UIStateProvider>(
+      builder: (context, uiProvider, child) {
+        return _JobPosterHomeContent(uiProvider: uiProvider);
+      },
+    );
+  }
+}
+
+class _JobPosterHomeContent extends StatefulWidget {
+  final UIStateProvider uiProvider;
+
+  const _JobPosterHomeContent({required this.uiProvider});
+
+  @override
+  State<_JobPosterHomeContent> createState() => _JobPosterHomeContentState();
+}
+
+class _JobPosterHomeContentState extends State<_JobPosterHomeContent> {
+  int _selectedIndex = 0;
+  bool _hasShownLocationPrompt = false;
+  StreamSubscription<QuerySnapshot>? _assignedJobsSub;
+  bool _navigatedToAssignedJob = false;
+
+  late List<Widget> _pages;
+  bool _showMyAdsOnly = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _showLocationPermissionPrompt();
+      _maybeRedirectToActiveJob();
+      _startAssignedJobListener();
+    });
+    _pages = [
+      HomeScreen(searchQuery: ''),
+      JobPosterAdsScreen(
+        myAdsOnly: _showMyAdsOnly,
+        isGuest: FirebaseAuth.instance.currentUser == null,
+      ),
+      const JobPosterProfileScreen(),
+    ];
+
+    log(FirebaseAuth.instance.currentUser?.uid ?? 'No User');
+  }
+
+  Future<void> _maybeRedirectToActiveJob() async {
+    try {
+      // Get job poster ID from provider or Firebase Auth
+      final authProvider = Provider.of<AuthStateProvider>(
+        context,
+        listen: false,
+      );
+      final user = FirebaseAuth.instance.currentUser;
+      final jobPosterId = authProvider.userId ?? user?.uid;
+      final jobPosterPhone =
+          authProvider.currentUser?.phone ?? user?.phoneNumber;
+
+      if (jobPosterId == null || jobPosterId.isEmpty) return;
+
+      print(
+        '[JobPosterHome] Checking for active job - JobPosterId: $jobPosterId',
+      );
+
+      bool hasActiveJob = false;
+
+      // 1. Check for active assigned job (AssignedJobs collection)
+      final assignedJob = await JobRequestService.getActiveAssignedJobForPoster(
+        jobPosterId,
+      );
+      if (assignedJob != null) {
+        print('[JobPosterHome] Found active assigned job');
+        hasActiveJob = true;
+      }
+
+      // 2. Check for active request (JobRequests collection - legacy/fallback)
+      if (!hasActiveJob) {
+        final activeRequest = await JobRequestService.getActiveRequestForPoster(
+          jobPosterId,
+          posterPhone: jobPosterPhone,
+        );
+        if (activeRequest != null) {
+          print('[JobPosterHome] Found active request');
+          hasActiveJob = true;
+        }
+      }
+
+      if (!mounted) return;
+
+      if (hasActiveJob) {
+        print('[JobPosterHome] Switching to My Ads view');
+        setState(() {
+          _showMyAdsOnly = true;
+          _pages[1] = JobPosterAdsScreen(
+            myAdsOnly: true,
+            isGuest: FirebaseAuth.instance.currentUser == null,
+          );
+          _selectedIndex = 1;
+        });
+      }
+    } catch (e) {
+      print('[JobPosterHome] Error checking for active job: $e');
+    }
+  }
+
+  void _startAssignedJobListener() async {
+    try {
+      final authProvider = Provider.of<AuthStateProvider>(
+        context,
+        listen: false,
+      );
+      final user = FirebaseAuth.instance.currentUser;
+      final jobPosterId = authProvider.userId ?? user?.uid;
+
+      if (jobPosterId == null || jobPosterId.isEmpty) return;
+
+      await _assignedJobsSub?.cancel();
+      _assignedJobsSub = FirebaseFirestore.instance
+          .collection('AssignedJobs')
+          .where('jobPosterId', isEqualTo: jobPosterId)
+          .where('assignmentStatus', whereIn: ['assigned', 'in_progress'])
+          .where('isActive', isEqualTo: true)
+          .snapshots()
+          .listen((snapshot) {
+        if (!mounted || _navigatedToAssignedJob) return;
+        if (snapshot.docs.isEmpty) return;
+
+        final doc = snapshot.docs.first;
+        final assignedJobId = doc.id;
+        if (assignedJobId.isEmpty) return;
+
+        _navigatedToAssignedJob = true;
+
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          '/assigned-job-detail',
+          (route) => false,
+          arguments: {
+            'assignedJobId': assignedJobId,
+            'userType': 'job_poster',
+          },
+        );
+      });
+    } catch (e) {
+      print('[JobPosterHome] Error starting assigned job listener: $e');
+    }
+  }
+
+  // Reserved for future: redirect to accepted/in-progress job if needed
+  /* Future<void> _maybeRedirectToAccepted() async {
+    final currentPosterId =
+        JobRequestService.getCurrentUserId() ?? 'TEST_POSTER_ID';
+    Map<String, dynamic>? req =
+        await JobRequestService.getAcceptedRequestForPoster(currentPosterId);
+    if (!mounted) return;
+    if (req != null && req['status'] == 'accepted') {
+      final request = req;  
+      if (!mounted) return;
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder:
+              (_) => JobAcceptedDetailsScreen(
+                jobId: (request['jobId'] ?? '').toString(),
+                requestId: (request['requestId'] ?? '').toString(),
+              ),
+        ),
+      );
+      return;
+    }
+    // If not accepted, check for in-progress
+    req = await JobRequestService.getInProgressRequestForPoster(
+      currentPosterId,
+    );
+    if (!mounted) return;
+    // No in-progress screen in current flow. Keep user on home if not accepted.
+  } */
+
+  Future<void> _showLocationPermissionPrompt() async {
+    if (_hasShownLocationPrompt) return;
+
+    setState(() {
+      _hasShownLocationPrompt = true;
+    });
+
+    LocationPermission permission = await Geolocator.checkPermission();
+
+    if (permission == LocationPermission.denied) {
+      _showLocationDialog();
+    } else if (permission == LocationPermission.deniedForever) {
+      _showLocationSettingsDialog();
+    }
+  }
+
+  void _showLocationDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return LocationPermissionDialog(
+          onTurnOnLocation: _requestLocationPermission,
+        );
+      },
+    );
+  }
+
+  void _showLocationSettingsDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return LocationSettingsDialog(
+          onOpenSettings: () async {
+            await Geolocator.openAppSettings();
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _requestLocationPermission() async {
+    try {
+      LocationPermission permission = await Geolocator.requestPermission();
+
+      await Future.delayed(const Duration(milliseconds: 500));
+
+      permission = await Geolocator.checkPermission();
+
+      if (permission == LocationPermission.whileInUse ||
+          permission == LocationPermission.always) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Location access granted! You can now post jobs with precise locations.',
+              ),
+              backgroundColor: Colors.green,
+              duration: Duration(seconds: 3),
+            ),
+          );
+        }
+      } else if (permission == LocationPermission.denied) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Location access denied. You can still post jobs but location features will be limited.',
+              ),
+              backgroundColor: Colors.orange,
+              duration: Duration(seconds: 3),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error requesting location permission: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    }
+  }
+
+  void _onItemTapped(int index) {
+    setState(() {
+      _selectedIndex = index;
+    });
+  }
+
+  void _switchAdsView({required bool myAds}) {
+    setState(() {
+      _showMyAdsOnly = myAds;
+      _pages[1] = JobPosterAdsScreen(
+        myAdsOnly: _showMyAdsOnly,
+        isGuest: FirebaseAuth.instance.currentUser == null,
+      );
+      _selectedIndex = 1;
+    });
+    Navigator.pop(context);
+  }
+
+  @override
+  void dispose() {
+    _assignedJobsSub?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      drawer: JobPosterDrawer(
+        onPostJob: () {
+          Navigator.pop(context);
+          FirebaseAuth.instance.currentUser == null
+              ? ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Please login first to post a job.'),
+                  backgroundColor: Colors.red,
+                  duration: Duration(seconds: 4),
+                ),
+              )
+              : Navigator.pushNamed(context, '/job-poster-post-job');
+        },
+        onAllAds: () => _switchAdsView(myAds: false),
+        onMyAds: () => _switchAdsView(myAds: true),
+        onLogout: () => _showLogoutDialog(context),
+      ),
+      body: Column(
+        children: [
+          // 🔹 Custom App Bar
+          SafeArea(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              color: Colors.white,
+              child: Row(
+                children: [
+                  // Drawer icon
+                  Builder(
+                    builder:
+                        (context) => IconButton(
+                          icon: const Icon(Icons.menu, color: Colors.green),
+                          onPressed: () => Scaffold.of(context).openDrawer(),
+                        ),
+                  ),
+
+                  // Search bar in center
+                  Expanded(
+                    child: SizedBox(
+                      height: 50,
+                      child: TextFormField(
+                        decoration: InputDecoration(
+                          hintText: "Search...",
+                          hintStyle: TextStyle(color: Colors.grey[500]),
+                          prefixIcon: Icon(
+                            Icons.search,
+                            color: Colors.grey[500],
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(30),
+                            borderSide: BorderSide.none,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  // Notification icon at the end
+                  IconButton(
+                    icon: const Icon(Icons.notifications, color: Colors.green),
+                    onPressed: () {
+                      // Handle notifications
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // 🔹 Main page content
+          Expanded(child: _pages[_selectedIndex]),
+        ],
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+      floatingActionButton: FloatingIslandNavBar(
+        currentIndex: _selectedIndex,
+        onTap: _onItemTapped,
+      ),
+    );
+  }
+
+  void _showLogoutDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return LogoutDialog(
+          onLogout: () {
+            Navigator.of(context).pushReplacementNamed('/role-selection');
+            Provider.of<AuthStateProvider>(context, listen: false).logout();
+          },
+        );
+      },
+    );
+  }
+}

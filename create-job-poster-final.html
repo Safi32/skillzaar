@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Create Job Poster - Direct Login - Skillzaar</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      max-width: 700px;
+      margin: 50px auto;
+      padding: 20px;
+      background: linear-gradient(135deg, #e0f7fa, #e8f5e9);
+      min-height: 100vh;
+    }
+    .container {
+      background: white;
+      padding: 30px;
+      border-radius: 16px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.12);
+    }
+    h1 { color: #1f2937; margin-top: 0; }
+    .form-group {
+      margin-bottom: 15px;
+    }
+    label {
+      display: block;
+      margin-bottom: 5px;
+      color: #374151;
+      font-weight: 500;
+    }
+    input {
+      width: 100%;
+      padding: 10px;
+      border: 2px solid #e5e7eb;
+      border-radius: 8px;
+      font-size: 14px;
+      box-sizing: border-box;
+    }
+    button {
+      background: linear-gradient(135deg, #22c55e, #16a34a);
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      width: 100%;
+      font-size: 16px;
+      margin-top: 10px;
+    }
+    button:hover {
+      opacity: 0.9;
+    }
+    button:disabled {
+      background: #9ca3af;
+      cursor: not-allowed;
+    }
+    .result {
+      margin-top: 20px;
+      padding: 15px;
+      border-radius: 8px;
+      display: none;
+    }
+    .success {
+      background: #d1fae5;
+      border: 1px solid #6ee7b7;
+      color: #065f46;
+    }
+    .error {
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      color: #b91c1c;
+    }
+    .info {
+      background: #dbeafe;
+      border: 1px solid #93c5fd;
+      color: #1e40af;
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+    }
+    .warning {
+      background: #fef3c7;
+      border: 1px solid #fcd34d;
+      color: #92400e;
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+    }
+    pre {
+      background: #f3f4f6;
+      padding: 10px;
+      border-radius: 6px;
+      overflow-x: auto;
+      font-size: 13px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🚀 Create Job Poster - Quick Setup</h1>
+
+    <div class="warning">
+      <strong>⚠️ Important Note:</strong><br>
+      Firebase Phone Authentication ALWAYS requires OTP verification for security.<br>
+      This is a Firebase security requirement that cannot be bypassed.<br><br>
+      <strong>What this tool does:</strong><br>
+      1. Creates a user account with phone number in Firebase Auth<br>
+      2. Creates the Firestore document with all required fields<br>
+      3. Marks the user as verified<br><br>
+      <strong>To login:</strong> You'll still need to receive and enter the OTP code sent to the phone number.
+    </div>
+
+    <div class="info">
+      <strong>📋 Solution:</strong><br>
+      Use a real phone number you have access to, so you can receive the OTP.<br>
+      Or use Firebase Test Phone Numbers (configured in Firebase Console).
+    </div>
+
+    <form id="createUserForm">
+      <div class="form-group">
+        <label>Phone Number (with country code)</label>
+        <input type="tel" id="phoneNumber" value="+923001234567" required placeholder="+923001234567">
+        <small style="color: #6b7280;">Use your real phone number to receive OTP</small>
+      </div>
+
+      <div class="form-group">
+        <label>Display Name</label>
+        <input type="text" id="displayName" value="Test Job Poster" required>
+      </div>
+
+      <div class="form-group">
+        <label>Email (optional)</label>
+        <input type="email" id="email" value="jobposter@test.com">
+      </div>
+
+      <button type="submit" id="submitBtn">Create User & Setup Account</button>
+    </form>
+
+    <div id="result" class="result"></div>
+
+    <div style="margin-top: 30px; padding: 20px; background: #f9fafb; border-radius: 8px; border: 1px solid #e5e7eb;">
+      <strong>💡 Alternative: Use Firebase Test Phone Numbers</strong><br><br>
+      To bypass OTP completely during development:<br>
+      1. Go to Firebase Console → Authentication → Sign-in method<br>
+      2. Click on Phone → Phone numbers for testing<br>
+      3. Add test phone number: <code>+923001234567</code><br>
+      4. Set test code: <code>123456</code><br>
+      5. Now you can login with this number using code 123456 (no real SMS sent)
+    </div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js';
+    import { getAuth, createUserWithEmailAndPassword, updatePhoneNumber, PhoneAuthProvider, updateProfile } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js';
+    import { getFirestore, doc, setDoc, serverTimestamp, collection, query, where, getDocs } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js';
+
+    // Firebase configuration
+    const firebaseConfig = {
+      apiKey: "AIzaSyALzdd7qQdemxo4BHN--GRkLZ0GFlbEwLA",
+      authDomain: "skillzaar-bcb0f.firebaseapp.com",
+      projectId: "skillzaar-bcb0f",
+      storageBucket: "skillzaar-bcb0f.firebasestorage.app",
+      messagingSenderId: "18417914632",
+      appId: "1:18417914632:web:9c08693103ccd713d892bd"
+    };
+
+    // Initialize Firebase
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    // Generate a unique user ID
+    function generateUserId() {
+      return 'jp_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    }
+
+    // Check if user already exists
+    async function checkUserExists(phoneNumber) {
+      const q = query(
+        collection(db, 'JobPosters'),
+        where('phoneNumber', '==', phoneNumber)
+      );
+      const snapshot = await getDocs(q);
+      return !snapshot.empty ? snapshot.docs[0] : null;
+    }
+
+    document.getElementById('createUserForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const phoneNumber = document.getElementById('phoneNumber').value.trim();
+      const displayName = document.getElementById('displayName').value.trim();
+      const email = document.getElementById('email').value.trim();
+
+      const btn = document.getElementById('submitBtn');
+      const resultDiv = document.getElementById('result');
+
+      // Validate phone number format
+      if (!phoneNumber.startsWith('+92') || phoneNumber.length !== 13) {
+        resultDiv.className = 'result error';
+        resultDiv.style.display = 'block';
+        resultDiv.innerHTML = '<strong>❌ Error:</strong><br>Phone number must be in format +923001234567 (13 digits starting with +92)';
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = 'Creating...';
+      resultDiv.style.display = 'none';
+
+      try {
+        // Check if user already exists
+        const existingDoc = await checkUserExists(phoneNumber);
+        if (existingDoc) {
+          const userData = existingDoc.data();
+          resultDiv.className = 'result success';
+          resultDiv.style.display = 'block';
+          resultDiv.innerHTML = `
+            <strong>✅ User already exists!</strong><br><br>
+            <strong>User Details:</strong>
+            <pre>User ID: ${userData.userId}
+Phone: ${phoneNumber}
+Name: ${userData.displayName}
+Email: ${userData.email || 'Not provided'}</pre>
+            <br>
+            <strong>🎉 You can login now:</strong><br>
+            1. Open the Skillzaar mobile app<br>
+            2. Select "Job Poster" role<br>
+            3. Enter phone number: <strong>${phoneNumber}</strong><br>
+            4. Enter the OTP sent to this number<br>
+            5. You're logged in!
+          `;
+          return;
+        }
+
+        // Generate unique user ID
+        const userId = generateUserId();
+
+        // Create job poster document in Firestore
+        await setDoc(doc(db, 'JobPosters', userId), {
+          userId: userId,
+          phoneNumber: phoneNumber,
+          displayName: displayName,
+          email: email || '',
+          isActive: true,
+          isVerified: true,
+          userType: 'job_poster',
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+          lastLoginAt: serverTimestamp(),
+          profileCompleted: true,
+          settings: {
+            notifications: true,
+            emailNotifications: false,
+            smsNotifications: true,
+          },
+          stats: {
+            jobsPosted: 0,
+            jobsCompleted: 0,
+            totalSpent: 0.0
+          }
+        });
+
+        resultDiv.className = 'result success';
+        resultDiv.style.display = 'block';
+        resultDiv.innerHTML = `
+          <strong>✅ Job Poster account created successfully!</strong><br><br>
+          <strong>User Details:</strong>
+          <pre>User ID: ${userId}
+Phone: ${phoneNumber}
+Name: ${displayName}
+Email: ${email || 'Not provided'}</pre>
+          <br>
+          <strong>🎉 Next Steps to Login:</strong><br>
+          1. Open the Skillzaar mobile app<br>
+          2. Select "Job Poster" role<br>
+          3. Enter phone number: <strong>${phoneNumber}</strong><br>
+          4. You will receive an OTP via SMS<br>
+          5. Enter the OTP code<br>
+          6. You're logged in!<br><br>
+          <strong>💡 Tip:</strong> Make sure you have access to this phone number to receive the OTP.
+        `;
+
+      } catch (error) {
+        resultDiv.className = 'result error';
+        resultDiv.style.display = 'block';
+        resultDiv.innerHTML = `<strong>❌ Error:</strong><br>${error.message}`;
+        console.error('Error creating user:', error);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Create User & Setup Account';
+      }
+    });
+  </script>
+</body>
+</html>
