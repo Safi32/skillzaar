@@ -4,6 +4,7 @@ import 'package:skillzaar/core/examples/services/user_data_service.dart';
 import 'package:skillzaar/core/services/job_request_service.dart';
 import '../../providers/skilled_worker_provider.dart';
 import '../../../core/theme/app_theme.dart';
+import 'package:skillzaar/l10n/app_localizations.dart';
 
 class SkilledWorkerLoginScreen extends StatefulWidget {
   const SkilledWorkerLoginScreen({super.key});
@@ -16,9 +17,8 @@ class SkilledWorkerLoginScreen extends StatefulWidget {
 class _SkilledWorkerLoginScreenState extends State<SkilledWorkerLoginScreen> {
   final TextEditingController phoneController = TextEditingController();
   bool isLoading = false;
- 
+
   bool isValidPhoneNumber(String phone) {
-   
     String cleanPhone = phone.replaceAll(RegExp(r'[\s\-\(\)]'), '');
 
     // Check if it's 11 digits (Pakistani number format)
@@ -88,6 +88,7 @@ class _SkilledWorkerLoginScreenState extends State<SkilledWorkerLoginScreen> {
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
     final skilledWorkerProvider = Provider.of<SkilledWorkerProvider>(context);
+    final l10n = AppLocalizations.of(context)!;
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -103,19 +104,19 @@ class _SkilledWorkerLoginScreenState extends State<SkilledWorkerLoginScreen> {
               children: [
                 Icon(Icons.lock_outline, size: 48, color: Colors.green),
                 const SizedBox(height: 16),
-                const Text(
-                  'Skilled Worker Log In',
-                  style: TextStyle(
+                Text(
+                  l10n.skilledWorkerLogin,
+                  style: const TextStyle(
                     fontSize: 26,
                     fontWeight: FontWeight.bold,
                     color: Colors.green,
                   ),
                 ),
                 const SizedBox(height: 8),
-                const Text(
-                  'Enter your mobile number to login as a Skilled Worker',
+                Text(
+                  l10n.enterPhoneLoginWorkerDesc,
                   textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 15, color: Colors.black),
+                  style: const TextStyle(fontSize: 15, color: Colors.black),
                 ),
                 const SizedBox(height: 24),
                 Column(
@@ -125,8 +126,8 @@ class _SkilledWorkerLoginScreenState extends State<SkilledWorkerLoginScreen> {
                       controller: phoneController,
                       keyboardType: TextInputType.phone,
                       decoration: InputDecoration(
-                        labelText: 'Phone Number',
-                        hintText: 'Enter your phone number',
+                        labelText: l10n.mobileNumber,
+                        hintText: l10n.enterPhoneHint,
                       ),
                       enabled: !isLoading,
                     ),
@@ -145,10 +146,8 @@ class _SkilledWorkerLoginScreenState extends State<SkilledWorkerLoginScreen> {
                                 final input = phoneController.text.trim();
                                 if (input.isEmpty) {
                                   ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text(
-                                        'Please enter your phone number',
-                                      ),
+                                    SnackBar(
+                                      content: Text(l10n.pleaseEnterPhone),
                                       backgroundColor: Colors.red,
                                     ),
                                   );
@@ -158,10 +157,8 @@ class _SkilledWorkerLoginScreenState extends State<SkilledWorkerLoginScreen> {
                                 // Validate phone number length (minimum 11 digits)
                                 if (!isValidPhoneNumber(input)) {
                                   ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text(
-                                        'Phone number must be at least 11 digits',
-                                      ),
+                                    SnackBar(
+                                      content: Text(l10n.phoneValidError),
                                       backgroundColor: Colors.red,
                                     ),
                                   );
@@ -237,12 +234,12 @@ class _SkilledWorkerLoginScreenState extends State<SkilledWorkerLoginScreen> {
                                     );
                                     // User is not registered, show register message
                                     ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
+                                      SnackBar(
                                         content: Text(
-                                          'No account found with this phone number. Please contact admin to create your skilled worker account.',
+                                          l10n.noAccountFoundWorker,
                                         ),
                                         backgroundColor: Colors.red,
-                                        duration: Duration(seconds: 3),
+                                        duration: const Duration(seconds: 3),
                                       ),
                                     );
                                   }
@@ -251,7 +248,9 @@ class _SkilledWorkerLoginScreenState extends State<SkilledWorkerLoginScreen> {
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       SnackBar(
                                         content: Text(
-                                          'Error checking account: $e',
+                                          l10n.errorCheckingAccount(
+                                            e.toString(),
+                                          ),
                                         ),
                                         backgroundColor: Colors.red,
                                       ),
@@ -292,9 +291,9 @@ class _SkilledWorkerLoginScreenState extends State<SkilledWorkerLoginScreen> {
                               ? const CircularProgressIndicator(
                                 color: Colors.white,
                               )
-                              : const Text(
-                                'Continue',
-                                style: TextStyle(
+                              : Text(
+                                l10n.continueGuest,
+                                style: const TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 18,
                                 ),

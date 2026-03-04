@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../../widgets/worker_tracking_map.dart';
+import 'package:skillzaar/l10n/app_localizations.dart';
 
 class WorkerTrackingScreen extends StatefulWidget {
   final String jobId;
@@ -77,29 +78,30 @@ class _WorkerTrackingScreenState extends State<WorkerTrackingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Worker Tracking'),
+        title: Text(l10n.trackWorker),
         backgroundColor: Colors.blue,
         foregroundColor: Colors.white,
         actions: [
           IconButton(
             onPressed: _loadJobAndWorkerData,
             icon: const Icon(Icons.refresh),
-            tooltip: 'Refresh',
+            tooltip: l10n.refreshLocation,
           ),
         ],
       ),
       body:
           _isLoading
               ? const Center(child: CircularProgressIndicator())
-              : _buildContent(),
+              : _buildContent(l10n),
     );
   }
 
-  Widget _buildContent() {
+  Widget _buildContent(AppLocalizations l10n) {
     if (_jobData == null) {
-      return const Center(child: Text('Job not found'));
+      return Center(child: Text(l10n.jobNotFound));
     }
 
     return Column(
@@ -124,7 +126,10 @@ class _WorkerTrackingScreenState extends State<WorkerTrackingScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                _jobData!['title_en'] ?? _jobData!['title'] ?? 'Job Title',
+                _jobData!['title_en'] ??
+                    _jobData!['title'] ??
+                    _jobData!['title_ur'] ??
+                    l10n.jobTitle,
                 style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
@@ -134,13 +139,14 @@ class _WorkerTrackingScreenState extends State<WorkerTrackingScreen> {
               Text(
                 _jobData!['description_en'] ??
                     _jobData!['description'] ??
-                    'No description',
+                    _jobData!['description_ur'] ??
+                    l10n.noDescription,
                 style: const TextStyle(fontSize: 14, color: Colors.grey),
               ),
               // Service type information
               if (_jobData!['serviceType'] != null) ...[
                 const SizedBox(height: 8),
-                _buildServiceTypeInfo(),
+                _buildServiceTypeInfo(l10n),
               ],
               const SizedBox(height: 8),
               Row(
@@ -151,7 +157,7 @@ class _WorkerTrackingScreenState extends State<WorkerTrackingScreen> {
                     child: Text(
                       _jobData!['Address'] ??
                           _jobData!['address'] ??
-                          'No address',
+                          l10n.noAddress,
                       style: const TextStyle(fontSize: 12),
                     ),
                   ),
@@ -197,14 +203,16 @@ class _WorkerTrackingScreenState extends State<WorkerTrackingScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        _workerData!['name'] ?? 'Worker',
+                        _workerData!['name'] ??
+                            _workerData!['skilledWorkerName'] ??
+                            l10n.skilledWorkerText,
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
                       Text(
-                        _workerData!['phoneNumber'] ?? 'No phone',
+                        _workerData!['phoneNumber'] ?? l10n.noPhoneInfo,
                         style: const TextStyle(
                           fontSize: 12,
                           color: Colors.grey,
@@ -227,8 +235,8 @@ class _WorkerTrackingScreenState extends State<WorkerTrackingScreen> {
                             ),
                             child: Text(
                               (_workerData!['isOnline'] ?? false)
-                                  ? 'Online'
-                                  : 'Offline',
+                                  ? l10n.statusOnline
+                                  : l10n.statusOffline,
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 10,
@@ -238,7 +246,7 @@ class _WorkerTrackingScreenState extends State<WorkerTrackingScreen> {
                           ),
                           const SizedBox(width: 8),
                           Text(
-                            'Last seen: ${_formatLastSeen(_workerData!['lastSeen'])}',
+                            '${l10n.lastSeenLabel}: ${_formatLastSeen(_workerData!['lastSeen'], l10n)}',
                             style: const TextStyle(
                               fontSize: 10,
                               color: Colors.grey,
@@ -282,10 +290,13 @@ class _WorkerTrackingScreenState extends State<WorkerTrackingScreen> {
     );
   }
 
-  Widget _buildServiceTypeInfo() {
-    final serviceType = _jobData!['serviceType'] as String?;
+  Widget _buildServiceTypeInfo(AppLocalizations l10n) {
+    final serviceType = _localizeValue(
+      _jobData!['serviceType'] as String?,
+      l10n,
+    );
 
-    if (serviceType == null) return const SizedBox.shrink();
+    if (serviceType.isEmpty) return const SizedBox.shrink();
 
     return Container(
       padding: const EdgeInsets.all(8),
@@ -309,27 +320,44 @@ class _WorkerTrackingScreenState extends State<WorkerTrackingScreen> {
     );
   }
 
-  String _formatLastSeen(dynamic lastSeen) {
-    if (lastSeen == null) return 'Never';
+  String _localizeValue(String? value, AppLocalizations l10n) {
+    if (value == null || value.trim().isEmpty || value == 'null') return '';
+    final lower = value.toLowerCase().trim();
+    bool isUrdu = l10n.contactUs == 'ہم سے رابطہ کریں';
+    if (lower == 'cleaning services') return l10n.cleaningServices;
+    if (lower == 'plumbing services') return l10n.plumbingServices;
+    if (lower == 'roofing services') return l10n.roofingServices;
+    if (lower == 'electrical services') return l10n.electricalServices;
+    if (lower == 'car care services') return l10n.carCareServices;
+    if (lower == 'islamabad') return isUrdu ? 'اسلام آباد' : 'Islamabad';
+    if (lower == 'lahore') return isUrdu ? 'لاہور' : 'Lahore';
+    if (lower == 'karachi') return isUrdu ? 'کراچی' : 'Karachi';
+    if (lower == 'rawalpindi') return isUrdu ? 'راولپنڈی' : 'Rawalpindi';
+    if (lower == 'peshawar') return isUrdu ? 'پشاور' : 'Peshawar';
+    return value;
+  }
+
+  String _formatLastSeen(dynamic lastSeen, AppLocalizations l10n) {
+    if (lastSeen == null) return l10n.neverLabel;
 
     DateTime lastSeenTime;
     if (lastSeen is Timestamp) {
       lastSeenTime = lastSeen.toDate();
     } else {
-      return 'Unknown';
+      return l10n.unknown;
     }
 
     final now = DateTime.now();
     final difference = now.difference(lastSeenTime);
 
     if (difference.inMinutes < 1) {
-      return 'Just now';
+      return l10n.justNowLabel;
     } else if (difference.inMinutes < 60) {
-      return '${difference.inMinutes}m ago';
+      return '${difference.inMinutes}${l10n.minutesAgo}';
     } else if (difference.inHours < 24) {
-      return '${difference.inHours}h ago';
+      return '${difference.inHours}${l10n.hoursAgo}';
     } else {
-      return '${difference.inDays}d ago';
+      return '${difference.inDays}${l10n.daysAgo}';
     }
   }
 }

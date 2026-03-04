@@ -1,19 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:skillzaar/presentation/providers/phone_auth_provider.dart';
+import 'package:skillzaar/l10n/app_localizations.dart';
 
 class LogoutDialog extends StatelessWidget {
   final VoidCallback onLogout;
   const LogoutDialog({super.key, required this.onLogout});
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return AlertDialog(
-      title: const Text('Log Out'),
-      content: const Text('Are you sure you want to log out?'),
+      title: Text(l10n.logout),
+      content: Text(l10n.logoutConfirmMsg),
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
+          child: Text(l10n.cancel),
         ),
         ElevatedButton(
           onPressed: () {
@@ -28,7 +30,7 @@ class LogoutDialog extends StatelessWidget {
             backgroundColor: Colors.red,
             foregroundColor: Colors.white,
           ),
-          child: const Text('Log Out'),
+          child: Text(l10n.logout),
         ),
       ],
     );

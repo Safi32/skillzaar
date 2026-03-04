@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:skillzaar/l10n/app_localizations.dart';
 
 class EditablePortfolioSection extends StatelessWidget {
   final List<String> images;
@@ -14,17 +15,18 @@ class EditablePortfolioSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Portfolio & Work Samples',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+        Text(
+          l10n.portfolioLabel,
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
         ),
         const SizedBox(height: 12),
-        const Text(
-          'Add pictures of your previous work to showcase your skills (optional)',
-          style: TextStyle(fontSize: 14, color: Colors.grey),
+        Text(
+          l10n.portfolioDesc,
+          style: const TextStyle(fontSize: 14, color: Colors.grey),
         ),
         const SizedBox(height: 20),
         SizedBox(
@@ -61,7 +63,7 @@ class EditablePortfolioSection extends StatelessWidget {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'Add Photo',
+                          l10n.addPhoto,
                           style: TextStyle(
                             color: Colors.grey.shade600,
                             fontSize: 12,

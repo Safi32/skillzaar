@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:skillzaar/core/examples/services/user_data_service.dart';
 import 'package:skillzaar/core/theme/app_theme.dart';
 import 'package:skillzaar/presentation/widgets/sign_up_widget.dart';
+import 'package:skillzaar/l10n/app_localizations.dart';
 import '../../providers/phone_auth_provider.dart';
 
 class JobPosterSignUpScreen extends StatefulWidget {
@@ -87,7 +88,6 @@ class JobPosterSignUpScreenState extends State<JobPosterSignUpScreen> {
             ),
             // App Logo on top-right
             Positioned(
-            
               right: 20,
               child: Image.asset(
                 'assets/applogo.png', // your app logo path
@@ -100,6 +100,7 @@ class JobPosterSignUpScreenState extends State<JobPosterSignUpScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 24.0),
                 child: Consumer<PhoneAuthProvider>(
                   builder: (context, phoneAuthProvider, _) {
+                    final l10n = AppLocalizations.of(context)!;
                     return Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       crossAxisAlignment: CrossAxisAlignment.center,
@@ -107,7 +108,7 @@ class JobPosterSignUpScreenState extends State<JobPosterSignUpScreen> {
                         const SizedBox(height: 40),
                         // Page Title
                         Text(
-                          'Create an Account',
+                          l10n.createAccount,
                           style: TextStyle(
                             fontSize: 26,
                             fontWeight: FontWeight.bold,
@@ -117,7 +118,7 @@ class JobPosterSignUpScreenState extends State<JobPosterSignUpScreen> {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'Join Skillzaar as a Job Poster',
+                          l10n.joinAsJobPoster,
                           style: TextStyle(
                             fontSize: 15,
                             color: Colors.grey.shade600,
@@ -128,26 +129,26 @@ class JobPosterSignUpScreenState extends State<JobPosterSignUpScreen> {
 
                         // Label
                         SignUpWidget(
-                          label: "Username",
-                          hintText: "Enter your name",
+                          label: l10n.username,
+                          hintText: l10n.enterNameHint,
                           icon: Icons.person,
                           controller: usernameController,
                         ),
-                          SignUpWidget(
-                          label: "Email",
-                          hintText: "Enter your email",
+                        SignUpWidget(
+                          label: l10n.email,
+                          hintText: l10n.enterEmailHint,
                           icon: Icons.email,
                           controller: emailController,
                         ),
-                          SignUpWidget(
-                          label: "Passowrd",
-                          hintText: "Enter your password",
+                        SignUpWidget(
+                          label: l10n.password,
+                          hintText: l10n.enterPasswordHint,
                           icon: Icons.lock,
                           controller: passwordController,
                         ),
-                          SignUpWidget(
-                          label: "Phone Number",
-                          hintText: "Enter your phone",
+                        SignUpWidget(
+                          label: l10n.mobileNumber,
+                          hintText: l10n.enterPhoneHint,
                           icon: Icons.phone,
                           controller: phoneController,
                         ),
@@ -214,9 +215,9 @@ class JobPosterSignUpScreenState extends State<JobPosterSignUpScreen> {
                                         ScaffoldMessenger.of(
                                           context,
                                         ).showSnackBar(
-                                          const SnackBar(
+                                          SnackBar(
                                             content: Text(
-                                              'Please enter username, email and password',
+                                              l10n.pleaseEnterUserEmailPass,
                                             ),
                                             backgroundColor: Colors.red,
                                           ),
@@ -228,9 +229,9 @@ class JobPosterSignUpScreenState extends State<JobPosterSignUpScreen> {
                                         ScaffoldMessenger.of(
                                           context,
                                         ).showSnackBar(
-                                          const SnackBar(
+                                          SnackBar(
                                             content: Text(
-                                              'Please enter your phone number',
+                                              l10n.pleaseEnterPhone,
                                             ),
                                             backgroundColor: Colors.red,
                                           ),
@@ -241,10 +242,8 @@ class JobPosterSignUpScreenState extends State<JobPosterSignUpScreen> {
                                         ScaffoldMessenger.of(
                                           context,
                                         ).showSnackBar(
-                                          const SnackBar(
-                                            content: Text(
-                                              'Invalid phone number',
-                                            ),
+                                          SnackBar(
+                                            content: Text(l10n.invalidPhone),
                                             backgroundColor: Colors.red,
                                           ),
                                         );
@@ -267,9 +266,9 @@ class JobPosterSignUpScreenState extends State<JobPosterSignUpScreen> {
                                           ScaffoldMessenger.of(
                                             context,
                                           ).showSnackBar(
-                                            const SnackBar(
+                                            SnackBar(
                                               content: Text(
-                                                'User already exists. Please login.',
+                                                l10n.userExistsError,
                                               ),
                                               backgroundColor: Colors.orange,
                                             ),
@@ -287,10 +286,10 @@ class JobPosterSignUpScreenState extends State<JobPosterSignUpScreen> {
 
                                         phoneAuthProvider
                                             .setPendingJobPosterProfile(
-                                          displayName: username,
-                                          email: email,
-                                          password: password,
-                                        );
+                                              displayName: username,
+                                              email: email,
+                                              password: password,
+                                            );
 
                                         phoneAuthProvider.sendOtp(
                                           formattedPhone,
@@ -305,7 +304,7 @@ class JobPosterSignUpScreenState extends State<JobPosterSignUpScreen> {
                                           ).showSnackBar(
                                             SnackBar(
                                               content: Text(
-                                                'Registration failed: $e',
+                                                '${l10n.registrationFailed}: $e',
                                               ),
                                               backgroundColor: Colors.red,
                                             ),
@@ -326,8 +325,8 @@ class JobPosterSignUpScreenState extends State<JobPosterSignUpScreen> {
                                         strokeWidth: 2,
                                       ),
                                     )
-                                    : const Text(
-                                      'Continue',
+                                    : Text(
+                                      l10n.continueGuest,
                                       style: TextStyle(
                                         fontWeight: FontWeight.bold,
                                         fontSize: 18,
@@ -340,7 +339,7 @@ class JobPosterSignUpScreenState extends State<JobPosterSignUpScreen> {
 
                         // Terms
                         Text(
-                          'By signing up, you agree to our\nTerms of Service & Privacy Policy',
+                          l10n.termsOfServicePrivacy,
                           style: TextStyle(
                             fontSize: 12,
                             color: Colors.grey.shade600,

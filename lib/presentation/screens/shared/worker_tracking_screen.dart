@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../core/config/google_maps_config.dart';
+import 'package:skillzaar/l10n/app_localizations.dart';
 
 class WorkerTrackingScreen extends StatefulWidget {
   final String workerId;
@@ -70,7 +71,8 @@ class _WorkerTrackingScreenState extends State<WorkerTrackingScreen> {
           markerId: const MarkerId('worker_location'),
           position: _workerLocation!,
           infoWindow: InfoWindow(
-            title: 'Worker: $_workerName',
+            title:
+                '${AppLocalizations.of(context)!.skilledWorkerText}: $_workerName',
             snippet: 'Last seen: $_lastUpdateTime',
           ),
           icon: BitmapDescriptor.defaultMarkerWithHue(
@@ -177,9 +179,10 @@ class _WorkerTrackingScreenState extends State<WorkerTrackingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Scaffold(
       appBar: AppBar(
-        title: Text('Track Worker - ${widget.jobTitle}'),
+        title: Text('${l10n.trackWorker} - ${widget.jobTitle}'),
         backgroundColor: Colors.green,
         foregroundColor: Colors.white,
       ),
@@ -200,7 +203,7 @@ class _WorkerTrackingScreenState extends State<WorkerTrackingScreen> {
                       ),
                       const SizedBox(height: 16),
                       Text(
-                        'Worker Tracking Unavailable',
+                        l10n.workerTrackingUnavailable,
                         style: TextStyle(
                           fontSize: 20,
                           color: Colors.orange.shade700,
@@ -210,7 +213,7 @@ class _WorkerTrackingScreenState extends State<WorkerTrackingScreen> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        _error ?? 'Unable to track worker location',
+                        _error ?? l10n.unableToTrackWorkerLocation,
                         style: TextStyle(
                           fontSize: 16,
                           color: Colors.grey.shade600,
@@ -227,7 +230,7 @@ class _WorkerTrackingScreenState extends State<WorkerTrackingScreen> {
                           _startWorkerTracking();
                         },
                         icon: const Icon(Icons.refresh),
-                        label: const Text('Retry'),
+                        label: Text(l10n.retry),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.orange,
                           foregroundColor: Colors.white,
@@ -260,7 +263,7 @@ class _WorkerTrackingScreenState extends State<WorkerTrackingScreen> {
                             ),
                             const SizedBox(width: 8),
                             Text(
-                              'Worker: $_workerName',
+                              '${l10n.skilledWorkerText}: $_workerName',
                               style: TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
@@ -279,7 +282,7 @@ class _WorkerTrackingScreenState extends State<WorkerTrackingScreen> {
                             ),
                             const SizedBox(width: 8),
                             Text(
-                              'Distance to job: ${_distance.toStringAsFixed(1)} km',
+                              '${l10n.distanceToJob}: ${_distance.toStringAsFixed(1)} km',
                               style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
@@ -298,7 +301,7 @@ class _WorkerTrackingScreenState extends State<WorkerTrackingScreen> {
                             ),
                             const SizedBox(width: 8),
                             Text(
-                              'Last update: $_lastUpdateTime',
+                              '${l10n.lastUpdate}: $_lastUpdateTime',
                               style: TextStyle(
                                 fontSize: 14,
                                 color: Colors.grey.shade600,
@@ -317,7 +320,7 @@ class _WorkerTrackingScreenState extends State<WorkerTrackingScreen> {
                               ),
                               const SizedBox(width: 8),
                               Text(
-                                'Phone: $_workerPhone',
+                                '${l10n.phoneText}: $_workerPhone',
                                 style: TextStyle(
                                   fontSize: 14,
                                   color: Colors.grey.shade600,

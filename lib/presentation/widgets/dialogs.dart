@@ -1,42 +1,42 @@
 import 'package:flutter/material.dart';
+import 'package:skillzaar/l10n/app_localizations.dart';
 
 class RetryDialog extends StatelessWidget {
   final VoidCallback onCancel;
   final VoidCallback onRetry;
 
-  const RetryDialog({Key? key, required this.onCancel, required this.onRetry}) : super(key: key);
+  const RetryDialog({Key? key, required this.onCancel, required this.onRetry})
+    : super(key: key);
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return AlertDialog(
-      title: const Text('Save Failed'),
-      content: const Column(
+      title: Text(l10n.saveFailed),
+      content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Failed to save your portfolio. This could be due to:',
-            style: TextStyle(fontWeight: FontWeight.bold),
+            l10n.saveFailedDesc,
+            style: const TextStyle(fontWeight: FontWeight.bold),
           ),
-          SizedBox(height: 12),
+          const SizedBox(height: 12),
           Text(
-            'Please check your internet connection and ensure all required fields are completed.',
-            style: TextStyle(fontSize: 14, color: Colors.grey),
+            l10n.checkConnectionMsg,
+            style: const TextStyle(fontSize: 14, color: Colors.grey),
           ),
         ],
       ),
       actions: [
-        TextButton(
-          onPressed: onCancel,
-          child: const Text('Cancel'),
-        ),
+        TextButton(onPressed: onCancel, child: Text(l10n.cancel)),
         ElevatedButton(
           onPressed: onRetry,
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.green,
             foregroundColor: Colors.white,
           ),
-          child: const Text('Retry'),
+          child: Text(l10n.retry),
         ),
       ],
     );
@@ -49,28 +49,29 @@ class ProfileHelpDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return AlertDialog(
-      title: const Text('Portfolio Setup Help'),
-      content: const SingleChildScrollView(
+      title: Text(l10n.portfolioSetupHelp),
+      content: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              'Complete your portfolio to showcase your professional capabilities:',
-              style: TextStyle(fontWeight: FontWeight.bold),
+              l10n.completePortfolioSteps,
+              style: const TextStyle(fontWeight: FontWeight.bold),
             ),
-            SizedBox(height: 16),
-            Text('• Select your skills and categories'),
-            Text('• Add your years of experience'),
-            Text('• Set your hourly rate'),
-            Text('• Describe your availability'),
-            Text('• Write a professional bio (min. 20 characters)'),
-            Text('• Add portfolio pictures (optional)'),
-            SizedBox(height: 8),
+            const SizedBox(height: 16),
+            Text(l10n.stepSkills),
+            Text(l10n.stepExperience),
+            Text(l10n.stepRate),
+            Text(l10n.stepAvailability),
+            Text(l10n.stepBio),
+            Text(l10n.stepPictures),
+            const SizedBox(height: 8),
             Text(
-              'This portfolio will be visible to potential clients.',
-              style: TextStyle(
+              l10n.portfolioVisibleToClients,
+              style: const TextStyle(
                 fontWeight: FontWeight.bold,
                 color: Colors.green,
               ),
@@ -78,12 +79,7 @@ class ProfileHelpDialog extends StatelessWidget {
           ],
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: onGotIt,
-          child: const Text('Got it'),
-        ),
-      ],
+      actions: [TextButton(onPressed: onGotIt, child: Text(l10n.gotIt))],
     );
   }
 }

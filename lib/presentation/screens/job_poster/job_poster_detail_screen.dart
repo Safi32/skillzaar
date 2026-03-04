@@ -4,8 +4,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:skillzaar/core/services/job_request_service.dart';
 import 'package:provider/provider.dart';
 import '../../providers/phone_auth_provider.dart' as app_auth;
+import 'package:skillzaar/l10n/app_localizations.dart';
 
- 
 class JobViewData {
   final Map<String, dynamic> _data;
 
@@ -20,7 +20,7 @@ class JobViewData {
           details['description'] ?? raw['description_en'] ?? raw['description'],
       'description_ur': raw['description_ur'],
       'Address': details['address'] ?? raw['Address'] ?? raw['Location'],
-      'Location': details['location'] ?? raw['Location'] ?? raw['Address'],      
+      'Location': details['location'] ?? raw['Location'] ?? raw['Address'],
       'Image': details['imageUrl'] ?? raw['Image'] ?? raw['imageUrl'],
       'createdAt': raw['createdAt'] ?? details['createdAt'],
       'budget': raw['budget'] ?? details['budget'],
@@ -59,6 +59,34 @@ class _JobPosterDetailScreenState extends State<JobPosterDetailScreen> {
     }
   }
 
+  String _localizeValue(String? value, AppLocalizations l10n, String fallback) {
+    if (value == null || value.trim().isEmpty || value == 'null')
+      return fallback;
+    final lower = value.toLowerCase().trim();
+    bool isUrdu = l10n.contactUs == 'ہم سے رابطہ کریں';
+    if (lower == 'not specified') return l10n.notSpecified;
+    if (lower == 'normal') return l10n.normalUrgency;
+    if (lower == 'unknown') return l10n.unknown;
+    if (lower == 'not available') return l10n.notAvailable;
+    if (lower == 'no rating') return l10n.noRating;
+    if (lower == 'skilled worker') return l10n.skilledWorkerText;
+    if (lower == 'job poster') return l10n.jobPoster;
+    if (lower == 'no title') return l10n.noTitle;
+    if (lower == 'no location') return l10n.noLocation;
+    if (lower == 'no description') return l10n.noDescription;
+    if (lower == 'cleaning services') return l10n.cleaningServices;
+    if (lower == 'plumbing services') return l10n.plumbingServices;
+    if (lower == 'roofing services') return l10n.roofingServices;
+    if (lower == 'electrical services') return l10n.electricalServices;
+    if (lower == 'car care services') return l10n.carCareServices;
+    if (lower == 'islamabad') return isUrdu ? 'اسلام آباد' : 'Islamabad';
+    if (lower == 'lahore') return isUrdu ? 'لاہور' : 'Lahore';
+    if (lower == 'karachi') return isUrdu ? 'کراچی' : 'Karachi';
+    if (lower == 'rawalpindi') return isUrdu ? 'راولپنڈی' : 'Rawalpindi';
+    if (lower == 'peshawar') return isUrdu ? 'پشاور' : 'Peshawar';
+    return value;
+  }
+
   @override
   Widget build(BuildContext context) {
     // Prefer FirebaseAuth user; fall back to PhoneAuthProvider (test auth)
@@ -74,9 +102,10 @@ class _JobPosterDetailScreenState extends State<JobPosterDetailScreen> {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
+    final l10n = AppLocalizations.of(context)!;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Job & Worker Details'),
+        title: Text(l10n.jobDetailsText),
         centerTitle: true,
         backgroundColor: Colors.green,
         foregroundColor: Colors.white,
@@ -159,18 +188,31 @@ class _JobPosterDetailScreenState extends State<JobPosterDetailScreen> {
     Map<String, dynamic> jobData,
     Map<String, dynamic> requestData,
   ) {
+    final l10n = AppLocalizations.of(context)!;
     // Extract job details
-    final jobTitle = jobData['title_en'] ?? jobData['title_ur'] ?? 'No Title';
-    final jobDescription =
-        jobData['description_en'] ??
-        jobData['description_ur'] ??
-        jobData['description'] ??
-        'No Description';
-    final jobLocation =
-        jobData['Location'] ?? jobData['Address'] ?? 'No Location';
+    final jobTitle = _localizeValue(
+      jobData['title_en'] ?? jobData['title_ur'],
+      l10n,
+      l10n.noTitle,
+    );
+    final jobDescription = _localizeValue(
+      jobData['description_en'] ??
+          jobData['description_ur'] ??
+          jobData['description'],
+      l10n,
+      l10n.noDescription,
+    );
+    final jobLocation = _localizeValue(
+      jobData['Location'] ?? jobData['Address'],
+      l10n,
+      l10n.noLocation,
+    );
     // Payment hidden per requirements
-    final String originalBudget =
-        jobData['budget']?.toString() ?? 'Not specified';
+    final String originalBudget = _localizeValue(
+      jobData['budget']?.toString(),
+      l10n,
+      l10n.notSpecified,
+    );
     final jobImage = (jobData['Image'] ?? '').toString();
     final createdAt = jobData['createdAt'];
     DateTime? createdAtDate;
@@ -181,8 +223,16 @@ class _JobPosterDetailScreenState extends State<JobPosterDetailScreen> {
     }
 
     // Extract skilled worker details
-    final skilledWorkerName = requestData['skilledWorkerName'] ?? 'Unknown';
-    final skilledWorkerPhone = requestData['skilledWorkerPhone'] ?? 'Unknown';
+    final skilledWorkerName = _localizeValue(
+      requestData['skilledWorkerName'],
+      l10n,
+      l10n.unknown,
+    );
+    final skilledWorkerPhone = _localizeValue(
+      requestData['skilledWorkerPhone'],
+      l10n,
+      l10n.unknown,
+    );
     final skilledWorkerId = requestData['skilledWorkerId'] ?? '';
 
     return SingleChildScrollView(
@@ -218,8 +268,8 @@ class _JobPosterDetailScreenState extends State<JobPosterDetailScreen> {
                     children: [
                       Icon(Icons.work, color: Colors.green, size: 24),
                       const SizedBox(width: 8),
-                      const Text(
-                        'Job Details',
+                      Text(
+                        l10n.jobDetailsText,
                         style: TextStyle(
                           fontSize: 22,
                           fontWeight: FontWeight.bold,
@@ -229,15 +279,19 @@ class _JobPosterDetailScreenState extends State<JobPosterDetailScreen> {
                     ],
                   ),
                   const SizedBox(height: 16),
-                  _buildDetailRow(Icons.title, 'Title', jobTitle),
+                  _buildDetailRow(Icons.title, l10n.titleText, jobTitle),
                   const SizedBox(height: 12),
                   _buildDetailRow(
                     Icons.description,
-                    'Description',
+                    l10n.descriptionText,
                     jobDescription,
                   ),
                   const SizedBox(height: 12),
-                  _buildDetailRow(Icons.location_on, 'Location', jobLocation),
+                  _buildDetailRow(
+                    Icons.location_on,
+                    l10n.locationText,
+                    jobLocation,
+                  ),
                   const SizedBox(height: 12),
                   if (createdAtDate != null)
                     _buildDetailRow(
@@ -254,45 +308,42 @@ class _JobPosterDetailScreenState extends State<JobPosterDetailScreen> {
                             .where('jobId', isEqualTo: jobId)
                             .snapshots(),
                     builder: (context, snapshot) {
-                      if (snapshot.connectionState ==
-                          ConnectionState.waiting) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
                         final value =
-                            originalBudget == 'Not specified'
-                                ? 'Not specified'
+                            originalBudget == l10n.notSpecified ||
+                                    originalBudget == 'Not specified'
+                                ? l10n.notSpecified
                                 : 'Rs. $originalBudget';
                         return _buildDetailRow(
                           Icons.attach_money,
-                          'Budget',
+                          l10n.budgetText,
                           value,
                         );
                       }
 
                       String displayAmount = originalBudget;
 
-                      if (snapshot.hasData &&
-                          snapshot.data!.docs.isNotEmpty) {
+                      if (snapshot.hasData && snapshot.data!.docs.isNotEmpty) {
                         final docs = snapshot.data!.docs;
                         final validDocs =
                             docs.where((d) {
-                              final data =
-                                  d.data() as Map<String, dynamic>;
+                              final data = d.data() as Map<String, dynamic>;
                               final a = data['amount']?.toString() ?? '0';
                               return a != '0' &&
+                                  a != l10n.notSpecified &&
                                   a != 'Not Specified' &&
                                   a != 'null' &&
                                   a.isNotEmpty;
                             }).toList();
 
                         final doc =
-                            validDocs.isNotEmpty
-                                ? validDocs.first
-                                : docs.first;
-                        final data =
-                            doc.data() as Map<String, dynamic>;
+                            validDocs.isNotEmpty ? validDocs.first : docs.first;
+                        final data = doc.data() as Map<String, dynamic>;
                         final amount = data['amount']?.toString();
 
                         if (amount != null &&
                             amount != '0' &&
+                            amount != l10n.notSpecified &&
                             amount != 'Not Specified' &&
                             amount != 'null' &&
                             amount.isNotEmpty) {
@@ -301,13 +352,15 @@ class _JobPosterDetailScreenState extends State<JobPosterDetailScreen> {
                       }
 
                       final value =
-                          displayAmount == 'Not specified'
-                              ? 'Not specified'
+                          displayAmount == l10n.notSpecified ||
+                                  displayAmount == 'Not specified' ||
+                                  displayAmount == 'Not Specified'
+                              ? l10n.notSpecified
                               : 'Rs. $displayAmount';
 
                       return _buildDetailRow(
                         Icons.attach_money,
-                        'Budget',
+                        l10n.budgetText,
                         value,
                       );
                     },
@@ -337,8 +390,8 @@ class _JobPosterDetailScreenState extends State<JobPosterDetailScreen> {
                           children: [
                             Icon(Icons.person, color: Colors.blue, size: 24),
                             const SizedBox(width: 8),
-                            const Text(
-                              'Skilled Worker Details',
+                            Text(
+                              l10n.skilledWorkerText,
                               style: TextStyle(
                                 fontSize: 22,
                                 fontWeight: FontWeight.bold,
@@ -427,8 +480,22 @@ class _JobPosterDetailScreenState extends State<JobPosterDetailScreen> {
               final rating = worker?['rating']?.toString();
               final skills =
                   (worker?['skills'] is List)
-                      ? (worker?['skills'] as List).join(', ')
-                      : worker?['skills']?.toString();
+                      ? (worker?['skills'] as List)
+                          .map(
+                            (s) => _localizeValue(
+                              s.toString(),
+                              l10n,
+                              s.toString(),
+                            ),
+                          )
+                          .join(', ')
+                      : worker?['skills'] != null
+                      ? _localizeValue(
+                        worker!['skills'].toString(),
+                        l10n,
+                        worker['skills'].toString(),
+                      )
+                      : null;
               // Try multiple field names for image
               final workerImage =
                   worker?['profileImage']?.toString() ??
@@ -439,27 +506,33 @@ class _JobPosterDetailScreenState extends State<JobPosterDetailScreen> {
                   '';
 
               // Try multiple field names for rate
-              final hourlyRate =
-                  worker?['rate']?.toString() ??
-                  worker?['Rate']?.toString() ??
-                  worker?['hourlyRate']?.toString() ??
-                  'Not specified';
+              final hourlyRate = _localizeValue(
+                worker?['rate']?.toString() ??
+                    worker?['Rate']?.toString() ??
+                    worker?['hourlyRate']?.toString(),
+                l10n,
+                l10n.notSpecified,
+              );
 
               // Try multiple field names for experience
-              final experience =
-                  worker?['experience']?.toString() ??
-                  worker?['Experience']?.toString() ??
-                  worker?['yearsOfExperience']?.toString() ??
-                  worker?['YearsOfExperience']?.toString() ??
-                  'Not specified';
+              final experience = _localizeValue(
+                worker?['experience']?.toString() ??
+                    worker?['Experience']?.toString() ??
+                    worker?['yearsOfExperience']?.toString() ??
+                    worker?['YearsOfExperience']?.toString(),
+                l10n,
+                l10n.notSpecified,
+              );
 
               // Try multiple field names for bio
-              final bio =
-                  worker?['description']?.toString() ??
-                  worker?['Description']?.toString() ??
-                  worker?['bio']?.toString() ??
-                  worker?['Bio']?.toString() ??
-                  'No description available';
+              final bio = _localizeValue(
+                worker?['description']?.toString() ??
+                    worker?['Description']?.toString() ??
+                    worker?['bio']?.toString() ??
+                    worker?['Bio']?.toString(),
+                l10n,
+                l10n.noDescription,
+              );
 
               // Debug logging for extracted values
               print('🔍 Display Name: $displayName');
@@ -593,7 +666,7 @@ class _JobPosterDetailScreenState extends State<JobPosterDetailScreen> {
                                   ),
                                 const SizedBox(height: 8),
                                 Text(
-                                  'Rate: $hourlyRate/hour',
+                                  '${l10n.rateJobPoster}: $hourlyRate/hour',
                                   style: const TextStyle(
                                     fontSize: 14,
                                     fontWeight: FontWeight.w500,
@@ -646,7 +719,11 @@ class _JobPosterDetailScreenState extends State<JobPosterDetailScreen> {
                       if (hasDynamicData) const SizedBox(height: 16),
 
                       // Detailed Information
-                      _buildDetailRow(Icons.phone, 'Phone', displayPhone),
+                      _buildDetailRow(
+                        Icons.phone,
+                        l10n.phoneText,
+                        displayPhone,
+                      ),
                       const SizedBox(height: 12),
                       _buildDetailRow(
                         Icons.badge,
@@ -654,12 +731,20 @@ class _JobPosterDetailScreenState extends State<JobPosterDetailScreen> {
                         skilledWorkerId,
                       ),
                       const SizedBox(height: 12),
-                      _buildDetailRow(Icons.work, 'Experience', experience),
+                      _buildDetailRow(
+                        Icons.work,
+                        l10n.experienceText,
+                        experience,
+                      ),
                       if (skills != null) const SizedBox(height: 12),
                       if (skills != null)
-                        _buildDetailRow(Icons.build, 'Skills', skills),
+                        _buildDetailRow(Icons.build, l10n.skillsText, skills),
                       const SizedBox(height: 12),
-                      _buildDetailRow(Icons.description, 'About', bio),
+                      _buildDetailRow(
+                        Icons.description,
+                        l10n.descriptionText,
+                        bio,
+                      ),
                     ],
                   ),
                 ),

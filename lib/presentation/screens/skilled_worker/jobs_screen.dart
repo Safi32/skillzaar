@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:provider/provider.dart';
 import '../../providers/skilled_worker_provider.dart';
+import 'package:skillzaar/l10n/app_localizations.dart';
 import '../../../core/lang.dart';
 import '../../../core/services/job_request_service.dart';
 import '../../../core/services/performance_service.dart';
@@ -74,23 +75,27 @@ class _SkilledWorkerJobsScreenState extends State<SkilledWorkerJobsScreen>
                     }
 
                     if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                      return const Center(
+                      return Center(
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(Icons.work_off, size: 64, color: Colors.grey),
-                            SizedBox(height: 16),
+                            const Icon(
+                              Icons.work_off,
+                              size: 64,
+                              color: Colors.grey,
+                            ),
+                            const SizedBox(height: 16),
                             Text(
-                              'No approved jobs available',
-                              style: TextStyle(
+                              AppLocalizations.of(context)!.noApprovedJobs,
+                              style: const TextStyle(
                                 fontSize: 18,
                                 color: Colors.grey,
                               ),
                             ),
-                            SizedBox(height: 8),
+                            const SizedBox(height: 8),
                             Text(
-                              'Jobs are being reviewed by admin.\nCheck back later for approved opportunities.',
-                              style: TextStyle(
+                              AppLocalizations.of(context)!.jobsAdminReview,
+                              style: const TextStyle(
                                 fontSize: 14,
                                 color: Colors.grey,
                               ),
@@ -208,8 +213,8 @@ class _SkilledWorkerJobsScreenState extends State<SkilledWorkerJobsScreen>
             SizedBox(width: 12),
             Expanded(
               child: Text(
-                'This job is not assigned to you. Please contact admin for more information.',
-                style: TextStyle(fontSize: 14),
+                AppLocalizations.of(context)!.jobNotAssignedMsg,
+                style: const TextStyle(fontSize: 14),
               ),
             ),
           ],
@@ -406,7 +411,9 @@ class _JobCardWidgetState extends State<_JobCardWidget>
                           ),
                           const SizedBox(width: 4),
                           Text(
-                            '${_distance!.toStringAsFixed(1)} km away',
+                            AppLocalizations.of(
+                              context,
+                            )!.kmAway(_distance!.toStringAsFixed(1)),
                             style: const TextStyle(
                               fontSize: 13,
                               color: Colors.green,
@@ -428,9 +435,9 @@ class _JobCardWidgetState extends State<_JobCardWidget>
                             ),
                           ),
                           const SizedBox(width: 4),
-                          const Text(
-                            'Calculating distance...',
-                            style: TextStyle(
+                          Text(
+                            AppLocalizations.of(context)!.calculatingDistance,
+                            style: const TextStyle(
                               fontSize: 13,
                               color: Colors.green,
                               fontWeight: FontWeight.w500,
@@ -451,9 +458,9 @@ class _JobCardWidgetState extends State<_JobCardWidget>
                             ),
                           ),
                           const SizedBox(width: 12),
-                          const Text(
-                            'Tap for more details.',
-                            style: TextStyle(
+                          Text(
+                            AppLocalizations.of(context)!.tapForMoreDetails,
+                            style: const TextStyle(
                               fontSize: 13,
                               color: Colors.green,
                               fontStyle: FontStyle.italic,
@@ -471,7 +478,7 @@ class _JobCardWidgetState extends State<_JobCardWidget>
                     IconButton(
                       icon: const Icon(Icons.phone, color: Colors.green),
                       onPressed: widget.onTap,
-                      tooltip: 'Call job poster',
+                      tooltip: AppLocalizations.of(context)!.callJobPoster,
                     ),
                 ],
               ),

@@ -1,34 +1,43 @@
 import 'package:flutter/material.dart';
+import 'package:skillzaar/l10n/app_localizations.dart';
+
 class LocationSettingsDialog extends StatelessWidget {
   final VoidCallback onOpenSettings;
   const LocationSettingsDialog({super.key, required this.onOpenSettings});
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       title: Row(
         children: [
-          Icon(Icons.location_off, color: Colors.orange, size: 28),
+          const Icon(Icons.location_off, color: Colors.orange, size: 28),
           const SizedBox(width: 8),
-          const Text('Location Disabled', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+          Text(
+            l10n.locationDisabled,
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          ),
         ],
       ),
-      content: const Column(
+      content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Location access is permanently denied. To enable location features:', style: TextStyle(fontSize: 16)),
-          SizedBox(height: 16),
-          Text('1. Go to Settings'),
-          Text('2. Tap Privacy & Security'),
-          Text('3. Tap Location Services'),
-          Text('4. Enable for this app'),
+          Text(
+            l10n.locationPermanentlyDenied,
+            style: const TextStyle(fontSize: 16),
+          ),
+          const SizedBox(height: 16),
+          Text(l10n.goToSettings),
+          Text(l10n.tapPrivacy),
+          Text(l10n.tapLocationServices),
+          Text(l10n.enableForApp),
         ],
       ),
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+          child: Text(l10n.cancel, style: const TextStyle(color: Colors.grey)),
         ),
         ElevatedButton(
           onPressed: () {
@@ -38,9 +47,14 @@ class LocationSettingsDialog extends StatelessWidget {
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.green,
             foregroundColor: Colors.white,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
           ),
-          child: const Text('Open Settings', style: TextStyle(fontWeight: FontWeight.bold)),
+          child: Text(
+            l10n.openSettings,
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
         ),
       ],
     );

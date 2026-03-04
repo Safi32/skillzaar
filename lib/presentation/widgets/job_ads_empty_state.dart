@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:skillzaar/l10n/app_localizations.dart';
 
 class JobAdsEmptyState extends StatelessWidget {
   const JobAdsEmptyState({Key? key}) : super(key: key);
@@ -12,7 +13,7 @@ class JobAdsEmptyState extends StatelessWidget {
           Icon(Icons.work_outline, size: 80, color: Colors.grey[400]),
           const SizedBox(height: 16),
           Text(
-            'No Ads Yet',
+            AppLocalizations.of(context)!.noAdsYet,
             style: TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.bold,
@@ -21,7 +22,7 @@ class JobAdsEmptyState extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            'Start posting jobs to find skilled workers',
+            AppLocalizations.of(context)!.startPostingJobsMsg,
             style: TextStyle(fontSize: 16, color: Colors.grey[500]),
             textAlign: TextAlign.center,
           ),
@@ -31,7 +32,7 @@ class JobAdsEmptyState extends StatelessWidget {
               Navigator.pushNamed(context, '/job-poster-post-job');
             },
             icon: const Icon(Icons.add),
-            label: const Text('Post Your First Job'),
+            label: Text(AppLocalizations.of(context)!.postYourFirstJob),
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.green,
               foregroundColor: Colors.white,

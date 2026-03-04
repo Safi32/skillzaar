@@ -5,6 +5,7 @@ import '../../providers/ui_state_provider.dart';
 import '../../providers/home_profile_provider.dart';
 import '../../../core/services/job_request_service.dart';
 import 'navigate_to_job_screen.dart';
+import 'package:skillzaar/l10n/app_localizations.dart';
 import '../../providers/skilled_worker_provider.dart';
 
 class JobDetailScreen extends StatelessWidget {
@@ -191,10 +192,7 @@ class _JobDetailContentState extends State<_JobDetailContent> {
           context,
           '/rate-job-poster',
           (route) => false,
-          arguments: {
-            'assignedJobId': assignedJobId,
-            'isJobCompletion': true,
-          },
+          arguments: {'assignedJobId': assignedJobId, 'isJobCompletion': true},
         );
         return;
       }
@@ -439,9 +437,10 @@ class _JobDetailContentState extends State<_JobDetailContent> {
                 );
               });
             }
+            final l10n = AppLocalizations.of(context)!;
             return Scaffold(
               appBar: AppBar(
-                title: const Text('Job Details'),
+                title: Text(l10n.jobDetailsText),
                 backgroundColor: Colors.green,
                 foregroundColor: Colors.white,
               ),
@@ -518,7 +517,7 @@ class _JobDetailContentState extends State<_JobDetailContent> {
                                   Text(
                                     (_jobData?['Address'] ??
                                             _jobData?['Location'] ??
-                                            'Location not specified')
+                                            l10n.noLocation)
                                         .toString(),
                                     style: const TextStyle(
                                       fontSize: 16,
@@ -551,7 +550,7 @@ class _JobDetailContentState extends State<_JobDetailContent> {
                                   Row(
                                     children: [
                                       Text(
-                                        'Budget:',
+                                        l10n.budgetText,
                                         style: TextStyle(
                                           fontSize: 18,
                                           fontWeight: FontWeight.bold,
@@ -562,7 +561,16 @@ class _JobDetailContentState extends State<_JobDetailContent> {
                                   ),
                                   const SizedBox(height: 8),
                                   Text(
-                                    'Rs. ${(_jobData?['budget'] ?? 'Not specified').toString()}',
+                                    (_jobData?['budget'] == null ||
+                                            _jobData?['budget'] == '' ||
+                                            _jobData?['budget'] ==
+                                                l10n.notSpecified ||
+                                            _jobData?['budget'] ==
+                                                'Not Specified' ||
+                                            _jobData?['budget'] ==
+                                                'Not specified')
+                                        ? l10n.notSpecified
+                                        : 'Rs. ${(_jobData?['budget']).toString()}',
                                     style: const TextStyle(
                                       fontSize: 16,
                                       color: Colors.black54,
@@ -572,7 +580,7 @@ class _JobDetailContentState extends State<_JobDetailContent> {
                                   Row(
                                     children: [
                                       Text(
-                                        'Job Poster Phone:',
+                                        l10n.posterPhoneText,
                                         style: TextStyle(
                                           fontSize: 18,
                                           fontWeight: FontWeight.bold,
@@ -582,21 +590,34 @@ class _JobDetailContentState extends State<_JobDetailContent> {
                                     ],
                                   ),
                                   const SizedBox(height: 8),
-                                  Text(
-                                    (data?['jobPosterPhone'] ??
-                                            _jobData?['jobPosterPhone'] ??
-                                            'Not available')
-                                        .toString(),
-                                    style: const TextStyle(
-                                      fontSize: 16,
-                                      color: Colors.black54,
-                                    ),
+                                  Builder(
+                                    builder: (context) {
+                                      String rawPhone =
+                                          (data?['jobPosterPhone'] ??
+                                                  _jobData?['jobPosterPhone'] ??
+                                                  _jobData?['posterPhone'] ??
+                                                  l10n.notAvailable)
+                                              .toString();
+                                      if (rawPhone.length > 20) {
+                                        rawPhone =
+                                            (_jobData?['posterPhone'] ??
+                                                    l10n.notAvailable)
+                                                .toString();
+                                      }
+                                      return Text(
+                                        rawPhone,
+                                        style: const TextStyle(
+                                          fontSize: 16,
+                                          color: Colors.black54,
+                                        ),
+                                      );
+                                    },
                                   ),
                                   const SizedBox(height: 16),
                                   Row(
                                     children: [
                                       Text(
-                                        'Job Description:',
+                                        l10n.descriptionText,
                                         style: TextStyle(
                                           fontSize: 18,
                                           fontWeight: FontWeight.bold,
@@ -608,7 +629,7 @@ class _JobDetailContentState extends State<_JobDetailContent> {
                                   const SizedBox(height: 8),
                                   Text(
                                     (_jobData?['description_en'] ??
-                                            'No description available')
+                                            l10n.noDescription)
                                         .toString(),
                                     style: const TextStyle(
                                       fontSize: 16,
@@ -1176,8 +1197,8 @@ class _JobDetailContentState extends State<_JobDetailContent> {
                                                   foregroundColor: Colors.white,
                                                   padding:
                                                       const EdgeInsets.symmetric(
-                                                    vertical: 16,
-                                                  ),
+                                                        vertical: 16,
+                                                      ),
                                                 ),
                                               );
                                             }
@@ -1293,7 +1314,6 @@ class _JobDetailContentState extends State<_JobDetailContent> {
                             ],
                           ),
                           const SizedBox(height: 16),
-
                         ],
                       ),
                     ),

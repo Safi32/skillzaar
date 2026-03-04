@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_state_provider.dart';
 import '../screens/job_poster/job_poster_home_screen.dart';
+import 'package:skillzaar/l10n/app_localizations.dart';
 
 class UserRegistrationScreen extends StatefulWidget {
   const UserRegistrationScreen({super.key});
@@ -21,15 +22,16 @@ class _UserRegistrationScreenState extends State<UserRegistrationScreen> {
     if (!mounted) return;
 
     if (error != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error)));
     } else {
       // OTP sent → go to OTP screen
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (_) => UserOtpScreen(phoneNumber: _phoneController.text.trim()),
+          builder:
+              (_) => UserOtpScreen(phoneNumber: _phoneController.text.trim()),
         ),
       );
     }
@@ -38,26 +40,27 @@ class _UserRegistrationScreenState extends State<UserRegistrationScreen> {
   @override
   Widget build(BuildContext context) {
     final auth = Provider.of<AuthStateProvider>(context);
+    final l10n = AppLocalizations.of(context)!;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('User Registration')),
+      appBar: AppBar(title: Text(l10n.userRegistration)),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Text(
-              "Enter your phone number to register",
-              style: TextStyle(fontSize: 18),
+            Text(
+              l10n.enterPhoneToRegister,
+              style: const TextStyle(fontSize: 18),
             ),
             const SizedBox(height: 20),
 
             TextField(
               controller: _phoneController,
               keyboardType: TextInputType.phone,
-              decoration: const InputDecoration(
-                labelText: "Phone Number",
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: l10n.phoneNumber,
+                border: const OutlineInputBorder(),
               ),
             ),
 
@@ -66,9 +69,9 @@ class _UserRegistrationScreenState extends State<UserRegistrationScreen> {
             auth.status == AuthStatus.loggingIn
                 ? const CircularProgressIndicator()
                 : ElevatedButton(
-                    onPressed: _sendOtp,
-                    child: const Text("Send OTP"),
-                  ),
+                  onPressed: _sendOtp,
+                  child: Text(l10n.sendOtp),
+                ),
           ],
         ),
       ),
@@ -91,15 +94,17 @@ class _UserOtpScreenState extends State<UserOtpScreen> {
   Future<void> _verifyOtp() async {
     final auth = Provider.of<AuthStateProvider>(context, listen: false);
 
-    final error =
-        await auth.verifyOtpCode(_otpController.text.trim(), widget.phoneNumber);
+    final error = await auth.verifyOtpCode(
+      _otpController.text.trim(),
+      widget.phoneNumber,
+    );
 
     if (!mounted) return;
 
     if (error != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error)));
       return;
     }
 
@@ -109,10 +114,10 @@ class _UserOtpScreenState extends State<UserOtpScreen> {
   @override
   Widget build(BuildContext context) {
     final auth = Provider.of<AuthStateProvider>(context);
+    final l10n = AppLocalizations.of(context)!;
 
     // AUTO NAVIGATION if logged in
-    if (auth.status == AuthStatus.loggedIn &&
-        auth.role == "job_poster") {
+    if (auth.status == AuthStatus.loggedIn && auth.role == "job_poster") {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         Navigator.pushAndRemoveUntil(
           context,
@@ -123,21 +128,21 @@ class _UserOtpScreenState extends State<UserOtpScreen> {
     }
 
     return Scaffold(
-      appBar: AppBar(title: const Text("Enter OTP")),
+      appBar: AppBar(title: Text(l10n.enterOtp)),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text("OTP sent to ${widget.phoneNumber}"),
+            Text(l10n.otpSentTo(widget.phoneNumber)),
             const SizedBox(height: 20),
 
             TextField(
               controller: _otpController,
               keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: "OTP",
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: l10n.verifyOtp,
+                border: const OutlineInputBorder(),
               ),
             ),
 
@@ -146,9 +151,9 @@ class _UserOtpScreenState extends State<UserOtpScreen> {
             auth.status == AuthStatus.loggingIn
                 ? const CircularProgressIndicator()
                 : ElevatedButton(
-                    onPressed: _verifyOtp,
-                    child: const Text("Verify OTP"),
-                  ),
+                  onPressed: _verifyOtp,
+                  child: Text(l10n.verifyOtp),
+                ),
           ],
         ),
       ),

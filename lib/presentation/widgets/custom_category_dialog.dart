@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:skillzaar/l10n/app_localizations.dart';
 
 class CustomCategoryDialog extends StatelessWidget {
   final TextEditingController controller;
@@ -14,27 +15,22 @@ class CustomCategoryDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return AlertDialog(
-      title: const Text('Add Custom Category'),
+      title: Text(l10n.addCustomCategory),
       content: Material(
         child: TextField(
           controller: controller,
-          decoration: const InputDecoration(
-            hintText: 'Enter custom category name',
-            border: OutlineInputBorder(),
+          decoration: InputDecoration(
+            hintText: l10n.enterCustomCategoryName,
+            border: const OutlineInputBorder(),
           ),
           autofocus: true,
         ),
       ),
       actions: [
-        TextButton(
-          onPressed: onCancel,
-          child: const Text('Cancel'),
-        ),
-        ElevatedButton(
-          onPressed: onAdd,
-          child: const Text('Add'),
-        ),
+        TextButton(onPressed: onCancel, child: Text(l10n.cancel)),
+        ElevatedButton(onPressed: onAdd, child: Text(l10n.add)),
       ],
     );
   }

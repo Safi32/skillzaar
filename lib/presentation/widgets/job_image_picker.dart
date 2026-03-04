@@ -1,30 +1,42 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:skillzaar/l10n/app_localizations.dart';
+
 class JobImagePicker extends StatelessWidget {
   final List<File> images;
   final VoidCallback onAddImage;
   final void Function(int) onRemoveImage;
-  const JobImagePicker({Key? key, required this.images, required this.onAddImage, required this.onRemoveImage}) : super(key: key);
+  const JobImagePicker({
+    Key? key,
+    required this.images,
+    required this.onAddImage,
+    required this.onRemoveImage,
+  }) : super(key: key);
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Job Images (Optional)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+        Text(
+          AppLocalizations.of(context)!.jobImagesOptional,
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+        ),
         const SizedBox(height: 8),
         Row(
           children: [
             ElevatedButton.icon(
               onPressed: images.length >= 3 ? null : onAddImage,
               icon: const Icon(Icons.add_photo_alternate),
-              label: const Text('Add Image'),
+              label: Text(AppLocalizations.of(context)!.addImage),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.green,
                 foregroundColor: Colors.white,
               ),
             ),
             const SizedBox(width: 16),
-            Text('${images.length}/3 images'),
+            Text(
+              '${images.length}/3 ${AppLocalizations.of(context)!.numImages}',
+            ),
           ],
         ),
         if (images.isNotEmpty) ...[
@@ -59,7 +71,11 @@ class JobImagePicker extends StatelessWidget {
                               color: Colors.red,
                               shape: BoxShape.circle,
                             ),
-                            child: const Icon(Icons.close, color: Colors.white, size: 16),
+                            child: const Icon(
+                              Icons.close,
+                              color: Colors.white,
+                              size: 16,
+                            ),
                           ),
                         ),
                       ),

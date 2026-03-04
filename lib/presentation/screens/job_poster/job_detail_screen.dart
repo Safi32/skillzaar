@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:skillzaar/core/services/job_request_service.dart';
 import 'package:skillzaar/presentation/screens/job_poster/job_poster_rate_worker_screen.dart';
+import 'package:skillzaar/l10n/app_localizations.dart';
 
 class JobDetailScreen extends StatelessWidget {
   final String jobId;
@@ -15,6 +16,7 @@ class JobDetailScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -24,8 +26,8 @@ class JobDetailScreen extends StatelessWidget {
         shadowColor: Colors.green.withOpacity(0.2),
         centerTitle: true,
 
-        title: const Text(
-          "Job & Applicant Details",
+        title: Text(
+          l10n.jobAndApplicantDetails,
           style: TextStyle(
             color: Colors.black,
             fontWeight: FontWeight.w700,
@@ -57,42 +59,52 @@ class JobDetailScreen extends StatelessWidget {
                 final jobData = jobSnap.data?.data();
 
                 String jobTitle =
-                    jobData?['title_en'] ?? jobData?['title_ur'] ?? "No Title";
+                    jobData?['title_en'] ??
+                    jobData?['title_ur'] ??
+                    l10n.noTitle;
                 String jobDescription =
                     jobData?['description_en'] ??
                     jobData?['description_ur'] ??
-                    "No Description";
+                    l10n.noDescription;
                 String jobLocation =
                     jobData?['Location'] ??
                     jobData?['Address'] ??
-                    "No Location";
+                    l10n.noLocation;
                 // Payment hidden per requirements
                 final String originalBudget =
-                    jobData?['budget']?.toString() ?? 'Not specified';
+                    jobData?['budget']?.toString() ?? l10n.notSpecified;
 
                 return SingleChildScrollView(
                   padding: const EdgeInsets.all(20),
                   child: Column(
                     children: [
                       _buildGlassCard(
-                        title: "Job Details",
+                        title: l10n.jobDetailsText,
                         children: [
-                          _buildInfoRow("📌 Title", jobTitle),
-                          _buildInfoRow("📝 Description", jobDescription),
-                          _buildInfoRow("📍 Location", jobLocation),
+                          _buildInfoRow("📌 ${l10n.titleText}", jobTitle),
+                          _buildInfoRow(
+                            "📝 ${l10n.descriptionText}",
+                            jobDescription,
+                          ),
+                          _buildInfoRow("📍 ${l10n.locationText}", jobLocation),
                           StreamBuilder<QuerySnapshot>(
-                            stream: FirebaseFirestore.instance
-                                .collection('JobPayments')
-                                .where('jobId', isEqualTo: jobId)
-                                .snapshots(),
+                            stream:
+                                FirebaseFirestore.instance
+                                    .collection('JobPayments')
+                                    .where('jobId', isEqualTo: jobId)
+                                    .snapshots(),
                             builder: (context, snapshot) {
                               if (snapshot.connectionState ==
                                   ConnectionState.waiting) {
                                 final value =
-                                    originalBudget == 'Not specified'
-                                        ? 'Not specified'
+                                    originalBudget == l10n.notSpecified ||
+                                            originalBudget == 'Not specified'
+                                        ? l10n.notSpecified
                                         : 'Rs. $originalBudget';
-                                return _buildInfoRow("💰 Budget", value);
+                                return _buildInfoRow(
+                                  "💰 ${l10n.budgetText}",
+                                  value,
+                                );
                               }
 
                               String displayAmount = originalBudget;
@@ -100,26 +112,29 @@ class JobDetailScreen extends StatelessWidget {
                               if (snapshot.hasData &&
                                   snapshot.data!.docs.isNotEmpty) {
                                 final docs = snapshot.data!.docs;
-                                final validDocs = docs.where((d) {
-                                  final data =
-                                      d.data() as Map<String, dynamic>;
-                                  final a =
-                                      data['amount']?.toString() ?? '0';
-                                  return a != '0' &&
-                                      a != 'Not Specified' &&
-                                      a != 'null' &&
-                                      a.isNotEmpty;
-                                }).toList();
+                                final validDocs =
+                                    docs.where((d) {
+                                      final data =
+                                          d.data() as Map<String, dynamic>;
+                                      final a =
+                                          data['amount']?.toString() ?? '0';
+                                      return a != '0' &&
+                                          a != l10n.notSpecified &&
+                                          a != 'Not Specified' &&
+                                          a != 'null' &&
+                                          a.isNotEmpty;
+                                    }).toList();
 
-                                final doc = validDocs.isNotEmpty
-                                    ? validDocs.first
-                                    : docs.first;
-                                final data =
-                                    doc.data() as Map<String, dynamic>;
+                                final doc =
+                                    validDocs.isNotEmpty
+                                        ? validDocs.first
+                                        : docs.first;
+                                final data = doc.data() as Map<String, dynamic>;
                                 final amount =
                                     data['amount']?.toString() ?? '0';
 
                                 if (amount != '0' &&
+                                    amount != l10n.notSpecified &&
                                     amount != 'Not Specified' &&
                                     amount != 'null' &&
                                     amount.isNotEmpty) {
@@ -128,18 +143,23 @@ class JobDetailScreen extends StatelessWidget {
                               }
 
                               final value =
-                                  displayAmount == 'Not specified'
-                                      ? 'Not specified'
+                                  displayAmount == l10n.notSpecified ||
+                                          displayAmount == 'Not specified' ||
+                                          displayAmount == 'Not Specified'
+                                      ? l10n.notSpecified
                                       : 'Rs. $displayAmount';
 
-                              return _buildInfoRow("💰 Budget", value);
+                              return _buildInfoRow(
+                                "💰 ${l10n.budgetText}",
+                                value,
+                              );
                             },
                           ),
                         ],
                       ),
                       const SizedBox(height: 20),
                       _buildGlassCard(
-                        title: "Applicant Details",
+                        title: l10n.skilledWorkerText,
                         children: [
                           FutureBuilder<DocumentSnapshot>(
                             future:
@@ -158,10 +178,10 @@ class JobDetailScreen extends StatelessWidget {
                                   snap.data?.data() as Map<String, dynamic>?;
 
                               final fallbackName =
-                                  (req?['skilledWorkerName'] ?? 'Unknown')
+                                  (req?['skilledWorkerName'] ?? l10n.unknown)
                                       .toString();
                               final fallbackPhone =
-                                  (req?['skilledWorkerPhone'] ?? 'Unknown')
+                                  (req?['skilledWorkerPhone'] ?? l10n.unknown)
                                       .toString();
                               final skilledWorkerId =
                                   (req?['skilledWorkerId'] ??
@@ -175,8 +195,14 @@ class JobDetailScreen extends StatelessWidget {
                                 return Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    _buildInfoRow("👤 Name", fallbackName),
-                                    _buildInfoRow("📞 Phone", fallbackPhone),
+                                    _buildInfoRow(
+                                      "👤 ${l10n.nameText}",
+                                      fallbackName,
+                                    ),
+                                    _buildInfoRow(
+                                      "📞 ${l10n.phoneText}",
+                                      fallbackPhone,
+                                    ),
                                   ],
                                 );
                               }
@@ -218,8 +244,14 @@ class JobDetailScreen extends StatelessWidget {
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
-                                      _buildInfoRow("👤 Name", name),
-                                      _buildInfoRow("📞 Phone", phone),
+                                      _buildInfoRow(
+                                        "👤 ${l10n.nameText}",
+                                        name,
+                                      ),
+                                      _buildInfoRow(
+                                        "📞 ${l10n.phoneText}",
+                                        phone,
+                                      ),
                                     ],
                                   );
                                 },
@@ -233,7 +265,7 @@ class JobDetailScreen extends StatelessWidget {
                         children: [
                           Expanded(
                             child: _neonButton(
-                              text: "✅ Complete Job",
+                              text: l10n.completeJob,
                               color: Colors.green,
                               onTap: () {
                                 () async {
@@ -283,8 +315,9 @@ class JobDetailScreen extends StatelessWidget {
 
                                     if (workerId == null ||
                                         workerId.trim().isEmpty) {
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
                                         const SnackBar(
                                           content: Text(
                                             'Worker information missing. Cannot complete job.',
@@ -325,7 +358,7 @@ class JobDetailScreen extends StatelessWidget {
                           const SizedBox(width: 16),
                           Expanded(
                             child: _neonButton(
-                              text: "❌ Cancel Job",
+                              text: l10n.cancelJobText,
                               color: Colors.redAccent,
                               onTap: () {},
                             ),

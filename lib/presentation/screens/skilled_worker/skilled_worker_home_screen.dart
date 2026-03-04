@@ -1,4 +1,3 @@
-
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -11,6 +10,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/skilled_worker_provider.dart';
 import '../../providers/ui_state_provider.dart';
+import '../../providers/locale_provider.dart';
+import '../../../l10n/app_localizations.dart';
 import 'jobs_screen.dart';
 import 'home_profile_screen.dart';
 // import 'requests_screen.dart'; // Requests removed
@@ -150,45 +151,47 @@ class _HomeContentState extends State<_HomeContent> {
           .doc(workerId)
           .snapshots()
           .listen((snap) {
-        if (!mounted || _navigatedToAssignedJob) return;
-        final d = snap.data();
-        if (d == null) return;
+            if (!mounted || _navigatedToAssignedJob) return;
+            final d = snap.data();
+            if (d == null) return;
 
-        final jobAssigned = (d['jobAssigned'] as bool?) ?? false;
-        final assignedJobId = (d['assignedJobId'])?.toString();
+            final jobAssigned = (d['jobAssigned'] as bool?) ?? false;
+            final assignedJobId = (d['assignedJobId'])?.toString();
 
-        if (!jobAssigned) return;
-        if (assignedJobId == null || assignedJobId.trim().isEmpty) return;
+            if (!jobAssigned) return;
+            if (assignedJobId == null || assignedJobId.trim().isEmpty) return;
 
-        // Revalidate assigned job document to avoid navigating on stale flags.
-        FirebaseFirestore.instance
-            .collection('AssignedJobs')
-            .doc(assignedJobId.trim())
-            .get()
-            .then((doc) {
-          if (!mounted || _navigatedToAssignedJob) return;
-          if (!doc.exists) return;
+            // Revalidate assigned job document to avoid navigating on stale flags.
+            FirebaseFirestore.instance
+                .collection('AssignedJobs')
+                .doc(assignedJobId.trim())
+                .get()
+                .then((doc) {
+                  if (!mounted || _navigatedToAssignedJob) return;
+                  if (!doc.exists) return;
 
-          final data = doc.data();
-          final status = (data?['assignmentStatus'] as String?)?.trim();
-          final isActive = (data?['isActive'] as bool?) ?? true;
+                  final data = doc.data();
+                  final status = (data?['assignmentStatus'] as String?)?.trim();
+                  final isActive = (data?['isActive'] as bool?) ?? true;
 
-          if (!isActive || status == 'completed' || status == 'cancelled') {
-            return;
-          }
+                  if (!isActive ||
+                      status == 'completed' ||
+                      status == 'cancelled') {
+                    return;
+                  }
 
-          _navigatedToAssignedJob = true;
-          Navigator.pushNamedAndRemoveUntil(
-            context,
-            '/assigned-job-detail',
-            (route) => false,
-            arguments: {
-              'assignedJobId': assignedJobId.trim(),
-              'userType': 'skilled_worker',
-            },
-          );
-        });
-      });
+                  _navigatedToAssignedJob = true;
+                  Navigator.pushNamedAndRemoveUntil(
+                    context,
+                    '/assigned-job-detail',
+                    (route) => false,
+                    arguments: {
+                      'assignedJobId': assignedJobId.trim(),
+                      'userType': 'skilled_worker',
+                    },
+                  );
+                });
+          });
 
       await _assignedJobsSub?.cancel();
       _assignedJobsSub = FirebaseFirestore.instance
@@ -198,25 +201,25 @@ class _HomeContentState extends State<_HomeContent> {
           .where('isActive', isEqualTo: true)
           .snapshots()
           .listen((snapshot) {
-        if (!mounted || _navigatedToAssignedJob) return;
-        if (snapshot.docs.isEmpty) return;
+            if (!mounted || _navigatedToAssignedJob) return;
+            if (snapshot.docs.isEmpty) return;
 
-        final doc = snapshot.docs.first;
-        final assignedJobId = doc.id;
-        if (assignedJobId.isEmpty) return;
+            final doc = snapshot.docs.first;
+            final assignedJobId = doc.id;
+            if (assignedJobId.isEmpty) return;
 
-        _navigatedToAssignedJob = true;
+            _navigatedToAssignedJob = true;
 
-        Navigator.pushNamedAndRemoveUntil(
-          context,
-          '/assigned-job-detail',
-          (route) => false,
-          arguments: {
-            'assignedJobId': assignedJobId,
-            'userType': 'skilled_worker',
-          },
-        );
-      });
+            Navigator.pushNamedAndRemoveUntil(
+              context,
+              '/assigned-job-detail',
+              (route) => false,
+              arguments: {
+                'assignedJobId': assignedJobId,
+                'userType': 'skilled_worker',
+              },
+            );
+          });
 
       // Fallback for legacy/alternate IDs: listen to JobRequests in realtime,
       // then resolve AssignedJobs by requestId and navigate.
@@ -241,12 +244,16 @@ class _HomeContentState extends State<_HomeContent> {
         final requestId = reqDoc.id;
 
         try {
-          final assignedSnap = await FirebaseFirestore.instance
-              .collection('AssignedJobs')
-              .where('requestId', isEqualTo: requestId)
-              .where('assignmentStatus', whereIn: ['assigned', 'in_progress'])
-              .limit(1)
-              .get();
+          final assignedSnap =
+              await FirebaseFirestore.instance
+                  .collection('AssignedJobs')
+                  .where('requestId', isEqualTo: requestId)
+                  .where(
+                    'assignmentStatus',
+                    whereIn: ['assigned', 'in_progress'],
+                  )
+                  .limit(1)
+                  .get();
 
           if (!mounted || _navigatedToAssignedJob) return;
           if (assignedSnap.docs.isEmpty) return;
@@ -336,18 +343,19 @@ class _HomeContentState extends State<_HomeContent> {
     final shouldLogout = await showDialog<bool>(
       context: context,
       builder: (BuildContext context) {
+        final l10n = AppLocalizations.of(context)!;
         return AlertDialog(
-          title: const Text('Logout'),
-          content: const Text('Are you sure you want to logout?'),
+          title: Text(l10n.logout),
+          content: Text(l10n.logoutConfirmMsg),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Cancel'),
+              child: Text(l10n.cancel),
             ),
             ElevatedButton(
               onPressed: () => Navigator.of(context).pop(true),
               style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-              child: const Text('Logout'),
+              child: Text(l10n.logout),
             ),
           ],
         );
@@ -360,7 +368,6 @@ class _HomeContentState extends State<_HomeContent> {
         await prefs.remove('role');
         await prefs.remove('userId');
         await prefs.remove('name');
-
       } catch (_) {}
       await FirebaseAuth.instance.signOut();
       if (mounted) {
@@ -411,7 +418,7 @@ class _HomeContentState extends State<_HomeContent> {
             const SkilledWorkerDrawerHeader(),
             ListTile(
               leading: const Icon(Icons.contact_support, color: Colors.green),
-              title: const Text('Contact Us'),
+              title: Text(AppLocalizations.of(context)!.contactUs),
               onTap: () {
                 Navigator.pop(context);
                 _showContactUsDialog(context);
@@ -419,16 +426,29 @@ class _HomeContentState extends State<_HomeContent> {
             ),
             ListTile(
               leading: const Icon(Icons.star_rate, color: Colors.amber),
-              title: const Text('Rate Job Poster'),
+              title: Text(AppLocalizations.of(context)!.rateJobPoster),
               onTap: () {
                 Navigator.pop(context);
                 Navigator.pushNamed(context, '/skilled-worker-rate-poster');
               },
             ),
             const Divider(),
+            Consumer<LocaleProvider>(
+              builder: (context, localeProvider, child) {
+                final isUrdu = localeProvider.locale.languageCode == 'ur';
+                return ListTile(
+                  leading: const Icon(Icons.language, color: Colors.blue),
+                  title: Text(isUrdu ? 'English' : 'اردو (Urdu)'),
+                  onTap: () {
+                    localeProvider.toggleLocale();
+                  },
+                );
+              },
+            ),
+            const Divider(),
             ListTile(
               leading: const Icon(Icons.logout, color: Colors.red),
-              title: const Text('Logout'),
+              title: Text(AppLocalizations.of(context)!.logout),
               onTap: () {
                 Navigator.pop(context);
                 _logout(context);
@@ -447,17 +467,18 @@ class _HomeContentState extends State<_HomeContent> {
   }
 
   String _getTitle(int index) {
+    final l10n = AppLocalizations.of(context)!;
     switch (index) {
       case 0:
-        return 'Home';
+        return l10n.home;
       case 1:
-        return 'All Ads';
+        return l10n.allAds;
       case 2:
-        return 'Requests';
+        return l10n.requests;
       case 3:
-        return 'Profile';
+        return l10n.profile;
       default:
-        return 'All Jobs';
+        return l10n.allAds;
     }
   }
 }

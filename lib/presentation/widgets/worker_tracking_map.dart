@@ -3,6 +3,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:geolocator/geolocator.dart';
 import 'dart:async';
+import 'package:skillzaar/l10n/app_localizations.dart';
 
 class WorkerTrackingMap extends StatefulWidget {
   final String jobId;
@@ -22,7 +23,6 @@ class WorkerTrackingMap extends StatefulWidget {
 
 class _WorkerTrackingMapState extends State<WorkerTrackingMap> {
   GoogleMapController? _mapController;
-  Set<Marker> _markers = {};
   LatLng? _currentLocation;
   LatLng? _jobLocation;
   LatLng? _workerLocation;
@@ -57,7 +57,9 @@ class _WorkerTrackingMapState extends State<WorkerTrackingMap> {
         _listenToWorkerLocation();
       }
 
-      _updateMarkers();
+      if (mounted) {
+        setState(() {});
+      }
     } catch (e) {
       print('Error initializing map: $e');
       setState(() {
@@ -108,31 +110,33 @@ class _WorkerTrackingMapState extends State<WorkerTrackingMap> {
           final location = data['currentLocation'] as GeoPoint?;
           final lastUpdate = data['lastLocationUpdate'] as Timestamp?;
           final isOnline = data['isOnline'] as bool? ?? false;
-          setState(() {
-            if (location != null) {
-              _workerLocation = LatLng(location.latitude, location.longitude);
-            }
-            _workerName = data['name'] as String?;
-            _isWorkerOnline = isOnline;
-            _lastLocationUpdate = lastUpdate?.toDate();
-          });
-          _updateMarkers();
+          if (mounted) {
+            setState(() {
+              if (location != null) {
+                _workerLocation = LatLng(location.latitude, location.longitude);
+              }
+              _workerName = data['name'] as String?;
+              _isWorkerOnline = isOnline;
+              _lastLocationUpdate = lastUpdate?.toDate();
+            });
+          }
         });
   }
 
-  void _updateMarkers() {
-    _markers.clear();
+  Set<Marker> _buildMarkers() {
+    final markers = <Marker>{};
+    final l10n = AppLocalizations.of(context)!;
 
     // Add current location marker
     if (_currentLocation != null) {
-      _markers.add(
+      markers.add(
         Marker(
           markerId: const MarkerId('current_location'),
           position: _currentLocation!,
           icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue),
-          infoWindow: const InfoWindow(
-            title: 'Your Location',
-            snippet: 'Current position',
+          infoWindow: InfoWindow(
+            title: l10n.yourCurrentLocation,
+            snippet: l10n.currentPosition,
           ),
         ),
       );
@@ -140,14 +144,14 @@ class _WorkerTrackingMapState extends State<WorkerTrackingMap> {
 
     // Add job location marker
     if (_jobLocation != null) {
-      _markers.add(
+      markers.add(
         Marker(
           markerId: const MarkerId('job_location'),
           position: _jobLocation!,
           icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
-          infoWindow: const InfoWindow(
-            title: 'Job Location',
-            snippet: 'Work location',
+          infoWindow: InfoWindow(
+            title: l10n.jobLocation,
+            snippet: l10n.workLocation,
           ),
         ),
       );
@@ -155,7 +159,7 @@ class _WorkerTrackingMapState extends State<WorkerTrackingMap> {
 
     // Add worker location marker
     if (_workerLocation != null) {
-      _markers.add(
+      markers.add(
         Marker(
           markerId: const MarkerId('worker_location'),
           position: _workerLocation!,
@@ -163,14 +167,14 @@ class _WorkerTrackingMapState extends State<WorkerTrackingMap> {
             BitmapDescriptor.hueGreen,
           ),
           infoWindow: InfoWindow(
-            title: _workerName ?? 'Worker',
-            snippet: _isWorkerOnline ? 'Online' : 'Offline',
+            title: _workerName ?? l10n.skilledWorkerText,
+            snippet: _isWorkerOnline ? l10n.statusOnline : l10n.statusOffline,
           ),
         ),
       );
     }
 
-    setState(() {});
+    return markers;
   }
 
   void _onMapCreated(GoogleMapController controller) {
@@ -180,7 +184,7 @@ class _WorkerTrackingMapState extends State<WorkerTrackingMap> {
   Future<void> _refreshWorkerLocation() async {
     if (widget.workerId != null) {
       await _loadWorkerLocation();
-      _updateMarkers();
+      if (mounted) setState(() {});
     }
   }
 
@@ -204,20 +208,20 @@ class _WorkerTrackingMapState extends State<WorkerTrackingMap> {
     }
   }
 
-  String _formatLastUpdate() {
-    if (_lastLocationUpdate == null) return 'Never';
+  String _formatLastUpdate(AppLocalizations l10n) {
+    if (_lastLocationUpdate == null) return l10n.neverLabel;
 
     final now = DateTime.now();
     final difference = now.difference(_lastLocationUpdate!);
 
     if (difference.inMinutes < 1) {
-      return 'Just now';
+      return l10n.justNowLabel;
     } else if (difference.inMinutes < 60) {
-      return '${difference.inMinutes}m ago';
+      return '${difference.inMinutes}${l10n.minutesAgo}';
     } else if (difference.inHours < 24) {
-      return '${difference.inHours}h ago';
+      return '${difference.inHours}${l10n.hoursAgo}';
     } else {
-      return '${difference.inDays}d ago';
+      return '${difference.inDays}${l10n.daysAgo}';
     }
   }
 
@@ -227,6 +231,7 @@ class _WorkerTrackingMapState extends State<WorkerTrackingMap> {
       return const Center(child: CircularProgressIndicator());
     }
 
+    final l10n = AppLocalizations.of(context)!;
     return Column(
       children: [
         // Header with worker info
@@ -258,14 +263,16 @@ class _WorkerTrackingMapState extends State<WorkerTrackingMap> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          _workerName ?? 'Worker',
+                          _workerName ?? l10n.skilledWorkerText,
                           style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
                         Text(
-                          _isWorkerOnline ? 'Online' : 'Offline',
+                          _isWorkerOnline
+                              ? l10n.statusOnline
+                              : l10n.statusOffline,
                           style: TextStyle(
                             fontSize: 12,
                             color: _isWorkerOnline ? Colors.green : Colors.grey,
@@ -277,7 +284,7 @@ class _WorkerTrackingMapState extends State<WorkerTrackingMap> {
                   IconButton(
                     onPressed: _refreshWorkerLocation,
                     icon: const Icon(Icons.refresh),
-                    tooltip: 'Refresh Location',
+                    tooltip: l10n.refreshLocation,
                   ),
                 ],
               ),
@@ -287,11 +294,11 @@ class _WorkerTrackingMapState extends State<WorkerTrackingMap> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      'Distance: ${_formatDistance(_calculateDistance())}',
+                      '${l10n.distanceLabel}: ${_formatDistance(_calculateDistance())}',
                       style: const TextStyle(fontSize: 12),
                     ),
                     Text(
-                      'Updated: ${_formatLastUpdate()}',
+                      '${l10n.updatedLabel}: ${_formatLastUpdate(l10n)}',
                       style: const TextStyle(fontSize: 12, color: Colors.grey),
                     ),
                   ],
@@ -309,7 +316,7 @@ class _WorkerTrackingMapState extends State<WorkerTrackingMap> {
               target: _jobLocation ?? _currentLocation ?? const LatLng(0, 0),
               zoom: 15,
             ),
-            markers: _markers,
+            markers: _buildMarkers(),
             myLocationEnabled: true,
             myLocationButtonEnabled: true,
             zoomControlsEnabled: true,

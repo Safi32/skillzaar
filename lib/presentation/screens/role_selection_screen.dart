@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:provider/provider.dart';
+import 'package:skillzaar/presentation/providers/locale_provider.dart';
+import 'package:skillzaar/l10n/app_localizations.dart';
 import '../../core/theme/app_theme.dart';
 
 class RoleSelectionScreen extends StatefulWidget {
@@ -19,8 +22,8 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
 
   late bool isLoading = false;
 
-  late String version;
-  late String buildNumber;
+  late String version = '';
+  late String buildNumber = '';
   Future<void> getAppVersion() async {
     setState(() {
       isLoading = true;
@@ -37,9 +40,31 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
+    final l10n = AppLocalizations.of(context)!;
 
     return Scaffold(
       backgroundColor: Colors.white,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        actions: [
+          Consumer<LocaleProvider>(
+            builder: (context, localeProvider, child) {
+              final isUrdu = localeProvider.locale.languageCode == 'ur';
+              return TextButton(
+                onPressed: () => localeProvider.toggleLocale(),
+                child: Text(
+                  isUrdu ? 'English' : 'اردو',
+                  style: const TextStyle(
+                    color: Colors.green,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
       body: SafeArea(
         child: Stack(
           children: [
@@ -78,9 +103,8 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
 
                     // App name
                     Text(
-                      'Find Jobs. Hire Talent.',
+                      l10n.findJobsHireTalent,
                       style: GoogleFonts.poppins(
-                        // <-- apply Google Font
                         fontSize: 28,
                         fontWeight: FontWeight.w700,
                         color: AppColors.green,
@@ -93,9 +117,8 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
 
                     // Secondary tagline
                     Text(
-                      'Choose your role to continue',
+                      l10n.chooseRole,
                       style: GoogleFonts.inter(
-                        // secondary font
                         fontSize: 16,
                         color: Colors.black54,
                         fontWeight: FontWeight.w500,
@@ -108,8 +131,8 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                     // Buttons as cards
                     _buildRoleCard(
                       context,
-                      title: "I am a Job Poster",
-                      subtitle: "Post jobs and hire skilled workers",
+                      title: l10n.iAmJobPoster,
+                      subtitle: l10n.postJobsHire,
                       color: AppColors.green.withAlpha(200),
                       textColor: Colors.white,
                       onTap: () {
@@ -123,10 +146,9 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                     const SizedBox(height: 20),
                     _buildRoleCard(
                       context,
-                      title: "I am a Skilled Worker",
-                      subtitle: "Find and apply to job opportunities",
+                      title: l10n.iAmSkilledWorker,
+                      subtitle: l10n.findApplyJobs,
                       color: AppColors.green.withAlpha(200),
-
                       textColor: Colors.white,
                       onTap: () {
                         Navigator.pushNamed(
@@ -136,9 +158,9 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                         );
                       },
                     ),
-                    SizedBox(height: 30),
+                    const SizedBox(height: 30),
                     Text(
-                      "OR",
+                      l10n.or,
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
@@ -161,8 +183,8 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                         ),
                       ),
                       child: Text(
-                        'Continue as Guest',
-                        style: TextStyle(
+                        l10n.continueGuest,
+                        style: const TextStyle(
                           color: Colors.green,
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
@@ -201,7 +223,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                             fontSize: 12,
                           ),
                         )
-                        : Text("-"),
+                        : const Text("-"),
                     const SizedBox(height: 4),
                     Text(
                       '© 2024 Skillzaar. All rights reserved.',

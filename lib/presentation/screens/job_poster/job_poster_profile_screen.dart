@@ -6,12 +6,14 @@ import '../../providers/phone_auth_provider.dart';
 import 'package:skillzaar/presentation/widgets/profile_section.dart';
 import 'package:skillzaar/presentation/widgets/profile_item.dart';
 import 'package:skillzaar/presentation/widgets/profile_action_button.dart';
+import 'package:skillzaar/l10n/app_localizations.dart';
 
 class JobPosterProfileScreen extends StatelessWidget {
   const JobPosterProfileScreen({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Consumer2<UIStateProvider, AuthStateProvider>(
       builder: (context, uiProvider, authProvider, child) {
         return Scaffold(
@@ -35,8 +37,8 @@ class JobPosterProfileScreen extends StatelessWidget {
                       const SizedBox(height: 16),
                       Text(
                         authProvider.userId == null
-                            ? "Guest User"
-                            : authProvider.currentUser?.name??"-",
+                            ? l10n.guestUser
+                            : authProvider.currentUser?.name ?? "-",
                         style: const TextStyle(
                           fontSize: 24,
                           fontWeight: FontWeight.bold,
@@ -45,8 +47,8 @@ class JobPosterProfileScreen extends StatelessWidget {
                       const SizedBox(height: 8),
                       Text(
                         authProvider.userId == null
-                            ? "Guest User"
-                            : authProvider.currentUser?.role??"-",
+                            ? l10n.guestUser
+                            : authProvider.currentUser?.role ?? "-",
                         style: TextStyle(fontSize: 16, color: Colors.grey[600]),
                       ),
                     ],
@@ -54,24 +56,24 @@ class JobPosterProfileScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 32),
                 ProfileSection(
-                  title: 'Personal Information',
+                  title: l10n.personalInformation,
                   children:
                       authProvider.userId == null
-                          ? [Text("Login to view details")]
+                          ? [Text(l10n.loginToViewDetails)]
                           : [
                             ProfileItem(
                               icon: Icons.phone,
-                              label: 'Phone Number',
-                              value: authProvider.currentUser?.phone??"-",
+                              label: l10n.phoneNumber,
+                              value: authProvider.currentUser?.phone ?? "-",
                             ),
                             ProfileItem(
                               icon: Icons.email,
-                              label: 'Email',
-                              value: authProvider.currentUser?.email??"-",
+                              label: l10n.email,
+                              value: authProvider.currentUser?.email ?? "-",
                             ),
                             ProfileItem(
                               icon: Icons.location_on,
-                              label: 'Location',
+                              label: l10n.location,
                               value: '-',
                             ),
                           ],
@@ -79,24 +81,24 @@ class JobPosterProfileScreen extends StatelessWidget {
 
                 const SizedBox(height: 24),
                 ProfileSection(
-                  title: 'Statistics',
+                  title: l10n.statistics,
                   children:
                       authProvider.userId == null
-                          ? [Text("Login to view details")]
+                          ? [Text(l10n.loginToViewDetails)]
                           : [
                             ProfileItem(
                               icon: Icons.work,
-                              label: 'Total Jobs Posted',
+                              label: l10n.totalJobsPosted,
                               value: '-',
                             ),
                             ProfileItem(
                               icon: Icons.people,
-                              label: 'Active Requests',
+                              label: l10n.activeRequests,
                               value: '-',
                             ),
                             ProfileItem(
                               icon: Icons.check_circle,
-                              label: 'Completed Jobs',
+                              label: l10n.completedJobs,
                               value: '-',
                             ),
                           ],
@@ -104,23 +106,22 @@ class JobPosterProfileScreen extends StatelessWidget {
 
                 const SizedBox(height: 24),
                 ProfileSection(
-                  title: 'Actions',
+                  title: l10n.actions,
                   children:
                       authProvider.userId == null
-                          ? [Text("Login to view details")]
+                          ? [Text(l10n.loginToViewDetails)]
                           : [
-                            
                             ProfileActionButton(
                               icon: Icons.person_off,
-                              label: 'Deactivate Account',
+                              label: l10n.deactivateAccount,
                               onTap: () async {
                                 final shouldDelete = await showDialog<bool>(
                                   context: context,
                                   builder:
                                       (context) => AlertDialog(
-                                        title: const Text('Deactivate Account'),
-                                        content: const Text(
-                                          'This will permanently delete your account and data. Continue?',
+                                        title: Text(l10n.deactivateAccount),
+                                        content: Text(
+                                          l10n.deactivateConfirmMsg,
                                         ),
                                         actions: [
                                           TextButton(
@@ -128,7 +129,7 @@ class JobPosterProfileScreen extends StatelessWidget {
                                                 () => Navigator.of(
                                                   context,
                                                 ).pop(false),
-                                            child: const Text('Cancel'),
+                                            child: Text(l10n.cancel),
                                           ),
                                           ElevatedButton(
                                             onPressed:
@@ -139,7 +140,7 @@ class JobPosterProfileScreen extends StatelessWidget {
                                               backgroundColor: Colors.red,
                                               foregroundColor: Colors.white,
                                             ),
-                                            child: const Text('Delete'),
+                                            child: Text(l10n.delete),
                                           ),
                                         ],
                                       ),
@@ -161,8 +162,8 @@ class JobPosterProfileScreen extends StatelessWidget {
                                   } else {
                                     ui.showErrorToast(
                                       context,
-                                      'Delete failed',
-                                      'Could not delete account. Re-login may be required.',
+                                      l10n.deleteFailed,
+                                      l10n.deleteFailedMsg,
                                     );
                                   }
                                 }
@@ -170,7 +171,7 @@ class JobPosterProfileScreen extends StatelessWidget {
                             ),
                           ],
                 ),
-                SizedBox(height: 50,),
+                SizedBox(height: 50),
               ],
             ),
           ),

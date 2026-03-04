@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:skillzaar/l10n/app_localizations.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
 import 'package:skillzaar/presentation/widgets/banner.dart';
@@ -133,7 +135,28 @@ class _HomeScreenSkilledState extends State<HomeScreenSkilled> {
     }
   }
 
-  Widget _buildChip(String label, String assetPath) {
+  String _getLocalizedCategoryName(String label, AppLocalizations l10n) {
+    switch (label) {
+      case 'All':
+        return l10n.all;
+      case 'Plumbing':
+        return l10n.plumbing;
+      case 'Painting':
+        return l10n.painting;
+      case 'Cleaning':
+        return l10n.cleaning;
+      case 'Gardening':
+        return l10n.gardening;
+      case 'Masonry':
+        return l10n.masonry;
+      case 'Electric Work':
+        return l10n.electricWork;
+      default:
+        return label;
+    }
+  }
+
+  Widget _buildChip(String label, String assetPath, AppLocalizations l10n) {
     final isSelected = _selectedCategory == label;
     return GestureDetector(
       onTap: () => setState(() => _selectedCategory = label),
@@ -152,7 +175,7 @@ class _HomeScreenSkilledState extends State<HomeScreenSkilled> {
             Image.asset(assetPath, width: 40, height: 40, fit: BoxFit.contain),
             const SizedBox(height: 6),
             Text(
-              label,
+              _getLocalizedCategoryName(label, l10n),
               style: TextStyle(
                 color: isSelected ? Colors.green : Colors.black87,
                 fontSize: 12,
@@ -167,6 +190,7 @@ class _HomeScreenSkilledState extends State<HomeScreenSkilled> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Column(
       children: [
         const HireBanner(),
@@ -177,13 +201,13 @@ class _HomeScreenSkilledState extends State<HomeScreenSkilled> {
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 12),
             children: [
-              _buildChip("All", 'assets/workers.png'),
-              _buildChip("Plumbing", 'assets/plumber.png'),
-              _buildChip("Painting", 'assets/painter.png'),
-              _buildChip("Cleaning", 'assets/broom.png'),
-              _buildChip("Gardening", 'assets/gardener.png'),
-              _buildChip("Masonry", 'assets/brickwork.png'),
-              _buildChip("Electric Work", 'assets/electrician.png'),
+              _buildChip("All", 'assets/workers.png', l10n),
+              _buildChip("Plumbing", 'assets/plumber.png', l10n),
+              _buildChip("Painting", 'assets/painter.png', l10n),
+              _buildChip("Cleaning", 'assets/broom.png', l10n),
+              _buildChip("Gardening", 'assets/gardener.png', l10n),
+              _buildChip("Masonry", 'assets/brickwork.png', l10n),
+              _buildChip("Electric Work", 'assets/electrician.png', l10n),
             ],
           ),
         ),
@@ -220,8 +244,14 @@ class _HomeScreenSkilledState extends State<HomeScreenSkilled> {
                       const SizedBox(height: 16),
                       Text(
                         _selectedCategory == 'All'
-                            ? 'No approved jobs available yet'
-                            : 'No $_selectedCategory jobs available',
+                            ? l10n.noJobsAvailable
+                            : l10n.noCategoryJobs.replaceFirst(
+                              '{category}',
+                              _getLocalizedCategoryName(
+                                _selectedCategory,
+                                l10n,
+                              ),
+                            ),
                         style: TextStyle(
                           color: Colors.grey.shade600,
                           fontSize: 16,
@@ -229,7 +259,7 @@ class _HomeScreenSkilledState extends State<HomeScreenSkilled> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Check back later for new opportunities',
+                        l10n.checkBackLater,
                         style: TextStyle(
                           color: Colors.grey.shade500,
                           fontSize: 14,
@@ -305,7 +335,8 @@ class _HomeScreenSkilledState extends State<HomeScreenSkilled> {
                           data['jobPosterId'] ?? data['userId'] ?? '',
                         ),
                     title: title,
-                    company: (data['jobPosterName'] ?? 'Job Poster').toString(),
+                    company:
+                        (data['jobPosterName'] ?? l10n.jobPoster).toString(),
                     location: data['Address'] ?? data['Location'] ?? '—',
                     salary:
                         (() {

@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:skillzaar/core/examples/services/user_data_service.dart';
 import '../../providers/skilled_worker_provider.dart';
 import '../../../core/theme/app_theme.dart';
+import 'package:skillzaar/l10n/app_localizations.dart';
 
 class SkilledWorkerSignUpScreen extends StatefulWidget {
   const SkilledWorkerSignUpScreen({super.key});
@@ -87,6 +88,7 @@ class _SkilledWorkerSignUpScreenState extends State<SkilledWorkerSignUpScreen> {
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
+    final l10n = AppLocalizations.of(context)!;
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -103,9 +105,9 @@ class _SkilledWorkerSignUpScreenState extends State<SkilledWorkerSignUpScreen> {
                 const SizedBox(height: 40),
                 Icon(Icons.lock_outline, size: 48, color: Colors.green),
                 const SizedBox(height: 16),
-                const Text(
-                  'Skilled Worker Sign Up',
-                  style: TextStyle(
+                Text(
+                  l10n.skilledWorkerSignUp,
+                  style: const TextStyle(
                     fontSize: 26,
                     fontWeight: FontWeight.bold,
                     color: Colors.green,
@@ -116,8 +118,8 @@ class _SkilledWorkerSignUpScreenState extends State<SkilledWorkerSignUpScreen> {
                   controller: phoneController,
                   keyboardType: TextInputType.phone,
                   decoration: InputDecoration(
-                    labelText: 'Phone Number',
-                    hintText: 'Enter Your Phone Number',
+                    labelText: l10n.mobileNumber,
+                    hintText: l10n.enterPhoneHint,
                     prefixIcon: const Icon(Icons.phone, color: Colors.green),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
@@ -137,10 +139,8 @@ class _SkilledWorkerSignUpScreenState extends State<SkilledWorkerSignUpScreen> {
                               final phone = phoneController.text.trim();
                               if (phone.isEmpty) {
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text(
-                                      'Please enter your phone number',
-                                    ),
+                                  SnackBar(
+                                    content: Text(l10n.pleaseEnterPhone),
                                     backgroundColor: Colors.red,
                                   ),
                                 );
@@ -150,10 +150,8 @@ class _SkilledWorkerSignUpScreenState extends State<SkilledWorkerSignUpScreen> {
                               // Validate phone number length (minimum 11 digits)
                               if (!isValidPhoneNumber(phone)) {
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text(
-                                      'Phone number must be at least 11 digits',
-                                    ),
+                                  SnackBar(
+                                    content: Text(l10n.phoneValidError),
                                     backgroundColor: Colors.red,
                                   ),
                                 );
@@ -182,10 +180,8 @@ class _SkilledWorkerSignUpScreenState extends State<SkilledWorkerSignUpScreen> {
                                 if (userExists) {
                                   // User already exists, show error
                                   ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text(
-                                        'User already exists with this phone number. Please login instead.',
-                                      ),
+                                    SnackBar(
+                                      content: Text(l10n.userExistsError),
                                       backgroundColor: Colors.orange,
                                     ),
                                   );
@@ -226,7 +222,9 @@ class _SkilledWorkerSignUpScreenState extends State<SkilledWorkerSignUpScreen> {
                                 if (mounted) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
-                                      content: Text('Registration failed: $e'),
+                                      content: Text(
+                                        '${l10n.registrationFailed}: $e',
+                                      ),
                                       backgroundColor: Colors.red,
                                     ),
                                   );
@@ -251,9 +249,9 @@ class _SkilledWorkerSignUpScreenState extends State<SkilledWorkerSignUpScreen> {
                             ? const CircularProgressIndicator(
                               color: Colors.white,
                             )
-                            : const Text(
-                              'Continue',
-                              style: TextStyle(
+                            : Text(
+                              l10n.continueGuest,
+                              style: const TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 18,
                               ),
@@ -264,9 +262,9 @@ class _SkilledWorkerSignUpScreenState extends State<SkilledWorkerSignUpScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Text(
-                      "Already have an account?",
-                      style: TextStyle(color: Colors.black54),
+                    Text(
+                      "${l10n.alreadyHaveAccount} ",
+                      style: const TextStyle(color: Colors.black54),
                     ),
                     TextButton(
                       onPressed: () {

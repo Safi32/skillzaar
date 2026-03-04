@@ -14,6 +14,7 @@ import '../../providers/skilled_worker_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/home_profile_provider.dart';
+import 'package:skillzaar/l10n/app_localizations.dart';
 
 class HomeProfileScreen extends StatelessWidget {
   const HomeProfileScreen({super.key});
@@ -211,8 +212,11 @@ class _HomeProfileContentState extends State<_HomeProfileContent> {
   }
 
   Widget _buildNextButton() {
+    final l10n = AppLocalizations.of(context)!;
     return SavePortfolioButton(
       isFormValid: widget.homeProfileProvider.isFormValid,
+      saveLabel: l10n.saveProfile,
+      incompleteLabel: l10n.completeRequiredFields,
       onPressed:
           widget.homeProfileProvider.isFormValid
               ? () => _saveSkillProfile(context)

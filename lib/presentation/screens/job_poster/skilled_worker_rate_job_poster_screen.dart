@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:skillzaar/core/services/job_request_service.dart';
+import 'package:skillzaar/l10n/app_localizations.dart';
 
 class SkilledWorkerRateJobPosterScreen extends StatefulWidget {
   final Map<String, dynamic> jobPosterDetails;
@@ -18,12 +19,12 @@ class SkilledWorkerRateJobPosterScreen extends StatefulWidget {
 class _SkilledWorkerRateJobPosterScreenState
     extends State<SkilledWorkerRateJobPosterScreen> {
   double rating = 4.0;
-  final List<String> defaultTexts = [
-    'Excellent work',
-    'Very Good',
-    'Good',
-    'Average',
-    'Poor',
+  List<String> _getDefaultTexts(AppLocalizations l10n) => [
+    l10n.feedbackExcellent,
+    l10n.feedbackVeryGood,
+    l10n.feedbackGood,
+    l10n.feedbackAverage,
+    l10n.feedbackPoor,
   ];
   String? selectedText;
   final TextEditingController _customController = TextEditingController();
@@ -72,8 +73,8 @@ class _SkilledWorkerRateJobPosterScreenState
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Failed to submit rating. Please try again.'),
+          SnackBar(
+            content: Text(AppLocalizations.of(context)!.failedToSubmitRating),
             backgroundColor: Colors.red,
           ),
         );
@@ -100,9 +101,11 @@ class _SkilledWorkerRateJobPosterScreenState
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final defaultTexts = _getDefaultTexts(l10n);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Rate Job Poster'),
+        title: Text(l10n.rateJobPoster),
         backgroundColor: Colors.green,
         foregroundColor: Colors.white,
         elevation: 0,
@@ -150,7 +153,7 @@ class _SkilledWorkerRateJobPosterScreenState
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    'Job Poster Details',
+                                    l10n.jobPosterDetails,
                                     style: Theme.of(
                                       context,
                                     ).textTheme.titleLarge?.copyWith(
@@ -160,7 +163,7 @@ class _SkilledWorkerRateJobPosterScreenState
                                   ),
                                   const SizedBox(height: 8),
                                   Text(
-                                    'Rate your experience with this job poster',
+                                    l10n.rateExperienceJobPoster,
                                     style: Theme.of(context)
                                         .textTheme
                                         .bodyMedium
@@ -174,22 +177,22 @@ class _SkilledWorkerRateJobPosterScreenState
                         const SizedBox(height: 20),
                         _buildInfoRow(
                           Icons.person,
-                          'Name',
+                          l10n.nameLabel,
                           widget.jobPosterDetails['name'] ?? '-',
                         ),
                         _buildInfoRow(
                           Icons.phone,
-                          'Phone',
+                          l10n.phoneLabel,
                           widget.jobPosterDetails['phone'] ?? '-',
                         ),
                         _buildInfoRow(
                           Icons.email,
-                          'Email',
+                          l10n.emailLabel,
                           widget.jobPosterDetails['email'] ?? '-',
                         ),
                         _buildInfoRow(
                           Icons.location_on,
-                          'Address',
+                          l10n.addressLabel,
                           widget.jobPosterDetails['address'] ?? '-',
                         ),
                       ],
@@ -211,7 +214,7 @@ class _SkilledWorkerRateJobPosterScreenState
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'How was your experience?',
+                          l10n.howWasExperience,
                           style: Theme.of(
                             context,
                           ).textTheme.titleLarge?.copyWith(
@@ -252,7 +255,7 @@ class _SkilledWorkerRateJobPosterScreenState
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Select a feedback:',
+                          l10n.selectFeedback,
                           style: Theme.of(
                             context,
                           ).textTheme.titleMedium?.copyWith(
@@ -283,7 +286,7 @@ class _SkilledWorkerRateJobPosterScreenState
                         ),
                         const SizedBox(height: 16),
                         Text(
-                          'Or write your own feedback:',
+                          l10n.writeOwnFeedback,
                           style: Theme.of(
                             context,
                           ).textTheme.titleMedium?.copyWith(
@@ -299,7 +302,7 @@ class _SkilledWorkerRateJobPosterScreenState
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
                             ),
-                            hintText: 'Enter your detailed feedback here...',
+                            hintText: l10n.enterDetailedFeedback,
                             hintStyle: TextStyle(color: Colors.grey.shade500),
                           ),
                           onChanged: (val) {
@@ -333,7 +336,7 @@ class _SkilledWorkerRateJobPosterScreenState
                     ),
                     child:
                         _isSubmitting
-                            ? const Row(
+                            ? Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 SizedBox(
@@ -348,7 +351,7 @@ class _SkilledWorkerRateJobPosterScreenState
                                 ),
                                 SizedBox(width: 12),
                                 Text(
-                                  'Submitting...',
+                                  l10n.submittingText,
                                   style: TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.w600,
@@ -356,8 +359,8 @@ class _SkilledWorkerRateJobPosterScreenState
                                 ),
                               ],
                             )
-                            : const Text(
-                              'Submit Rating',
+                            : Text(
+                              l10n.submitRating,
                               style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w600,
@@ -412,10 +415,11 @@ class _SkilledWorkerRateJobPosterScreenState
   }
 
   String _getRatingText(double rating) {
-    if (rating >= 4.5) return 'Excellent!';
-    if (rating >= 3.5) return 'Very Good!';
-    if (rating >= 2.5) return 'Good!';
-    if (rating >= 1.5) return 'Average';
-    return 'Poor';
+    final l10n = AppLocalizations.of(context)!;
+    if (rating >= 4.5) return l10n.excellent;
+    if (rating >= 3.5) return l10n.veryGoodExcl;
+    if (rating >= 2.5) return l10n.goodExcl;
+    if (rating >= 1.5) return l10n.feedbackAverage;
+    return l10n.feedbackPoor;
   }
 }

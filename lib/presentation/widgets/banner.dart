@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:skillzaar/l10n/app_localizations.dart';
 
 class HireBanner extends StatelessWidget {
   const HireBanner({super.key});
@@ -25,9 +26,11 @@ class HireBanner extends StatelessWidget {
                   fontWeight: FontWeight.w600,
                 ),
                 children: [
-                  const TextSpan(text: "Hire Highly "),
                   TextSpan(
-                    text: "Qualified",
+                    text: AppLocalizations.of(context)!.hireHighlyQualified,
+                  ),
+                  TextSpan(
+                    text: AppLocalizations.of(context)!.qualified,
                     style: GoogleFonts.pacifico(
                       // 👈 different font
                       textStyle: const TextStyle(
@@ -36,7 +39,7 @@ class HireBanner extends StatelessWidget {
                       ),
                     ),
                   ),
-                  const TextSpan(text: " \nProfessionals"),
+                  TextSpan(text: AppLocalizations.of(context)!.professionals),
                 ],
               ),
             ),

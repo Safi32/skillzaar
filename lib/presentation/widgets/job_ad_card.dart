@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:skillzaar/l10n/app_localizations.dart';
 
 class AdCard extends StatelessWidget {
   final String adId;
@@ -7,23 +8,43 @@ class AdCard extends StatelessWidget {
   const AdCard({required this.adId, required this.ad, Key? key})
     : super(key: key);
 
-  String _formatDate(DateTime date) {
+  String _formatDate(DateTime date, AppLocalizations l10n) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final yesterday = today.subtract(const Duration(days: 1));
     final postDate = DateTime(date.year, date.month, date.day);
 
     if (postDate == today) {
-      return 'Posted today';
+      return l10n.postedToday;
     } else if (postDate == yesterday) {
-      return 'Posted yesterday';
+      return l10n.postedYesterday;
     } else {
       return '${date.day}/${date.month}/${date.year}';
     }
   }
 
+  String _getLocalizedStatus(String status, AppLocalizations l10n) {
+    switch (status.toLowerCase()) {
+      case 'pending':
+        return l10n.statusPending;
+      case 'completed':
+        return l10n.statusCompleted;
+      case 'active':
+        return l10n.statusActive;
+      case 'inactive':
+        return l10n.statusInactive;
+      case 'assigned':
+        return l10n.statusAssigned;
+      case 'approved':
+        return l10n.statusApproved;
+      default:
+        return status;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final String title = ad['title_en'] ?? ad['title_ur'] ?? 'Untitled';
     final String description =
         ad['description_en'] ?? ad['description_ur'] ?? '';
@@ -32,7 +53,7 @@ class AdCard extends StatelessWidget {
         ad['status'] ?? (ad['isActive'] == true ? 'Active' : 'Inactive');
     final Timestamp? ts = ad['createdAt'] as Timestamp?;
     final String dateText =
-        ts != null ? _formatDate(ts.toDate().toLocal()) : '';
+        ts != null ? _formatDate(ts.toDate().toLocal(), l10n) : '';
     final bool isActive = status.toString().toLowerCase() == 'active';
 
     final theme = Theme.of(context);
@@ -72,7 +93,7 @@ class AdCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
-                    status,
+                    _getLocalizedStatus(status, l10n),
                     style: theme.textTheme.bodySmall?.copyWith(
                       fontWeight: FontWeight.w600,
                       fontSize: 12,
@@ -142,9 +163,7 @@ class AdCard extends StatelessWidget {
                   child: OutlinedButton(
                     onPressed: () {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Edit functionality coming soon!'),
-                        ),
+                        SnackBar(content: Text(l10n.editComingSoon)),
                       );
                     },
                     style: OutlinedButton.styleFrom(
@@ -155,7 +174,7 @@ class AdCard extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(vertical: 14),
                     ),
                     child: Text(
-                      'Edit',
+                      l10n.edit,
                       style: TextStyle(
                         color: green,
                         fontWeight: FontWeight.w600,
@@ -182,9 +201,9 @@ class AdCard extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       elevation: 0,
                     ),
-                    child: const Text(
-                      'Requests',
-                      style: TextStyle(fontWeight: FontWeight.w600),
+                    child: Text(
+                      l10n.requests,
+                      style: const TextStyle(fontWeight: FontWeight.w600),
                     ),
                   ),
                 ),
@@ -207,10 +226,8 @@ class AdCard extends StatelessWidget {
                           );
                         } else {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                'Error: Assignment details missing.',
-                              ),
+                            SnackBar(
+                              content: Text(l10n.adDetailsMissing),
                               backgroundColor: Colors.red,
                             ),
                           );
@@ -232,9 +249,9 @@ class AdCard extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       elevation: 0,
                     ),
-                    child: const Text(
-                      'View Details',
-                      style: TextStyle(fontWeight: FontWeight.w600),
+                    child: Text(
+                      l10n.viewDetails,
+                      style: const TextStyle(fontWeight: FontWeight.w600),
                     ),
                   ),
                 ),

@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:skillzaar/l10n/app_localizations.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import '../../providers/job_provider.dart';
@@ -88,8 +89,8 @@ class _PostJobContentState extends State<_PostJobContent> {
   Future<void> pickImage() async {
     if (images.length >= 3) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('You can upload a maximum of 3 images'),
+        SnackBar(
+          content: Text(AppLocalizations.of(context)!.max3Images),
           backgroundColor: Colors.red,
         ),
       );
@@ -111,7 +112,9 @@ class _PostJobContentState extends State<_PostJobContent> {
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Error picking image: $e'),
+          content: Text(
+            '${AppLocalizations.of(context)!.errorPickingImage}: $e',
+          ),
           backgroundColor: Colors.red,
         ),
       );
@@ -130,10 +133,8 @@ class _PostJobContentState extends State<_PostJobContent> {
         selectedAddress.isEmpty ||
         selectedServiceType == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Please fill all required fields including service type',
-          ),
+        SnackBar(
+          content: Text(AppLocalizations.of(context)!.fillRequiredFields),
           backgroundColor: Colors.red,
         ),
       );
@@ -159,7 +160,7 @@ class _PostJobContentState extends State<_PostJobContent> {
       if (widget.jobProvider.success != null) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(widget.jobProvider.success!),
+            content: Text(AppLocalizations.of(context)!.jobPostedSuccess),
             backgroundColor: Colors.green,
             duration: const Duration(seconds: 4),
           ),
@@ -215,8 +216,6 @@ class _PostJobContentState extends State<_PostJobContent> {
       child: child,
     );
   }
-
-
 
   @override
   Widget build(BuildContext context) {
@@ -285,9 +284,9 @@ class _PostJobContentState extends State<_PostJobContent> {
                         ),
                       ),
                       const SizedBox(width: 16),
-                      const Text(
-                        "Post Job",
-                        style: TextStyle(
+                      Text(
+                        AppLocalizations.of(context)!.postJob,
+                        style: const TextStyle(
                           fontSize: 22,
                           fontWeight: FontWeight.w700,
                           color: Colors.green,
@@ -325,7 +324,6 @@ class _PostJobContentState extends State<_PostJobContent> {
                             },
                           ),
                         ),
-
 
                         _buildCard(
                           child: JobLocationPicker(

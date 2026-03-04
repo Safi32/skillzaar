@@ -9,6 +9,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/config/google_maps_config.dart';
 import '../../../core/utils/permission_handler.dart';
 import '../providers/ui_state_provider.dart';
+import '../../l10n/app_localizations.dart';
 
 class LocationPickerWidget extends StatefulWidget {
   final Function(String address, double latitude, double longitude)
@@ -109,7 +110,7 @@ class _LocationPickerWidgetState extends State<LocationPickerWidget> {
       bool hasPermission = await PermissionHandler.requestLocationPermissions();
       if (!hasPermission) {
         _showErrorSnackBar(
-          'Location permissions are required to get your current location',
+          AppLocalizations.of(context)!.locationPermRequiredMsg,
         );
         return;
       }
@@ -117,7 +118,7 @@ class _LocationPickerWidgetState extends State<LocationPickerWidget> {
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
         _showErrorSnackBar(
-          'Location services are disabled. Please enable location services in your device settings.',
+          AppLocalizations.of(context)!.locationServiceDisabledMsg,
         );
         return;
       }
@@ -140,7 +141,7 @@ class _LocationPickerWidgetState extends State<LocationPickerWidget> {
       if (context.mounted) {
         context.read<UIStateProvider>().showLocationToast(
           context,
-          '📍 Location access granted! GPS is now active.',
+          AppLocalizations.of(context)!.locationAccessGrantedGPS,
         );
       }
 
@@ -163,7 +164,9 @@ class _LocationPickerWidgetState extends State<LocationPickerWidget> {
         Marker(
           markerId: const MarkerId('selected_location'),
           position: position,
-          infoWindow: const InfoWindow(title: 'Selected Location'),
+          infoWindow: InfoWindow(
+            title: AppLocalizations.of(context)!.selectedLocation,
+          ),
           draggable: true,
           onDragEnd: (newPosition) {
             setState(() {
@@ -243,6 +246,7 @@ class _LocationPickerWidgetState extends State<LocationPickerWidget> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -285,7 +289,7 @@ class _LocationPickerWidgetState extends State<LocationPickerWidget> {
                         const SizedBox(width: 8),
                         Flexible(
                           child: Text(
-                            'Auto Location',
+                            l10n.autoLocation,
                             style: TextStyle(
                               color:
                                   !_isManualMode
@@ -331,7 +335,7 @@ class _LocationPickerWidgetState extends State<LocationPickerWidget> {
                         const SizedBox(width: 8),
                         Flexible(
                           child: Text(
-                            'Manual Address',
+                            l10n.manualAddress,
                             style: TextStyle(
                               color:
                                   _isManualMode
@@ -360,7 +364,7 @@ class _LocationPickerWidgetState extends State<LocationPickerWidget> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Manual Address Entry',
+                  l10n.manualAddressEntry,
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 14,
@@ -369,7 +373,7 @@ class _LocationPickerWidgetState extends State<LocationPickerWidget> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Search and select the exact address where the job needs to be done. This will automatically get the precise coordinates.',
+                  l10n.manualAddressInstruction,
                   style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                 ),
                 const SizedBox(height: 8),
@@ -377,8 +381,7 @@ class _LocationPickerWidgetState extends State<LocationPickerWidget> {
                   textEditingController: _manualAddressController,
                   googleAPIKey: GoogleMapsConfig.apiKey,
                   inputDecoration: InputDecoration(
-                    hintText:
-                        'Search for an address (e.g., House 123, Street 45, City)',
+                    hintText: l10n.searchAddressHint,
                     prefixIcon: const Icon(Icons.location_on),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
@@ -410,8 +413,8 @@ class _LocationPickerWidgetState extends State<LocationPickerWidget> {
                       if (context.mounted) {
                         context.read<UIStateProvider>().showSuccessToast(
                           context,
-                          'Location Selected!',
-                          'Address: $_selectedAddress',
+                          l10n.locationSelectedLabel,
+                          '${l10n.address}: $_selectedAddress',
                         );
                       }
                     }
@@ -440,7 +443,7 @@ class _LocationPickerWidgetState extends State<LocationPickerWidget> {
               textEditingController: _searchController,
               googleAPIKey: GoogleMapsConfig.apiKey,
               inputDecoration: InputDecoration(
-                hintText: 'Search for a location...',
+                hintText: l10n.searchLocationHint,
                 prefixIcon: const Icon(Icons.search),
                 suffixIcon: IconButton(
                   icon: const Icon(Icons.my_location),
@@ -524,13 +527,13 @@ class _LocationPickerWidgetState extends State<LocationPickerWidget> {
                       mapToolbarEnabled: false,
                     )
                   else
-                    const Center(
+                    Center(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          CircularProgressIndicator(),
-                          SizedBox(height: 16),
-                          Text('Getting your location...'),
+                          const CircularProgressIndicator(),
+                          const SizedBox(height: 16),
+                          Text(l10n.gettingLocation),
                         ],
                       ),
                     ),
@@ -577,7 +580,9 @@ class _LocationPickerWidgetState extends State<LocationPickerWidget> {
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      _isManualMode ? 'Manual Address' : 'Selected Location',
+                      _isManualMode
+                          ? l10n.manualAddress
+                          : l10n.selectedLocation,
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         color: AppColors.green,
@@ -604,7 +609,7 @@ class _LocationPickerWidgetState extends State<LocationPickerWidget> {
                   Padding(
                     padding: const EdgeInsets.only(top: 4),
                     child: Text(
-                      'Note: Address selected with precise coordinates',
+                      l10n.preciseCoordinatesNote,
                       style: TextStyle(
                         fontSize: 12,
                         color: Colors.green.shade600,

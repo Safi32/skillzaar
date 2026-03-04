@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:skillzaar/l10n/app_localizations.dart';
 
 class FloatingIslandNavBar extends StatelessWidget {
   final int currentIndex;
@@ -13,10 +14,10 @@ class FloatingIslandNavBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final items = const [
-      {'icon': Icons.home, 'label': 'Home'},
-      {'icon': Icons.sell, 'label': 'Ads'},
-      {'icon': Icons.person, 'label': 'Profile'},
+    final items = [
+      {'icon': Icons.home, 'label': AppLocalizations.of(context)!.home},
+      {'icon': Icons.sell, 'label': AppLocalizations.of(context)!.ads},
+      {'icon': Icons.person, 'label': AppLocalizations.of(context)!.profile},
     ];
 
     return ClipRRect(

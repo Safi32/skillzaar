@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:skillzaar/l10n/app_localizations.dart';
 import 'package:skillzaar/presentation/widgets/contact_info_tile.dart';
 import 'package:skillzaar/presentation/widgets/contact_section.dart';
 import 'package:skillzaar/presentation/widgets/faq_item.dart';
@@ -8,9 +9,10 @@ class ContactUsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Contact Us'),
+        title: Text(l10n.contactUs),
         backgroundColor: Colors.green,
         foregroundColor: Colors.white,
         elevation: 0,
@@ -25,13 +27,13 @@ class ContactUsScreen extends StatelessWidget {
                 children: [
                   Icon(Icons.support_agent, size: 80, color: Colors.green),
                   const SizedBox(height: 16),
-                  const Text(
-                    'We\'re Here to Help!',
+                  Text(
+                    l10n.wereHereToHelp,
                     style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Get in touch with our support team',
+                    l10n.getInTouchWithSupport,
                     style: TextStyle(fontSize: 16, color: Colors.grey[600]),
                     textAlign: TextAlign.center,
                   ),
@@ -40,74 +42,67 @@ class ContactUsScreen extends StatelessWidget {
             ),
             const SizedBox(height: 32),
             ContactSection(
-              title: 'Get in Touch',
+              title: l10n.getInTouch,
               children: [
                 ContactInfoTile(
                   icon: Icons.phone,
-                  title: 'Call Us',
+                  title: l10n.callUs,
                   subtitle: '+92 300 1234567',
-                  
                 ),
                 ContactInfoTile(
                   icon: Icons.email,
-                  title: 'Email Us',
+                  title: l10n.emailUs,
                   subtitle: 'support@skillzaar.com',
-                  
                 ),
                 ContactInfoTile(
                   icon: Icons.chat,
-                  title: 'WhatsApp',
-                  subtitle: 'Message us on WhatsApp',
-                   
+                  title: l10n.whatsApp,
+                  subtitle: l10n.messageUsOnWhatsApp,
                 ),
               ],
             ),
 
             const SizedBox(height: 24),
             ContactSection(
-              title: 'Office Hours',
+              title: l10n.officeHours,
               children: [
                 ContactInfoTile(
                   icon: Icons.access_time,
-                  title: 'Monday - Friday',
+                  title: l10n.mondayFriday,
                   subtitle: '9:00 AM - 6:00 PM',
                 ),
                 ContactInfoTile(
                   icon: Icons.access_time,
-                  title: 'Saturday',
+                  title: l10n.saturday,
                   subtitle: '10:00 AM - 4:00 PM',
                 ),
                 ContactInfoTile(
                   icon: Icons.access_time,
-                  title: 'Sunday',
-                  subtitle: 'Closed',
+                  title: l10n.sunday,
+                  subtitle: l10n.closed,
                 ),
               ],
             ),
 
             const SizedBox(height: 24),
             ContactSection(
-              title: 'Frequently Asked Questions',
+              title: l10n.faq,
               children: [
                 FAQItem(
-                  question: 'How do I post a job?',
-                  answer:
-                      'Go to the "Post New Job" section from the drawer menu and fill in the required details.',
+                  question: l10n.howToPostJob,
+                  answer: l10n.howToPostJobAns,
                 ),
                 FAQItem(
-                  question: 'How do I view job requests?',
-                  answer:
-                      'Navigate to the "Requests" tab to see all requests for your posted jobs.',
+                  question: l10n.howToViewRequests,
+                  answer: l10n.howToViewRequestsAns,
                 ),
                 FAQItem(
-                  question: 'Can I edit my posted jobs?',
-                  answer:
-                      'Yes, you can edit your jobs from the "My Ads" section.',
+                  question: l10n.canIEditJobs,
+                  answer: l10n.canIEditJobsAns,
                 ),
                 FAQItem(
-                  question: 'How do I contact skilled workers?',
-                  answer:
-                      'You can contact workers through the requests they send for your jobs.',
+                  question: l10n.howToContactWorkers,
+                  answer: l10n.howToContactWorkersAns,
                 ),
               ],
             ),
@@ -115,11 +110,9 @@ class ContactUsScreen extends StatelessWidget {
             const SizedBox(height: 24),
             Center(
               child: ElevatedButton.icon(
-                onPressed: () {
-                  
-                },
+                onPressed: () {},
                 icon: const Icon(Icons.report_problem),
-                label: const Text('Report an Issue'),
+                label: Text(l10n.reportAnIssue),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.orange,
                   foregroundColor: Colors.white,
@@ -134,7 +127,7 @@ class ContactUsScreen extends StatelessWidget {
               ),
             ),
           ],
-        ),    
+        ),
       ),
     );
   }

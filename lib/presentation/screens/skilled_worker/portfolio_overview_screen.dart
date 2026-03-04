@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/home_profile_provider.dart';
 import '../../../core/theme/app_theme.dart';
+import 'package:skillzaar/l10n/app_localizations.dart';
 
 class PortfolioOverviewScreen extends StatelessWidget {
   const PortfolioOverviewScreen({super.key});
@@ -38,6 +39,34 @@ class PortfolioOverviewScreen extends StatelessWidget {
     HomeProfileProvider provider,
     BuildContext context,
   ) {
+    final l10n = AppLocalizations.of(context)!;
+    String displayMessage = provider.profileCompletionMessage;
+
+    if (provider.profileCompletionMessage ==
+        'Portfolio Complete! You can now request jobs.') {
+      displayMessage = l10n.portfolioCompleteMessage;
+    } else if (provider.profileCompletionMessage.startsWith(
+      'Complete your portfolio to request jobs. Missing: ',
+    )) {
+      final missingString = provider.profileCompletionMessage.substring(
+        'Complete your portfolio to request jobs. Missing: '.length,
+      );
+      final fields = missingString.split(', ');
+      List<String> localizedFields = [];
+      for (var f in fields) {
+        if (f == 'skills')
+          localizedFields.add(l10n.skillsText);
+        else if (f == 'experience')
+          localizedFields.add(l10n.experienceText);
+        else if (f == 'bio')
+          localizedFields.add(l10n.bioText);
+        else
+          localizedFields.add(f);
+      }
+      displayMessage =
+          '${l10n.completePortfolioRequestJobs}: ${localizedFields.join(', ')}';
+    }
+
     return Card(
       elevation: 4,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -58,8 +87,8 @@ class PortfolioOverviewScreen extends StatelessWidget {
                 Expanded(
                   child: Text(
                     provider.isProfileComplete
-                        ? 'Portfolio Complete!'
-                        : 'Portfolio Setup Required',
+                        ? l10n.portfolioComplete
+                        : l10n.portfolioSetupRequired,
                     style: const TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
@@ -83,7 +112,9 @@ class PortfolioOverviewScreen extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             Text(
-              '${(provider.profileCompletionPercentage * 100).round()}% Complete',
+              l10n.percentComplete(
+                (provider.profileCompletionPercentage * 100).round().toString(),
+              ),
               style: TextStyle(
                 fontSize: 14,
                 color: Colors.grey.shade600,
@@ -92,7 +123,7 @@ class PortfolioOverviewScreen extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             Text(
-              provider.profileCompletionMessage,
+              displayMessage,
               style: TextStyle(
                 fontSize: 14,
                 color:

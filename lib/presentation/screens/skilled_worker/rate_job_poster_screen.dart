@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:skillzaar/l10n/app_localizations.dart';
 
 class RateJobPosterScreen extends StatefulWidget {
   final String assignedJobId;
@@ -18,12 +19,12 @@ class RateJobPosterScreen extends StatefulWidget {
 class _RateJobPosterScreenState extends State<RateJobPosterScreen> {
   double rating = 4.0;
   // Map 1 star -> Poor, 5 stars -> Excellent
-  final List<String> defaultTexts = [
-    'Poor',
-    'Average',
-    'Good',
-    'Very Good',
-    'Excellent client',
+  List<String> _getDefaultTexts(AppLocalizations l10n) => [
+    l10n.feedbackPoor,
+    l10n.feedbackAverage,
+    l10n.feedbackGood,
+    l10n.feedbackVeryGood,
+    l10n.feedbackExcellentClient,
   ];
   String? selectedText;
   final TextEditingController _customController = TextEditingController();
@@ -167,9 +168,10 @@ class _RateJobPosterScreenState extends State<RateJobPosterScreen> {
           'ratedByWorkerAt': FieldValue.serverTimestamp(),
           'workerRatingCompleted': true,
           'fullyCompleted': hasPosterRated,
-          'fullyCompletedAt': hasPosterRated
-              ? FieldValue.serverTimestamp()
-              : FieldValue.delete(),
+          'fullyCompletedAt':
+              hasPosterRated
+                  ? FieldValue.serverTimestamp()
+                  : FieldValue.delete(),
         });
         if (posterSnap.exists) {
           final posterData = posterSnap.data() as Map<String, dynamic>;
@@ -233,18 +235,20 @@ class _RateJobPosterScreenState extends State<RateJobPosterScreen> {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
+    final l10n = AppLocalizations.of(context)!;
+    final defaultTexts = _getDefaultTexts(l10n);
+
     if (_assignedJobData == null) {
-      return const Scaffold(
-        body: Center(child: Text('Job data not available')),
-      );
+      return Scaffold(body: Center(child: Text(l10n.jobDataNotAvailable)));
     }
 
-    final jobPosterName = _assignedJobData!['jobPosterName'] ?? 'Client';
-    final jobTitle = _assignedJobData!['jobTitle'] ?? 'Job';
+    final jobPosterName =
+        _assignedJobData!['jobPosterName'] ?? l10n.clientLabel;
+    final jobTitle = _assignedJobData!['jobTitle'] ?? l10n.jobLabel;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Rate Client'),
+        title: Text(l10n.rateClient),
         backgroundColor: Colors.green,
         foregroundColor: Colors.white,
       ),
@@ -266,7 +270,7 @@ class _RateJobPosterScreenState extends State<RateJobPosterScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Job Completed!',
+                    l10n.jobCompleted,
                     style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
@@ -274,17 +278,20 @@ class _RateJobPosterScreenState extends State<RateJobPosterScreen> {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  Text('Job: $jobTitle', style: const TextStyle(fontSize: 16)),
                   Text(
-                    'Client: $jobPosterName',
+                    '${l10n.jobLabel}: $jobTitle',
+                    style: const TextStyle(fontSize: 16),
+                  ),
+                  Text(
+                    '${l10n.clientLabel}: $jobPosterName',
                     style: const TextStyle(fontSize: 16),
                   ),
                   const SizedBox(height: 8),
                   // Current Rating Display
                   Row(
                     children: [
-                      const Text(
-                        'Current Rating: ',
+                      Text(
+                        '${l10n.currentRating}: ',
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w500,
@@ -312,7 +319,7 @@ class _RateJobPosterScreenState extends State<RateJobPosterScreen> {
                       ),
                       const SizedBox(width: 8),
                       Text(
-                        '(${_currentRatingCount} ${_currentRatingCount == 1 ? 'rating' : 'ratings'})',
+                        '(${_currentRatingCount} ${_currentRatingCount == 1 ? l10n.ratingLabel : l10n.ratingsLabel})',
                         style: const TextStyle(
                           fontSize: 12,
                           color: Colors.grey,
@@ -327,8 +334,8 @@ class _RateJobPosterScreenState extends State<RateJobPosterScreen> {
             const SizedBox(height: 30),
 
             // Rating Section
-            const Text(
-              'How was your experience with this client?',
+            Text(
+              l10n.howWasExperienceClient,
               style: TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
@@ -372,8 +379,8 @@ class _RateJobPosterScreenState extends State<RateJobPosterScreen> {
             const SizedBox(height: 30),
 
             // Quick Feedback Options
-            const Text(
-              'Quick Feedback (Optional)',
+            Text(
+              l10n.quickFeedback,
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
@@ -432,8 +439,8 @@ class _RateJobPosterScreenState extends State<RateJobPosterScreen> {
             const SizedBox(height: 20),
 
             // Custom Feedback
-            const Text(
-              'Custom Feedback (Optional)',
+            Text(
+              l10n.customFeedback,
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
@@ -447,7 +454,7 @@ class _RateJobPosterScreenState extends State<RateJobPosterScreen> {
               controller: _customController,
               maxLines: 3,
               decoration: InputDecoration(
-                hintText: 'Share your detailed feedback about the client...',
+                hintText: l10n.feedbackHintClient,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -483,8 +490,8 @@ class _RateJobPosterScreenState extends State<RateJobPosterScreen> {
                 child:
                     _isSubmitting
                         ? const CircularProgressIndicator(color: Colors.white)
-                        : const Text(
-                          'Submit Rating',
+                        : Text(
+                          l10n.submitRating,
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:skillzaar/l10n/app_localizations.dart';
 
 class ServiceTypeSection extends StatelessWidget {
   final String? selectedServiceType;
@@ -33,23 +34,57 @@ class ServiceTypeSection extends StatelessWidget {
     'Outdoor Construction',
   ];
 
+  String _getLocalizedServiceName(String serviceType, AppLocalizations l10n) {
+    switch (serviceType) {
+      case 'Cleaning Services':
+        return l10n.cleaningServices;
+      case 'Plumbing Services':
+        return l10n.plumbingServices;
+      case 'Carpentry & Furniture':
+        return l10n.carpentryFurniture;
+      case 'Painting & Finishing':
+        return l10n.paintingFinishing;
+      case 'Masonry & Metalwork':
+        return l10n.masonryMetalwork;
+      case 'Roofing Services':
+        return l10n.roofingServices;
+      case 'Glass & Installation':
+        return l10n.glassInstallation;
+      case 'Outdoor & Gardening':
+        return l10n.outdoorGardening;
+      case 'Electrical Services':
+        return l10n.electricalServices;
+      case 'Labour & Moving':
+        return l10n.labourMoving;
+      case 'Car Care Services':
+        return l10n.carCareServices;
+      case 'Catering & Events':
+        return l10n.cateringEvents;
+      case 'Outdoor Construction':
+        return l10n.outdoorConstruction;
+      default:
+        return serviceType;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Primary Service Type',
-          style: TextStyle(
+        Text(
+          l10n.primaryServiceType,
+          style: const TextStyle(
             fontWeight: FontWeight.bold,
             fontSize: 18,
             color: Colors.black87,
           ),
         ),
         const SizedBox(height: 8),
-        const Text(
-          'Select your main service category to help clients find you',
-          style: TextStyle(fontSize: 14, color: Colors.grey),
+        Text(
+          l10n.serviceTypeDesc,
+          style: const TextStyle(fontSize: 14, color: Colors.grey),
         ),
         const SizedBox(height: 16),
         Container(
@@ -63,9 +98,9 @@ class ServiceTypeSection extends StatelessWidget {
           child: DropdownButtonHideUnderline(
             child: DropdownButton<String>(
               value: selectedServiceType,
-              hint: const Text(
-                'Select your primary service type',
-                style: TextStyle(color: Colors.grey),
+              hint: Text(
+                l10n.selectPrimaryServiceHint,
+                style: const TextStyle(color: Colors.grey),
               ),
               isExpanded: true,
               icon: const Icon(Icons.arrow_drop_down, color: Colors.grey),
@@ -74,7 +109,7 @@ class ServiceTypeSection extends StatelessWidget {
                     return DropdownMenuItem<String>(
                       value: service,
                       child: Text(
-                        service,
+                        _getLocalizedServiceName(service, l10n),
                         style: const TextStyle(fontSize: 16),
                       ),
                     );
@@ -104,7 +139,9 @@ class ServiceTypeSection extends StatelessWidget {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'Selected: $selectedServiceType',
+                    l10n.selectedService(
+                      _getLocalizedServiceName(selectedServiceType!, l10n),
+                    ),
                     style: TextStyle(
                       fontSize: 14,
                       color: Colors.green.shade700,

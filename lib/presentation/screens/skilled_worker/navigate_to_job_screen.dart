@@ -5,6 +5,7 @@ import '../../providers/skilled_worker_provider.dart';
 import '../../providers/ui_state_provider.dart';
 import '../../../core/services/job_request_service.dart';
 import '../../../core/config/google_maps_config.dart';
+import 'package:skillzaar/l10n/app_localizations.dart';
 
 class NavigateToJobScreen extends StatelessWidget {
   final String jobId;
@@ -74,10 +75,13 @@ class _NavigateToJobContentState extends State<_NavigateToJobContent> {
   @override
   void initState() {
     super.initState();
-    _initializeMap();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initializeMap();
+    });
   }
 
   Future<void> _initializeMap() async {
+    if (!mounted) return;
     final provider = Provider.of<SkilledWorkerProvider>(context, listen: false);
 
     // Check if location is already available
@@ -89,7 +93,7 @@ class _NavigateToJobContentState extends State<_NavigateToJobContent> {
       _jobLocation = LatLng(widget.jobLatitude, widget.jobLongitude);
       _addMarkers();
       _isLoading = false;
-      setState(() {});
+      if (mounted) setState(() {});
       return;
     }
 
@@ -100,6 +104,8 @@ class _NavigateToJobContentState extends State<_NavigateToJobContent> {
       // Wait a moment for location to be fetched
       await Future.delayed(const Duration(seconds: 2));
 
+      if (!mounted) return;
+
       if (provider.currentLatitude != null &&
           provider.currentLongitude != null) {
         _workerLocation = LatLng(
@@ -109,18 +115,16 @@ class _NavigateToJobContentState extends State<_NavigateToJobContent> {
         _jobLocation = LatLng(widget.jobLatitude, widget.jobLongitude);
         _addMarkers();
         _isLoading = false;
-        setState(() {});
+        if (mounted) setState(() {});
       } else {
-        _error =
-            provider.locationError ??
-            'Worker location not available. Please enable location services and try again.';
+        _error = provider.locationError ?? 'Worker location not available';
         _isLoading = false;
-        setState(() {});
+        if (mounted) setState(() {});
       }
     } catch (e) {
       _error = 'Error initializing location: $e';
       _isLoading = false;
-      setState(() {});
+      if (mounted) setState(() {});
     }
   }
 
@@ -158,11 +162,12 @@ class _NavigateToJobContentState extends State<_NavigateToJobContent> {
 
   Future<void> _launchNavigation() async {
     final provider = Provider.of<SkilledWorkerProvider>(context, listen: false);
+    final l10n = AppLocalizations.of(context)!;
 
     if (provider.currentLatitude == null || provider.currentLongitude == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please enable location services to get directions'),
+        SnackBar(
+          content: Text(l10n.enableLocationServicesToGetDirections),
           backgroundColor: Colors.orange,
         ),
       );
@@ -190,10 +195,11 @@ class _NavigateToJobContentState extends State<_NavigateToJobContent> {
   @override
   Widget build(BuildContext context) {
     final provider = Provider.of<SkilledWorkerProvider>(context);
+    final l10n = AppLocalizations.of(context)!;
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Navigate to ${widget.jobTitle}'),
+        title: Text('${l10n.navigateTo} ${widget.jobTitle}'),
         backgroundColor: Colors.green,
         foregroundColor: Colors.white,
       ),
@@ -214,7 +220,7 @@ class _NavigateToJobContentState extends State<_NavigateToJobContent> {
                       ),
                       const SizedBox(height: 16),
                       Text(
-                        'Worker location not available',
+                        l10n.workerLocationNotAvailable,
                         style: TextStyle(
                           fontSize: 20,
                           color: Colors.orange.shade700,
@@ -224,8 +230,7 @@ class _NavigateToJobContentState extends State<_NavigateToJobContent> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        _error ??
-                            'Please enable location services to get directions to the job location.',
+                        _error ?? l10n.enableLocationServicesToGetDirections,
                         style: TextStyle(
                           fontSize: 16,
                           color: Colors.grey.shade600,
@@ -247,7 +252,7 @@ class _NavigateToJobContentState extends State<_NavigateToJobContent> {
                               widget.uiProvider.stopLoading();
                             },
                             icon: const Icon(Icons.refresh),
-                            label: const Text('Retry'),
+                            label: Text(l10n.retry),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.orange,
                               foregroundColor: Colors.white,
@@ -259,7 +264,7 @@ class _NavigateToJobContentState extends State<_NavigateToJobContent> {
                               Navigator.pop(context);
                             },
                             icon: const Icon(Icons.arrow_back),
-                            label: const Text('Go Back'),
+                            label: Text(l10n.goBack),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.grey,
                               foregroundColor: Colors.white,
@@ -293,7 +298,7 @@ class _NavigateToJobContentState extends State<_NavigateToJobContent> {
                             ),
                             const SizedBox(width: 8),
                             Text(
-                              'Route Information',
+                              l10n.routeInformation,
                               style: TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
@@ -318,7 +323,7 @@ class _NavigateToJobContentState extends State<_NavigateToJobContent> {
                               child: Text(
                                 provider.currentAddress.isNotEmpty
                                     ? provider.currentAddress
-                                    : 'Your current location',
+                                    : l10n.yourCurrentLocation,
                                 style: const TextStyle(fontSize: 14),
                               ),
                             ),
@@ -355,7 +360,7 @@ class _NavigateToJobContentState extends State<_NavigateToJobContent> {
                               ),
                               const SizedBox(width: 8),
                               Text(
-                                'Distance: ${JobRequestService.calculateDistance(provider.currentLatitude!, provider.currentLongitude!, widget.jobLatitude, widget.jobLongitude).toStringAsFixed(1)} km',
+                                '${l10n.distanceLabel}: ${JobRequestService.calculateDistance(provider.currentLatitude!, provider.currentLongitude!, widget.jobLatitude, widget.jobLongitude).toStringAsFixed(1)} km',
                                 style: TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold,
@@ -370,7 +375,7 @@ class _NavigateToJobContentState extends State<_NavigateToJobContent> {
                           child: ElevatedButton.icon(
                             onPressed: _launchNavigation,
                             icon: const Icon(Icons.directions),
-                            label: const Text('Get Directions'),
+                            label: Text(l10n.getDirections),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.green,
                               foregroundColor: Colors.white,

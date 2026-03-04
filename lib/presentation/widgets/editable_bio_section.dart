@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:skillzaar/l10n/app_localizations.dart';
 
 class EditableBioSection extends StatelessWidget {
   final TextEditingController controller;
@@ -16,17 +17,18 @@ class EditableBioSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Professional Bio',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+        Text(
+          l10n.professionalBio,
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
         ),
         const SizedBox(height: 12),
-        const Text(
-          'Tell clients about your skills, experience, and what makes you unique',
-          style: TextStyle(fontSize: 14, color: Colors.grey),
+        Text(
+          l10n.bioDesc,
+          style: const TextStyle(fontSize: 14, color: Colors.grey),
         ),
         const SizedBox(height: 20),
         Material(
@@ -35,7 +37,7 @@ class EditableBioSection extends StatelessWidget {
             maxLines: 4,
             maxLength: maxLength,
             decoration: InputDecoration(
-              hintText: 'Describe your skills, experience, and professional approach...',
+              hintText: l10n.bioHint,
               prefixIcon: const Icon(Icons.description, color: Colors.green),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -45,8 +47,11 @@ class EditableBioSection extends StatelessWidget {
                 borderRadius: BorderRadius.circular(12),
                 borderSide: const BorderSide(color: Colors.green, width: 2),
               ),
-              helperText: 'Minimum $minLength characters required',
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+              helperText: l10n.minCharsRequired(minLength.toString()),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 16,
+              ),
             ),
             onChanged: onChanged,
           ),
@@ -64,7 +69,7 @@ class EditableBioSection extends StatelessWidget {
                 ),
                 if (length < minLength)
                   Text(
-                    'Need ${minLength - length} more characters',
+                    l10n.moreCharsNeeded((minLength - length).toString()),
                     style: TextStyle(fontSize: 12, color: Colors.red.shade600),
                   ),
               ],

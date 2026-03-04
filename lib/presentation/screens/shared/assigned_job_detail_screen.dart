@@ -11,6 +11,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../widgets/skilled_worker_drawer_header.dart';
 import '../../widgets/contact_us_dialog.dart';
+import 'package:skillzaar/l10n/app_localizations.dart';
 
 class AssignedJobDetailScreen extends StatefulWidget {
   final String assignedJobId;
@@ -64,7 +65,9 @@ class _AssignedJobDetailScreenState extends State<AssignedJobDetailScreen> {
     _locationWorkerId = workerId;
     _locationUpdateTimer?.cancel();
 
-    _locationUpdateTimer = Timer.periodic(const Duration(seconds: 5), (_) async {
+    _locationUpdateTimer = Timer.periodic(const Duration(seconds: 5), (
+      _,
+    ) async {
       if (!mounted) return;
 
       try {
@@ -106,6 +109,7 @@ class _AssignedJobDetailScreenState extends State<AssignedJobDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -114,9 +118,9 @@ class _AssignedJobDetailScreenState extends State<AssignedJobDetailScreen> {
         elevation: 6,
         shadowColor: Colors.green.withOpacity(0.2),
         centerTitle: true,
-        title: const Text(
-          "Assigned Job Details",
-          style: TextStyle(
+        title: Text(
+          l10n.assignedJobDetails,
+          style: const TextStyle(
             color: Colors.black,
             fontWeight: FontWeight.w700,
             fontSize: 18,
@@ -161,23 +165,44 @@ class _AssignedJobDetailScreenState extends State<AssignedJobDetailScreen> {
 
           // Map AssignedJobs fields to our expected structure
           final jobDetails = {
-            'jobName': data['jobTitle'] ?? 'No Title',
-            'jobLocation': data['jobLocation'] ?? 'No Location',
-            'budget':
-                data['budget']?.toString() ??
-                data['jobPrice']?.toString() ??
-                'Not Specified',
-            'jobDescription': data['jobDescription'] ?? 'No Description',
+            'jobName': _localizeValue(data['jobTitle'], l10n, l10n.noTitle),
+            'jobLocation': _localizeValue(
+              data['jobLocation'],
+              l10n,
+              l10n.noLocation,
+            ),
+            'budget': _localizeValue(
+              data['budget']?.toString() ?? data['jobPrice']?.toString(),
+              l10n,
+              l10n.notSpecified,
+            ),
+            'jobDescription': _localizeValue(
+              data['jobDescription'],
+              l10n,
+              l10n.noDescription,
+            ),
             'createdAt': data['jobCreatedAt'],
-            'urgency': 'Normal',
-            'estimatedDuration': 'Not Specified',
-            'serviceType': data['jobServiceType'] ?? 'Not Specified',
+            'urgency': _localizeValue(
+              data['urgency'],
+              l10n,
+              l10n.normalUrgency,
+            ),
+            'estimatedDuration': _localizeValue(
+              data['estimatedDuration'],
+              l10n,
+              l10n.notSpecified,
+            ),
+            'serviceType': _localizeValue(
+              data['jobServiceType'],
+              l10n,
+              l10n.notSpecified,
+            ),
             'jobImage': data['jobImage'] ?? '',
           };
 
           // Try to cache the budget from the main document if valid
           final mainDocBudget = jobDetails['budget']!;
-          if (mainDocBudget != 'Not Specified' &&
+          if (mainDocBudget != l10n.notSpecified &&
               mainDocBudget != '0' &&
               mainDocBudget != 'null') {
             WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -186,17 +211,46 @@ class _AssignedJobDetailScreenState extends State<AssignedJobDetailScreen> {
           }
 
           final skilledWorkerDetails = {
-            'skilledWorkerName': data['workerName'] ?? 'Unknown',
-            'phoneNumber': data['workerPhone'] ?? 'Not Available',
-            'skilledWorkerCity': data['workerCity'] ?? 'Not Specified',
+            'skilledWorkerName': _localizeValue(
+              data['workerName'],
+              l10n,
+              l10n.unknown,
+            ),
+            'phoneNumber': _localizeValue(
+              data['workerPhone'],
+              l10n,
+              l10n.notAvailable,
+            ),
+            'skilledWorkerCity': _localizeValue(
+              data['workerCity'],
+              l10n,
+              l10n.notSpecified,
+            ),
             'averageRating':
                 (data['workerRating'] is num)
-                    ? (data['workerRating'] as num).toDouble().toStringAsFixed(1)
-                    : (data['workerRating']?.toString() ?? 'No Rating'),
-            'skilledWorkerExperience':
-                data['workerExperience'] ?? 'Not Specified',
-            'hourlyRate': 'Not Specified',
-            'skilledWorkerDescription': data['workerDescription'] ?? 'Skilled Worker',
+                    ? (data['workerRating'] as num).toDouble().toStringAsFixed(
+                      1,
+                    )
+                    : _localizeValue(
+                      data['workerRating']?.toString(),
+                      l10n,
+                      l10n.noRating,
+                    ),
+            'skilledWorkerExperience': _localizeValue(
+              data['workerExperience'],
+              l10n,
+              l10n.notSpecified,
+            ),
+            'hourlyRate': _localizeValue(
+              data['hourlyRate']?.toString(),
+              l10n,
+              l10n.notSpecified,
+            ),
+            'skilledWorkerDescription': _localizeValue(
+              data['workerDescription'],
+              l10n,
+              l10n.skilledWorkerText,
+            ),
             'profileImage': data['workerProfileImage'] ?? '',
           };
 
@@ -210,10 +264,22 @@ class _AssignedJobDetailScreenState extends State<AssignedJobDetailScreen> {
           }
 
           final jobPosterDetails = {
-            'name': data['jobPosterName'] ?? 'Unknown',
-            'phoneNumber': data['jobPosterPhone'] ?? 'Not Available',
-            'email': 'Not Available',
-            'address': data['jobLocation'] ?? 'Not Specified',
+            'name': _localizeValue(data['jobPosterName'], l10n, l10n.unknown),
+            'phoneNumber': _localizeValue(
+              data['jobPosterPhone'],
+              l10n,
+              l10n.notAvailable,
+            ),
+            'email': _localizeValue(
+              data['jobPosterEmail'],
+              l10n,
+              l10n.notAvailable,
+            ),
+            'address': _localizeValue(
+              data['jobLocation'],
+              l10n,
+              l10n.notSpecified,
+            ),
             'averageRating': _formatRating(
               data['jobPosterRating'] ??
                   data['jobPosterAverageRating'] ??
@@ -250,38 +316,44 @@ class _AssignedJobDetailScreenState extends State<AssignedJobDetailScreen> {
             child: Column(
               children: [
                 _buildGlassCard(
-                  title: "Job Details",
+                  title: l10n.jobDetailsText,
                   children: [
                     _buildInfoRow(
-                      "📌 Job Title",
-                      jobDetails['jobName'] ?? 'No Title',
+                      "📌 ${l10n.jobTitleText}",
+                      jobDetails['jobName'] ?? l10n.noTitle,
                     ),
                     _buildInfoRow(
-                      "📍 Location",
-                      jobDetails['jobLocation'] ?? 'No Location',
+                      "📍 ${l10n.locationText}",
+                      jobDetails['jobLocation'] ?? l10n.noLocation,
                     ),
                     _buildBudgetStreamRow(
-                      "💰 Budget",
-                      jobDetails['budget']! == 0?_cachedBudget:jobDetails['budget']!,
+                      "💰 ${l10n.budgetText}",
+                      jobDetails['budget']! == '0'
+                          ? (_cachedBudget ?? '0')
+                          : jobDetails['budget']!,
                       widget.assignedJobId,
+                      l10n,
                     ),
                     _buildInfoRow(
-                      "📝 Description",
-                      jobDetails['jobDescription'] ?? 'No Description',
+                      "📝 ${l10n.descriptionText}",
+                      jobDetails['jobDescription'] ?? l10n.noDescription,
                     ),
                     _buildInfoRow(
-                      "📅 Created",
+                      "📅 ${l10n.createdText}",
                       _formatDate(jobDetails['createdAt']),
                     ),
                     _buildInfoRow(
-                      "⚡ Urgency",
-                      jobDetails['urgency'] ?? 'Normal',
+                      "⚡ ${l10n.urgencyText}",
+                      jobDetails['urgency'] ?? l10n.normalUrgency,
                     ),
                     _buildInfoRow(
-                      "⏱️ Duration",
-                      jobDetails['estimatedDuration'] ?? 'Not Specified',
+                      "⏱️ ${l10n.durationText}",
+                      jobDetails['estimatedDuration'] ?? l10n.notSpecified,
                     ),
-                    _buildInfoRow("📊 Status", status.toUpperCase()),
+                    _buildInfoRow(
+                      "📊 ${l10n.statusText}",
+                      _getLocalizedStatus(status, l10n).toUpperCase(),
+                    ),
                   ],
                 ),
 
@@ -289,40 +361,40 @@ class _AssignedJobDetailScreenState extends State<AssignedJobDetailScreen> {
 
                 // Skilled Worker Details Card
                 _buildGlassCard(
-                  title: "Skilled Worker Details",
+                  title: l10n.skilledWorkerDetailsText,
                   children: [
                     _buildInfoRow(
-                      "👤 Name",
-                      skilledWorkerDetails['skilledWorkerName'] ?? 'Unknown',
+                      "👤 ${l10n.nameText}",
+                      skilledWorkerDetails['skilledWorkerName'] ?? l10n.unknown,
                     ),
                     _buildInfoRow(
-                      "📞 Phone",
-                      skilledWorkerDetails['phoneNumber'] ?? 'Not Available',
+                      "📞 ${l10n.phoneText}",
+                      skilledWorkerDetails['phoneNumber'] ?? l10n.notAvailable,
                     ),
                     _buildInfoRow(
-                      "🏙️ City",
+                      "🏙️ ${l10n.cityText}",
                       skilledWorkerDetails['skilledWorkerCity'] ??
-                          'Not Specified',
+                          l10n.notSpecified,
                     ),
                     _buildInfoRow(
-                      "⭐ Rating",
+                      "⭐ ${l10n.ratingText}",
                       skilledWorkerDetails['averageRating']?.toString() ??
-                          'No Rating',
+                          l10n.noRating,
                     ),
                     _buildInfoRow(
-                      "💼 Experience",
+                      "💼 ${l10n.experienceLabel}",
                       skilledWorkerDetails['skilledWorkerExperience'] ??
-                          'Not Specified',
+                          l10n.notSpecified,
                     ),
                     _buildInfoRow(
-                      "💰 Rate",
+                      "💰 ${l10n.rateText}",
                       skilledWorkerDetails['hourlyRate']?.toString() ??
-                          'Not Specified',
+                          l10n.notSpecified,
                     ),
                     _buildInfoRow(
-                      "📋 Description",
+                      "📋 ${l10n.descriptionText}",
                       skilledWorkerDetails['skilledWorkerDescription'] ??
-                          'No Description',
+                          l10n.noDescription,
                     ),
                   ],
                 ),
@@ -332,10 +404,11 @@ class _AssignedJobDetailScreenState extends State<AssignedJobDetailScreen> {
                 // Job Poster Details Card (if available)
                 if (jobPosterDetails.isNotEmpty)
                   FutureBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-                    future: FirebaseFirestore.instance
-                        .collection('JobPosters')
-                        .doc(data['jobPosterId'] ?? '')
-                        .get(),
+                    future:
+                        FirebaseFirestore.instance
+                            .collection('JobPosters')
+                            .doc(data['jobPosterId'] ?? '')
+                            .get(),
                     builder: (context, posterSnap) {
                       final posterData = posterSnap.data?.data();
                       final posterRating = _formatRating(
@@ -346,27 +419,28 @@ class _AssignedJobDetailScreenState extends State<AssignedJobDetailScreen> {
                       );
 
                       return _buildGlassCard(
-                        title: "Job Poster Details",
+                        title: l10n.jobPosterDetailsText,
                         children: [
                           _buildInfoRow(
-                            "👤 Name",
-                            jobPosterDetails['name'] ?? 'Unknown',
+                            "👤 ${l10n.nameText}",
+                            jobPosterDetails['name'] ?? l10n.unknown,
                           ),
                           _buildInfoRow(
-                            "📞 Phone",
-                            jobPosterDetails['phoneNumber'] ?? 'Not Available',
+                            "📞 ${l10n.phoneText}",
+                            jobPosterDetails['phoneNumber'] ??
+                                l10n.notAvailable,
                           ),
                           _buildInfoRow(
-                            "⭐ Rating",
-                            posterRating?.toString() ?? 'No Rating',
+                            "⭐ ${l10n.ratingText}",
+                            posterRating?.toString() ?? l10n.noRating,
                           ),
                           _buildInfoRow(
-                            "📧 Email",
-                            jobPosterDetails['email'] ?? 'Not Available',
+                            "📧 ${l10n.emailText}",
+                            jobPosterDetails['email'] ?? l10n.notAvailable,
                           ),
                           _buildInfoRow(
-                            "📍 Address",
-                            jobPosterDetails['address'] ?? 'Not Specified',
+                            "📍 ${l10n.addressText}",
+                            jobPosterDetails['address'] ?? l10n.notSpecified,
                           ),
                         ],
                       );
@@ -380,7 +454,7 @@ class _AssignedJobDetailScreenState extends State<AssignedJobDetailScreen> {
                   // Skilled Worker Buttons
                   if (status == 'completed' && !workerRatingCompleted) ...[
                     _neonButton(
-                      text: 'Rate Job Poster',
+                      text: l10n.rateJobPoster,
                       color: Colors.green,
                       onTap: () {
                         Navigator.pushNamed(
@@ -401,7 +475,7 @@ class _AssignedJobDetailScreenState extends State<AssignedJobDetailScreen> {
                     children: [
                       Expanded(
                         child: _neonButton(
-                          text: "Call",
+                          text: l10n.callText,
                           color: Colors.green,
                           onTap: () {
                             _makePhoneCall(
@@ -414,7 +488,7 @@ class _AssignedJobDetailScreenState extends State<AssignedJobDetailScreen> {
                       const SizedBox(width: 16),
                       Expanded(
                         child: _neonButton(
-                          text: "Navigate",
+                          text: l10n.navigateText,
                           color: Colors.blue,
                           onTap: () {
                             _navigateToJobDetail(context, data['jobId']);
@@ -429,7 +503,7 @@ class _AssignedJobDetailScreenState extends State<AssignedJobDetailScreen> {
                     children: [
                       Expanded(
                         child: _neonButton(
-                          text: "Track Worker",
+                          text: l10n.trackWorker,
                           color: Colors.green,
                           onTap: () {
                             _trackWorker(context, data);
@@ -445,7 +519,7 @@ class _AssignedJobDetailScreenState extends State<AssignedJobDetailScreen> {
                     children: [
                       Expanded(
                         child: _neonButton(
-                          text: "Complete Job",
+                          text: l10n.completeJob,
                           color: Colors.green,
                           onTap: () {
                             final workerId =
@@ -480,7 +554,7 @@ class _AssignedJobDetailScreenState extends State<AssignedJobDetailScreen> {
                       const SizedBox(width: 16),
                       Expanded(
                         child: _neonButton(
-                          text: "Cancel Job",
+                          text: l10n.cancelJobText,
                           color: Colors.red,
                           onTap: () {
                             _cancelJob(context, widget.assignedJobId);
@@ -568,6 +642,7 @@ class _AssignedJobDetailScreenState extends State<AssignedJobDetailScreen> {
     BuildContext context,
     Map<String, dynamic> data,
   ) {
+    final l10n = AppLocalizations.of(context)!;
     return StreamBuilder<QuerySnapshot>(
       stream:
           FirebaseFirestore.instance
@@ -575,7 +650,7 @@ class _AssignedJobDetailScreenState extends State<AssignedJobDetailScreen> {
               .where('assignedJobId', isEqualTo: widget.assignedJobId)
               .snapshots(),
       builder: (context, snapshot) {
-        String buttonText = "Job Approval";
+        String buttonText = l10n.jobApproval;
         Color buttonColor = Colors.blue;
         VoidCallback onTap;
 
@@ -586,7 +661,7 @@ class _AssignedJobDetailScreenState extends State<AssignedJobDetailScreen> {
           final status = paymentData['status'] as String? ?? '';
 
           if (status == 'pending_admin_approval') {
-            buttonText = "Approval Pending";
+            buttonText = l10n.approvalPendingText;
             buttonColor = Colors.grey;
             onTap = () {
               ScaffoldMessenger.of(context).showSnackBar(
@@ -603,7 +678,7 @@ class _AssignedJobDetailScreenState extends State<AssignedJobDetailScreen> {
             'approved',
             'completed',
           ].contains(status)) {
-            buttonText = "Payment Approved";
+            buttonText = l10n.paymentApprovedText;
             buttonColor = Colors.green;
             onTap = () {
               ScaffoldMessenger.of(context).showSnackBar(
@@ -614,7 +689,7 @@ class _AssignedJobDetailScreenState extends State<AssignedJobDetailScreen> {
               );
             };
           } else {
-            buttonText = "Approval Pending";
+            buttonText = l10n.approvalPendingText;
             buttonColor = Colors.grey;
             onTap = () {
               ScaffoldMessenger.of(context).showSnackBar(
@@ -633,11 +708,7 @@ class _AssignedJobDetailScreenState extends State<AssignedJobDetailScreen> {
           };
         }
 
-        return _neonButton(
-          text: buttonText,
-          color: buttonColor,
-          onTap: onTap,
-        );
+        return _neonButton(text: buttonText, color: buttonColor, onTap: onTap);
       },
     );
   }
@@ -679,6 +750,7 @@ class _AssignedJobDetailScreenState extends State<AssignedJobDetailScreen> {
     String label,
     String originalBudget,
     String assignedJobId,
+    AppLocalizations l10n,
   ) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
@@ -704,7 +776,7 @@ class _AssignedJobDetailScreenState extends State<AssignedJobDetailScreen> {
                 // If waiting, try to show cached budget if available
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   if (_cachedBudget != null) {
-                    return Text( 
+                    return Text(
                       "Rs. $_cachedBudget (Cached)",
                       style: const TextStyle(
                         fontSize: 16,
@@ -731,6 +803,7 @@ class _AssignedJobDetailScreenState extends State<AssignedJobDetailScreen> {
                         final data = d.data() as Map<String, dynamic>;
                         final a = data['amount']?.toString() ?? '0';
                         return a != '0' &&
+                            a != l10n.notSpecified &&
                             a != 'Not Specified' &&
                             a != 'null' &&
                             a.isNotEmpty;
@@ -743,6 +816,7 @@ class _AssignedJobDetailScreenState extends State<AssignedJobDetailScreen> {
                   final amount = data['amount']?.toString() ?? '0';
 
                   if (amount != '0' &&
+                      amount != l10n.notSpecified &&
                       amount != 'Not Specified' &&
                       amount != 'null' &&
                       amount.isNotEmpty) {
@@ -763,6 +837,7 @@ class _AssignedJobDetailScreenState extends State<AssignedJobDetailScreen> {
 
                 // If displayAmount is still default/zero, try cache
                 if ((displayAmount == '0' ||
+                        displayAmount == l10n.notSpecified ||
                         displayAmount == 'Not Specified' ||
                         displayAmount == 'null') &&
                     _cachedBudget != null) {
@@ -771,6 +846,7 @@ class _AssignedJobDetailScreenState extends State<AssignedJobDetailScreen> {
 
                 // Cache the value if we found a good one from stream/original
                 if (displayAmount != '0' &&
+                    displayAmount != l10n.notSpecified &&
                     displayAmount != 'Not Specified' &&
                     displayAmount != 'null' &&
                     displayAmount != _cachedBudget) {
@@ -781,6 +857,7 @@ class _AssignedJobDetailScreenState extends State<AssignedJobDetailScreen> {
 
                 if (isPending &&
                     displayAmount != '0' &&
+                    displayAmount != l10n.notSpecified &&
                     displayAmount != 'Not Specified') {
                   return Text(
                     "Rs. $displayAmount (Pending)",
@@ -851,7 +928,7 @@ class _AssignedJobDetailScreenState extends State<AssignedJobDetailScreen> {
       context: context,
       builder:
           (context) => AlertDialog(
-            title: const Text('Cancel Job'),
+            title: Text(AppLocalizations.of(context)!.cancelJobText),
             content: const Text(
               'Are you sure you want to cancel this job? This action cannot be undone.',
             ),
@@ -1015,6 +1092,7 @@ class _AssignedJobDetailScreenState extends State<AssignedJobDetailScreen> {
   }
 
   Widget _buildSkilledWorkerDrawer(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Drawer(
       child: ListView(
         padding: EdgeInsets.zero,
@@ -1022,7 +1100,7 @@ class _AssignedJobDetailScreenState extends State<AssignedJobDetailScreen> {
           const SkilledWorkerDrawerHeader(),
           ListTile(
             leading: const Icon(Icons.contact_support, color: Colors.green),
-            title: const Text('Contact Us'),
+            title: Text(l10n.contactUs),
             onTap: () {
               Navigator.pop(context);
               _showContactUsDialog(context);
@@ -1030,7 +1108,7 @@ class _AssignedJobDetailScreenState extends State<AssignedJobDetailScreen> {
           ),
           ListTile(
             leading: const Icon(Icons.star_rate, color: Colors.amber),
-            title: const Text('Rate Job Poster'),
+            title: Text(l10n.rateJobPoster),
             onTap: () {
               Navigator.pop(context);
               Navigator.pushNamed(context, '/skilled-worker-rate-poster');
@@ -1039,7 +1117,7 @@ class _AssignedJobDetailScreenState extends State<AssignedJobDetailScreen> {
           const Divider(),
           ListTile(
             leading: const Icon(Icons.logout, color: Colors.red),
-            title: const Text('Logout'),
+            title: Text(l10n.logout),
             onTap: () {
               Navigator.pop(context);
               _logout(context);
@@ -1168,5 +1246,53 @@ class _AssignedJobDetailScreenState extends State<AssignedJobDetailScreen> {
         ).pushNamedAndRemoveUntil('/role-selection', (route) => false);
       }
     }
+  }
+
+  String _getLocalizedStatus(String status, AppLocalizations l10n) {
+    switch (status.toLowerCase()) {
+      case 'pending':
+        return l10n.statusPending;
+      case 'completed':
+        return l10n.statusCompleted;
+      case 'active':
+        return l10n.statusActive;
+      case 'inactive':
+        return l10n.statusInactive;
+      case 'assigned':
+        return l10n.statusAssigned;
+      case 'approved':
+        return l10n.statusApproved;
+      case 'cancelled':
+        return l10n.statusCancelled;
+      default:
+        return status;
+    }
+  }
+
+  String _localizeValue(String? value, AppLocalizations l10n, String fallback) {
+    if (value == null || value.trim().isEmpty || value == 'null')
+      return fallback;
+    final lower = value.toLowerCase().trim();
+    bool isUrdu = l10n.contactUs == 'ہم سے رابطہ کریں';
+    if (lower == 'not specified') return l10n.notSpecified;
+    if (lower == 'normal') return l10n.normalUrgency;
+    if (lower == 'unknown') return l10n.unknown;
+    if (lower == 'not available') return l10n.notAvailable;
+    if (lower == 'no rating') return l10n.noRating;
+    if (lower == 'skilled worker') return l10n.skilledWorkerText;
+    if (lower == 'no title') return l10n.noTitle;
+    if (lower == 'no location') return l10n.noLocation;
+    if (lower == 'no description') return l10n.noDescription;
+    if (lower == 'cleaning services') return l10n.cleaningServices;
+    if (lower == 'plumbing services') return l10n.plumbingServices;
+    if (lower == 'roofing services') return l10n.roofingServices;
+    if (lower == 'electrical services') return l10n.electricalServices;
+    if (lower == 'car care services') return l10n.carCareServices;
+    if (lower == 'islamabad') return isUrdu ? 'اسلام آباد' : 'Islamabad';
+    if (lower == 'lahore') return isUrdu ? 'لاہور' : 'Lahore';
+    if (lower == 'karachi') return isUrdu ? 'کراچی' : 'Karachi';
+    if (lower == 'rawalpindi') return isUrdu ? 'راولپنڈی' : 'Rawalpindi';
+    if (lower == 'peshawar') return isUrdu ? 'پشاور' : 'Peshawar';
+    return value;
   }
 }

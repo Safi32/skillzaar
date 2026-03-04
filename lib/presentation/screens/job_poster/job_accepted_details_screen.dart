@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:skillzaar/l10n/app_localizations.dart';
 import 'job_poster_rate_worker_screen.dart';
 
 class JobAcceptedDetailsScreen extends StatefulWidget {
@@ -99,9 +100,10 @@ class _JobAcceptedDetailsScreenState extends State<JobAcceptedDetailsScreen> {
     // TODO: Add backend cancel logic
   }
 
-
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+
     if (widget.jobId.isEmpty || widget.requestId.isEmpty) {
       return _buildErrorScreen(
         "Invalid Job Data",
@@ -122,9 +124,9 @@ class _JobAcceptedDetailsScreenState extends State<JobAcceptedDetailsScreen> {
         shadowColor: Colors.green.withOpacity(0.2),
         centerTitle: true,
         automaticallyImplyLeading: false,
-        title: const Text(
-          "Job & Applicant Details",
-          style: TextStyle(
+        title: Text(
+          l10n.jobAndApplicantDetails,
+          style: const TextStyle(
             color: Colors.black,
             fontWeight: FontWeight.w700,
             fontSize: 18,
@@ -170,7 +172,6 @@ class _JobAcceptedDetailsScreenState extends State<JobAcceptedDetailsScreen> {
                   return const Center(child: CircularProgressIndicator());
                 }
 
-                // Use fallback data if AssignedJobs data is missing
                 String jobTitle =
                     (d['jobTitle'] ??
                             d['title'] ??
@@ -179,61 +180,87 @@ class _JobAcceptedDetailsScreenState extends State<JobAcceptedDetailsScreen> {
                             '')
                         .toString()
                         .trim();
-                if (jobTitle.isEmpty) jobTitle = 'No Title';
+                if (jobTitle.isEmpty) jobTitle = l10n.noTitle;
+                jobTitle = _localizeValue(jobTitle, l10n, l10n.noTitle);
 
-                final jobDescription =
-                    (d['jobDescription'] ??
-                                _fallbackJobData?['description_en'] ??
-                                _fallbackJobData?['description_ur'] ??
-                                '')
-                            .toString()
-                            .trim()
-                            .isNotEmpty
-                        ? (d['jobDescription'] ??
-                                _fallbackJobData?['description_en'] ??
-                                _fallbackJobData?['description_ur'])
-                            .toString()
-                        : 'No Description';
+                final jobDescription = _localizeValue(
+                  (d['jobDescription'] ??
+                              _fallbackJobData?['description_en'] ??
+                              _fallbackJobData?['description_ur'] ??
+                              '')
+                          .toString()
+                          .trim()
+                          .isNotEmpty
+                      ? (d['jobDescription'] ??
+                              _fallbackJobData?['description_en'] ??
+                              _fallbackJobData?['description_ur'])
+                          .toString()
+                      : l10n.noDescription,
+                  l10n,
+                  l10n.noDescription,
+                );
 
-                final jobLocation =
-                    (d['jobLocationAddress'] ??
-                            d['jobLocation'] ??
-                            _fallbackJobData?['Location'] ??
-                            _fallbackJobData?['location'] ??
-                            'No Location')
-                        .toString();
+                final jobLocation = _localizeValue(
+                  (d['jobLocationAddress'] ??
+                          d['jobLocation'] ??
+                          _fallbackJobData?['Location'] ??
+                          _fallbackJobData?['location'] ??
+                          l10n.noLocation)
+                      .toString(),
+                  l10n,
+                  l10n.noLocation,
+                );
 
                 final jobCurrency =
                     (d['jobCurrency'] ?? _fallbackJobData?['currency'] ?? 'PKR')
                         .toString();
 
-                final budget =
-                    d['budget']?.toString() ??
-                    d['jobPrice']?.toString() ??
-                    _fallbackJobData?['budget']?.toString() ??
-                    _fallbackJobData?['price']?.toString() ??
-                    'Not Specified';
+                final budget = _localizeValue(
+                  d['budget']?.toString() ??
+                      d['jobPrice']?.toString() ??
+                      _fallbackJobData?['budget']?.toString() ??
+                      _fallbackJobData?['price']?.toString() ??
+                      l10n.notSpecified,
+                  l10n,
+                  l10n.notSpecified,
+                );
 
-                final jobServiceType =
-                    (d['jobServiceType'] ??
-                            _fallbackJobData?['serviceType'] ??
-                            '')
-                        .toString();
-                final jobStatus =
-                    (d['jobStatus'] ?? _fallbackJobData?['status'] ?? '')
-                        .toString();
-                final posterPhone =
+                final jobServiceType = _localizeValue(
+                  (d['jobServiceType'] ??
+                          _fallbackJobData?['serviceType'] ??
+                          '')
+                      .toString(),
+                  l10n,
+                  '',
+                );
+                final jobStatus = _localizeValue(
+                  (d['jobStatus'] ?? _fallbackJobData?['status'] ?? '')
+                      .toString(),
+                  l10n,
+                  '',
+                );
+                String rawPosterPhone =
                     (d['jobPosterPhone'] ??
                             _fallbackJobData?['posterPhone'] ??
                             '')
                         .toString();
+                if (rawPosterPhone.length > 20) {
+                  rawPosterPhone =
+                      (_fallbackJobData?['posterPhone'] ?? '').toString();
+                }
+                final posterPhone = _localizeValue(rawPosterPhone, l10n, '');
 
-                final workerName =
-                    (d['workerName'] ?? d['skilledWorkerName'] ?? '')
-                        .toString();
-                final workerPhone =
-                    (d['workerPhone'] ?? d['skilledWorkerPhone'] ?? '')
-                        .toString();
+                final workerName = _localizeValue(
+                  (d['workerName'] ?? d['skilledWorkerName'] ?? '').toString(),
+                  l10n,
+                  '',
+                );
+                final workerPhone = _localizeValue(
+                  (d['workerPhone'] ?? d['skilledWorkerPhone'] ?? '')
+                      .toString(),
+                  l10n,
+                  '',
+                );
                 final jobImageUrl =
                     (d['jobImage'] ?? _fallbackJobData?['image'] ?? '')
                         .toString();
@@ -242,11 +269,16 @@ class _JobAcceptedDetailsScreenState extends State<JobAcceptedDetailsScreen> {
                             d['skilledWorkerProfileImage'] ??
                             '')
                         .toString();
-                final workerCity = (d['workerCity'] ?? '').toString();
+                final workerCity = _localizeValue(
+                  d['workerCity']?.toString(),
+                  l10n,
+                  '',
+                );
                 final workerSkills =
                     (d['workerSkills'] is List)
                         ? (d['workerSkills'] as List)
                             .whereType<String>()
+                            .map((s) => _localizeValue(s, l10n, s))
                             .toList()
                         : <String>[];
 
@@ -258,7 +290,7 @@ class _JobAcceptedDetailsScreenState extends State<JobAcceptedDetailsScreen> {
                   child: Column(
                     children: [
                       _buildGlassCard(
-                        title: "Job Details",
+                        title: l10n.jobDetailsText,
                         children: [
                           if (jobImageUrl.isNotEmpty)
                             ClipRRect(
@@ -273,12 +305,17 @@ class _JobAcceptedDetailsScreenState extends State<JobAcceptedDetailsScreen> {
                             ),
                           if (jobImageUrl.isNotEmpty)
                             const SizedBox(height: 12),
-                          _buildInfoRow("📌 Title", jobTitle),
-                          _buildInfoRow("📝 Description", jobDescription),
-                          _buildInfoRow("📍 Location", jobLocation),
+                          _buildInfoRow("📌 ${l10n.titleText}", jobTitle),
                           _buildInfoRow(
-                            "🧰 Service Type",
-                            jobServiceType.isEmpty ? '-' : jobServiceType,
+                            "📝 ${l10n.descriptionText}",
+                            jobDescription,
+                          ),
+                          _buildInfoRow("📍 ${l10n.locationText}", jobLocation),
+                          _buildInfoRow(
+                            "🧰 ${l10n.serviceTypeText}",
+                            jobServiceType.isEmpty
+                                ? l10n.notAvailable
+                                : jobServiceType,
                           ),
                           StreamBuilder<QuerySnapshot>(
                             stream:
@@ -293,8 +330,8 @@ class _JobAcceptedDetailsScreenState extends State<JobAcceptedDetailsScreen> {
                               if (snapshot.connectionState ==
                                   ConnectionState.waiting) {
                                 return _buildInfoRow(
-                                  "💰 Budget",
-                                  budget == 'Not Specified'
+                                  "💰 ${l10n.budgetText}",
+                                  budget == l10n.notSpecified
                                       ? budget
                                       : 'Rs. $budget',
                                 );
@@ -305,26 +342,29 @@ class _JobAcceptedDetailsScreenState extends State<JobAcceptedDetailsScreen> {
                               if (snapshot.hasData &&
                                   snapshot.data!.docs.isNotEmpty) {
                                 final docs = snapshot.data!.docs;
-                                final validDocs = docs.where((d) {
-                                  final data =
-                                      d.data() as Map<String, dynamic>;
-                                  final a =
-                                      data['amount']?.toString() ?? '0';
-                                  return a != '0' &&
-                                      a != 'Not Specified' &&
-                                      a != 'null' &&
-                                      a.isNotEmpty;
-                                }).toList();
+                                final validDocs =
+                                    docs.where((d) {
+                                      final data =
+                                          d.data() as Map<String, dynamic>;
+                                      final a =
+                                          data['amount']?.toString() ?? '0';
+                                      return a != '0' &&
+                                          a != l10n.notSpecified &&
+                                          a != 'Not Specified' &&
+                                          a != 'null' &&
+                                          a.isNotEmpty;
+                                    }).toList();
 
-                                final doc = validDocs.isNotEmpty
-                                    ? validDocs.first
-                                    : docs.first;
-                                final data =
-                                    doc.data() as Map<String, dynamic>;
+                                final doc =
+                                    validDocs.isNotEmpty
+                                        ? validDocs.first
+                                        : docs.first;
+                                final data = doc.data() as Map<String, dynamic>;
                                 final amount =
                                     data['amount']?.toString() ?? '0';
 
                                 if (amount != '0' &&
+                                    amount != l10n.notSpecified &&
                                     amount != 'Not Specified' &&
                                     amount != 'null' &&
                                     amount.isNotEmpty) {
@@ -333,26 +373,34 @@ class _JobAcceptedDetailsScreenState extends State<JobAcceptedDetailsScreen> {
                               }
 
                               return _buildInfoRow(
-                                "💰 Budget",
-                                displayAmount == 'Not Specified'
-                                    ? displayAmount
+                                "💰 ${l10n.budgetText}",
+                                displayAmount == l10n.notSpecified ||
+                                        displayAmount == 'Not Specified'
+                                    ? l10n.notSpecified
                                     : 'Rs. $displayAmount',
                               );
                             },
                           ),
                           _buildInfoRow(
-                            "📄 Job Status",
-                            jobStatus.isEmpty ? '-' : jobStatus,
+                            "📄 ${l10n.statusText}",
+                            jobStatus.isEmpty
+                                ? l10n.notAvailable
+                                : _getLocalizedStatus(
+                                  jobStatus,
+                                  l10n,
+                                ).toUpperCase(),
                           ),
                           _buildInfoRow(
-                            "📞 Poster Phone",
-                            posterPhone.isEmpty ? '-' : posterPhone,
+                            "📞 ${l10n.posterPhoneText}",
+                            posterPhone.isEmpty
+                                ? l10n.notAvailable
+                                : posterPhone,
                           ),
                         ],
                       ),
                       const SizedBox(height: 20),
                       _buildGlassCard(
-                        title: "Skilled Worker",
+                        title: l10n.skilledWorkerText,
                         children: [
                           if (workerImageUrl.isNotEmpty)
                             Center(
@@ -364,18 +412,20 @@ class _JobAcceptedDetailsScreenState extends State<JobAcceptedDetailsScreen> {
                           if (workerImageUrl.isNotEmpty)
                             const SizedBox(height: 12),
                           _buildInfoRow(
-                            "👷 Name",
-                            workerName.isEmpty ? '-' : workerName,
+                            "👷 ${l10n.nameText}",
+                            workerName.isEmpty ? l10n.notAvailable : workerName,
                           ),
                           _buildInfoRow(
-                            "📞 Phone",
-                            workerPhone.isEmpty ? '-' : workerPhone,
+                            "📞 ${l10n.phoneText}",
+                            workerPhone.isEmpty
+                                ? l10n.notAvailable
+                                : workerPhone,
                           ),
                           if (workerCity.isNotEmpty)
-                            _buildInfoRow("🏙️ City", workerCity),
+                            _buildInfoRow("🏙️ ${l10n.cityText}", workerCity),
                           if (workerSkills.isNotEmpty)
                             _buildInfoRow(
-                              "🛠️ Skills",
+                              "🛠️ ${l10n.skillsLabel}",
                               workerSkills.join(', '),
                             ),
                         ],
@@ -384,7 +434,7 @@ class _JobAcceptedDetailsScreenState extends State<JobAcceptedDetailsScreen> {
 
                       if (_skilledWorkerId != null)
                         _neonButton(
-                          text: "📍 Track Worker Location",
+                          text: "📍 ${l10n.trackWorkerLocation}",
                           color: Colors.blueAccent,
                           onTap: () {
                             Navigator.pushNamed(
@@ -403,7 +453,7 @@ class _JobAcceptedDetailsScreenState extends State<JobAcceptedDetailsScreen> {
                         children: [
                           Expanded(
                             child: _neonButton(
-                              text: "Complete Job",
+                              text: l10n.completeJob,
                               color: Colors.green,
                               onTap: () => _onJobCompleted(workerId),
                             ),
@@ -411,7 +461,7 @@ class _JobAcceptedDetailsScreenState extends State<JobAcceptedDetailsScreen> {
                           const SizedBox(width: 16),
                           Expanded(
                             child: _neonButton(
-                              text: "Cancel Job",
+                              text: l10n.cancelJobText,
                               color: Colors.redAccent,
                               onTap: _onCancelJob,
                             ),
@@ -580,5 +630,53 @@ class _JobAcceptedDetailsScreenState extends State<JobAcceptedDetailsScreen> {
         ),
       ),
     );
+  }
+
+  String _getLocalizedStatus(String status, AppLocalizations l10n) {
+    switch (status.toLowerCase()) {
+      case 'pending':
+        return l10n.statusPending;
+      case 'completed':
+        return l10n.statusCompleted;
+      case 'active':
+        return l10n.statusActive;
+      case 'inactive':
+        return l10n.statusInactive;
+      case 'assigned':
+        return l10n.statusAssigned;
+      case 'approved':
+        return l10n.statusApproved;
+      case 'cancelled':
+        return l10n.statusCancelled;
+      default:
+        return status;
+    }
+  }
+
+  String _localizeValue(String? value, AppLocalizations l10n, String fallback) {
+    if (value == null || value.trim().isEmpty || value == 'null')
+      return fallback;
+    final lower = value.toLowerCase().trim();
+    bool isUrdu = l10n.contactUs == 'ہم سے رابطہ کریں';
+    if (lower == 'not specified') return l10n.notSpecified;
+    if (lower == 'normal') return l10n.normalUrgency;
+    if (lower == 'unknown') return l10n.unknown;
+    if (lower == 'not available') return l10n.notAvailable;
+    if (lower == 'no rating') return l10n.noRating;
+    if (lower == 'skilled worker') return l10n.skilledWorkerText;
+    if (lower == 'no title') return l10n.noTitle;
+    if (lower == 'no location') return l10n.noLocation;
+    if (lower == 'no description') return l10n.noDescription;
+    if (lower == 'cleaning services') return l10n.cleaningServices;
+    if (lower == 'plumbing services') return l10n.plumbingServices;
+    if (lower == 'roofing services') return l10n.roofingServices;
+    if (lower == 'electrical services') return l10n.electricalServices;
+    if (lower == 'car care services') return l10n.carCareServices;
+    if (lower == 'islamabad') return isUrdu ? 'اسلام آباد' : 'Islamabad';
+    if (lower == 'lahore') return isUrdu ? 'لاہور' : 'Lahore';
+    if (lower == 'karachi') return isUrdu ? 'کراچی' : 'Karachi';
+    if (lower == 'rawalpindi') return isUrdu ? 'راولپنڈی' : 'Rawalpindi';
+    if (lower == 'peshawar') return isUrdu ? 'پشاور' : 'Peshawar';
+    return value;
   }
 }

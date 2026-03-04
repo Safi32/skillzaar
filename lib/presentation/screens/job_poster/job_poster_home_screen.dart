@@ -6,6 +6,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:skillzaar/presentation/providers/auth_state_provider.dart';
+import 'package:skillzaar/l10n/app_localizations.dart';
 import 'package:skillzaar/presentation/screens/job_poster/home_screen.dart';
 import 'package:skillzaar/presentation/widgets/bottom_bar_widget.dart';
 import '../../providers/ui_state_provider.dart';
@@ -149,25 +150,25 @@ class _JobPosterHomeContentState extends State<_JobPosterHomeContent> {
           .where('isActive', isEqualTo: true)
           .snapshots()
           .listen((snapshot) {
-        if (!mounted || _navigatedToAssignedJob) return;
-        if (snapshot.docs.isEmpty) return;
+            if (!mounted || _navigatedToAssignedJob) return;
+            if (snapshot.docs.isEmpty) return;
 
-        final doc = snapshot.docs.first;
-        final assignedJobId = doc.id;
-        if (assignedJobId.isEmpty) return;
+            final doc = snapshot.docs.first;
+            final assignedJobId = doc.id;
+            if (assignedJobId.isEmpty) return;
 
-        _navigatedToAssignedJob = true;
+            _navigatedToAssignedJob = true;
 
-        Navigator.pushNamedAndRemoveUntil(
-          context,
-          '/assigned-job-detail',
-          (route) => false,
-          arguments: {
-            'assignedJobId': assignedJobId,
-            'userType': 'job_poster',
-          },
-        );
-      });
+            Navigator.pushNamedAndRemoveUntil(
+              context,
+              '/assigned-job-detail',
+              (route) => false,
+              arguments: {
+                'assignedJobId': assignedJobId,
+                'userType': 'job_poster',
+              },
+            );
+          });
     } catch (e) {
       print('[JobPosterHome] Error starting assigned job listener: $e');
     }
@@ -256,24 +257,22 @@ class _JobPosterHomeContentState extends State<_JobPosterHomeContent> {
           permission == LocationPermission.always) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
+            SnackBar(
               content: Text(
-                'Location access granted! You can now post jobs with precise locations.',
+                AppLocalizations.of(context)!.locationAccessGranted,
               ),
               backgroundColor: Colors.green,
-              duration: Duration(seconds: 3),
+              duration: const Duration(seconds: 3),
             ),
           );
         }
       } else if (permission == LocationPermission.denied) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                'Location access denied. You can still post jobs but location features will be limited.',
-              ),
+            SnackBar(
+              content: Text(AppLocalizations.of(context)!.locationAccessDenied),
               backgroundColor: Colors.orange,
-              duration: Duration(seconds: 3),
+              duration: const Duration(seconds: 3),
             ),
           );
         }
@@ -323,10 +322,10 @@ class _JobPosterHomeContentState extends State<_JobPosterHomeContent> {
           Navigator.pop(context);
           FirebaseAuth.instance.currentUser == null
               ? ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Please login first to post a job.'),
+                SnackBar(
+                  content: Text(AppLocalizations.of(context)!.pleaseLogin),
                   backgroundColor: Colors.red,
-                  duration: Duration(seconds: 4),
+                  duration: const Duration(seconds: 4),
                 ),
               )
               : Navigator.pushNamed(context, '/job-poster-post-job');
@@ -359,7 +358,7 @@ class _JobPosterHomeContentState extends State<_JobPosterHomeContent> {
                       height: 50,
                       child: TextFormField(
                         decoration: InputDecoration(
-                          hintText: "Search...",
+                          hintText: AppLocalizations.of(context)!.search,
                           hintStyle: TextStyle(color: Colors.grey[500]),
                           prefixIcon: Icon(
                             Icons.search,

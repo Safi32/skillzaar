@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:skillzaar/core/services/job_request_service.dart';
+import 'package:skillzaar/l10n/app_localizations.dart';
 
 class JobPosterRateWorkerScreen extends StatefulWidget {
   final Map<String, dynamic> skilledWorkerDetails;
@@ -25,12 +26,12 @@ class _JobPosterRateWorkerScreenState extends State<JobPosterRateWorkerScreen> {
   double _currentWorkerRating = 0.0;
   int _currentRatingCount = 0;
 
-  final List<String> feedbackOptions = [
-    'Excellent work',
-    'Very Good',
-    'Good',
-    'Average',
-    'Poor',
+  List<String> _getFeedbackOptions(AppLocalizations l10n) => [
+    l10n.feedbackExcellent,
+    l10n.feedbackVeryGood,
+    l10n.feedbackGood,
+    l10n.feedbackAverage,
+    l10n.feedbackPoor,
   ];
 
   String _extractWorkerDocId() {
@@ -53,8 +54,8 @@ class _JobPosterRateWorkerScreenState extends State<JobPosterRateWorkerScreen> {
       final workerDocId = _extractWorkerDocId();
       if (workerDocId.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Skilled worker not identified."),
+          SnackBar(
+            content: Text(AppLocalizations.of(context)!.workerNotIdentified),
             backgroundColor: Colors.red,
           ),
         );
@@ -70,8 +71,8 @@ class _JobPosterRateWorkerScreenState extends State<JobPosterRateWorkerScreen> {
 
       if (!submitted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Failed to submit rating."),
+          SnackBar(
+            content: Text(AppLocalizations.of(context)!.failedToSubmitRating),
             backgroundColor: Colors.red,
           ),
         );
@@ -105,7 +106,9 @@ class _JobPosterRateWorkerScreenState extends State<JobPosterRateWorkerScreen> {
                 (data['posterRatingCompleted'] as bool?) ??
                 data['rating'] != null;
             if (alreadyPosterRated) {
-              throw Exception('You have already submitted a rating for this job.');
+              throw Exception(
+                'You have already submitted a rating for this job.',
+              );
             }
 
             final workerAlreadyRatedPoster =
@@ -122,28 +125,34 @@ class _JobPosterRateWorkerScreenState extends State<JobPosterRateWorkerScreen> {
               'posterRatingCompleted': true,
               'workerRatingCompleted': workerAlreadyRatedPoster,
               'fullyCompleted': workerAlreadyRatedPoster,
-              'fullyCompletedAt': workerAlreadyRatedPoster
-                  ? FieldValue.serverTimestamp()
-                  : FieldValue.delete(),
+              'fullyCompletedAt':
+                  workerAlreadyRatedPoster
+                      ? FieldValue.serverTimestamp()
+                      : FieldValue.delete(),
             }, SetOptions(merge: true));
           });
 
           // Best-effort: mark JobRequests completed so worker listeners fire
           if (jobRequestId != null && jobRequestId!.trim().isNotEmpty) {
             try {
-              await JobRequestService.markRequestCompleted(jobRequestId!.trim());
+              await JobRequestService.markRequestCompleted(
+                jobRequestId!.trim(),
+              );
             } catch (_) {}
           }
-          
+
           // Update Job collection status to completed
           if (jobId?.isNotEmpty == true) {
-            await FirebaseFirestore.instance.collection('Job').doc(jobId).update({
-              'status': 'completed',
-              'completedAt': FieldValue.serverTimestamp(),
-              'updatedAt': FieldValue.serverTimestamp(),
-            });
+            await FirebaseFirestore.instance
+                .collection('Job')
+                .doc(jobId)
+                .update({
+                  'status': 'completed',
+                  'completedAt': FieldValue.serverTimestamp(),
+                  'updatedAt': FieldValue.serverTimestamp(),
+                });
           }
-          
+
           if (workerId?.isNotEmpty == true) {
             await FirebaseFirestore.instance
                 .collection('SkilledWorkers')
@@ -200,9 +209,11 @@ class _JobPosterRateWorkerScreenState extends State<JobPosterRateWorkerScreen> {
   Widget build(BuildContext context) {
     final workerDocId = _extractWorkerDocId();
 
+    final l10n = AppLocalizations.of(context)!;
+    final feedbackOptions = _getFeedbackOptions(l10n);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Rate Skilled Worker'),
+        title: Text(l10n.rateSkilledWorker),
         backgroundColor: Colors.green,
         foregroundColor: Colors.white,
       ),
@@ -222,7 +233,7 @@ class _JobPosterRateWorkerScreenState extends State<JobPosterRateWorkerScreen> {
                 final jobTitle =
                     assignedData?['jobTitle'] ??
                     assignedData?['jobDetails']?['jobName'] ??
-                    'Job';
+                    l10n.jobLabel;
                 final workerName =
                     assignedData?['workerName'] ??
                     assignedData?['skilledWorkerName'] ??
@@ -240,7 +251,7 @@ class _JobPosterRateWorkerScreenState extends State<JobPosterRateWorkerScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Job Completed!',
+                        l10n.jobCompleted,
                         style: TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
@@ -248,16 +259,19 @@ class _JobPosterRateWorkerScreenState extends State<JobPosterRateWorkerScreen> {
                         ),
                       ),
                       const SizedBox(height: 8),
-                      Text('Job: $jobTitle', style: const TextStyle(fontSize: 16)),
                       Text(
-                        'Worker: ${workerName ?? 'Skilled Worker'}',
+                        '${l10n.jobLabel}: $jobTitle',
+                        style: const TextStyle(fontSize: 16),
+                      ),
+                      Text(
+                        '${l10n.workerLabel}: ${workerName ?? l10n.skilledWorkerText}',
                         style: const TextStyle(fontSize: 16),
                       ),
                       const SizedBox(height: 8),
                       Row(
                         children: [
-                          const Text(
-                            'Current Rating: ',
+                          Text(
+                            '${l10n.currentRating}: ',
                             style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w500,
@@ -285,7 +299,7 @@ class _JobPosterRateWorkerScreenState extends State<JobPosterRateWorkerScreen> {
                           ),
                           const SizedBox(width: 8),
                           Text(
-                            '($_currentRatingCount ${_currentRatingCount == 1 ? 'rating' : 'ratings'})',
+                            '($_currentRatingCount ${_currentRatingCount == 1 ? l10n.ratingLabel : l10n.ratingsLabel})',
                             style: const TextStyle(
                               fontSize: 12,
                               color: Colors.grey,
@@ -313,7 +327,7 @@ class _JobPosterRateWorkerScreenState extends State<JobPosterRateWorkerScreen> {
                     return const Center(child: CircularProgressIndicator());
                   }
                   if (!snapshot.hasData || !snapshot.data!.exists) {
-                    return const Text('Worker not found.');
+                    return Text(l10n.workerNotFound);
                   }
 
                   final data = snapshot.data!.data();
@@ -344,7 +358,8 @@ class _JobPosterRateWorkerScreenState extends State<JobPosterRateWorkerScreen> {
 
                   final nextAvg =
                       (data?['averageRating'] as num?)?.toDouble() ?? 0.0;
-                  final nextCount = (data?['ratingCount'] as num?)?.toInt() ?? 0;
+                  final nextCount =
+                      (data?['ratingCount'] as num?)?.toInt() ?? 0;
                   if (_currentWorkerRating != nextAvg ||
                       _currentRatingCount != nextCount) {
                     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -368,12 +383,12 @@ class _JobPosterRateWorkerScreenState extends State<JobPosterRateWorkerScreen> {
                 },
               )
             else
-              const Text('Worker ID missing'),
+              Text(l10n.workerIdMissing),
 
             const SizedBox(height: 30),
 
-            const Text(
-              'How was your experience with this worker?',
+            Text(
+              l10n.howWasExperienceWorker,
               style: TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
@@ -388,7 +403,8 @@ class _JobPosterRateWorkerScreenState extends State<JobPosterRateWorkerScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: List.generate(5, (index) {
                   return GestureDetector(
-                    onTap: () => setState(() => rating = (index + 1).toDouble()),
+                    onTap:
+                        () => setState(() => rating = (index + 1).toDouble()),
                     child: Icon(
                       index < rating ? Icons.star : Icons.star_border,
                       color: Colors.amber,
@@ -414,8 +430,8 @@ class _JobPosterRateWorkerScreenState extends State<JobPosterRateWorkerScreen> {
 
             const SizedBox(height: 30),
 
-            const Text(
-              'Quick Feedback (Optional)',
+            Text(
+              l10n.quickFeedback,
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
@@ -473,8 +489,8 @@ class _JobPosterRateWorkerScreenState extends State<JobPosterRateWorkerScreen> {
 
             const SizedBox(height: 20),
 
-            const Text(
-              'Custom Feedback (Optional)',
+            Text(
+              l10n.customFeedback,
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
@@ -488,7 +504,7 @@ class _JobPosterRateWorkerScreenState extends State<JobPosterRateWorkerScreen> {
               controller: _feedbackController,
               maxLines: 3,
               decoration: InputDecoration(
-                hintText: 'Share your detailed feedback about the worker...',
+                hintText: l10n.feedbackHintWorker,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -523,8 +539,8 @@ class _JobPosterRateWorkerScreenState extends State<JobPosterRateWorkerScreen> {
                 child:
                     _isSubmitting
                         ? const CircularProgressIndicator(color: Colors.white)
-                        : const Text(
-                          'Submit Rating & Complete Job',
+                        : Text(
+                          l10n.submitRatingCompleteJob,
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
@@ -558,7 +574,10 @@ class _JobPosterRateWorkerScreenState extends State<JobPosterRateWorkerScreen> {
         ),
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          children: [Text("Phone: $phone"), Text("City: $city")],
+          children: [
+            Text("${AppLocalizations.of(context)!.phoneLabel}: $phone"),
+            Text("${AppLocalizations.of(context)!.cityLabel}: $city"),
+          ],
         ),
       ),
     );

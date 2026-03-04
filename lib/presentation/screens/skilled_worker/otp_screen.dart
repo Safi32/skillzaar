@@ -8,6 +8,7 @@ import '../../providers/skilled_worker_provider.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/services/job_request_service.dart';
 import '../../widgets/recaptcha_widget.dart';
+import 'package:skillzaar/l10n/app_localizations.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -150,6 +151,7 @@ class _SkilledWorkerOTPScreenState extends State<SkilledWorkerOTPScreen> {
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
     final skilledWorkerProvider = Provider.of<SkilledWorkerProvider>(context);
+    final l10n = AppLocalizations.of(context)!;
 
     // Get arguments from route
     final args =
@@ -177,8 +179,8 @@ class _SkilledWorkerOTPScreenState extends State<SkilledWorkerOTPScreen> {
               const SizedBox(height: 40),
               Icon(Icons.verified_user_outlined, size: 64, color: Colors.green),
               const SizedBox(height: 16),
-              const Text(
-                'Verify OTP',
+              Text(
+                l10n.verifyOtp,
                 style: TextStyle(
                   fontSize: 28,
                   fontWeight: FontWeight.bold,
@@ -186,11 +188,21 @@ class _SkilledWorkerOTPScreenState extends State<SkilledWorkerOTPScreen> {
                 ),
               ),
               const SizedBox(height: 8),
-              const Text(
-                'Enter the 6-digit code sent to your phone',
+              Text(
+                l10n.enterOtpCode,
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 16, color: Colors.black54),
+                style: TextStyle(fontSize: 14, color: Colors.black54),
               ),
+              const SizedBox(height: 8),
+              if (args?['phone'] != null)
+                Text(
+                  l10n.otpSentTo(args!['phone']),
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.black87,
+                  ),
+                ),
               const SizedBox(height: 40),
 
               // reCAPTCHA Widget (for web platforms)
@@ -281,8 +293,8 @@ class _SkilledWorkerOTPScreenState extends State<SkilledWorkerOTPScreen> {
                     ).verifyPhone(phone);
                   }
                 },
-                child: const Text(
-                  'Resend OTP',
+                child: Text(
+                  l10n.resendOtp,
                   style: TextStyle(
                     color: Colors.green,
                     fontSize: 16,
@@ -324,8 +336,8 @@ class _SkilledWorkerOTPScreenState extends State<SkilledWorkerOTPScreen> {
                                 SnackBar(
                                   content: Text(
                                     isSignUp
-                                        ? '✅ Signup successful! Welcome to Skillzaar.'
-                                        : '✅ Login successful! Welcome back.',
+                                        ? '✅ ${l10n.signupSuccess}'
+                                        : '✅ ${l10n.loginSuccess}',
                                   ),
                                   backgroundColor: Colors.green,
                                   duration: Duration(seconds: 3),
@@ -334,7 +346,8 @@ class _SkilledWorkerOTPScreenState extends State<SkilledWorkerOTPScreen> {
 
                               // Persist role in central auth state using Firestore-only identity
                               try {
-                                if (skilledWorkerProvider.loggedInUserId != null) {
+                                if (skilledWorkerProvider.loggedInUserId !=
+                                    null) {
                                   final authState =
                                       Provider.of<AuthStateProvider>(
                                         context,
@@ -342,7 +355,9 @@ class _SkilledWorkerOTPScreenState extends State<SkilledWorkerOTPScreen> {
                                       );
                                   await authState.setSkilledWorkerSignedIn(
                                     id: skilledWorkerProvider.loggedInUserId!,
-                                    phone: skilledWorkerProvider.loggedInPhoneNumber,
+                                    phone:
+                                        skilledWorkerProvider
+                                            .loggedInPhoneNumber,
                                   );
                                 }
                               } catch (e) {
@@ -369,8 +384,8 @@ class _SkilledWorkerOTPScreenState extends State<SkilledWorkerOTPScreen> {
                                   content: Text(
                                     skilledWorkerProvider.error ??
                                         (isSignUp
-                                            ? '❌ Signup failed. Please try again.'
-                                            : '❌ Login failed. Please try again.'),
+                                            ? '❌ ${l10n.signupFailed}'
+                                            : '❌ ${l10n.loginFailed}'),
                                   ),
                                   backgroundColor: Colors.red,
                                   duration: Duration(seconds: 3),
@@ -390,8 +405,8 @@ class _SkilledWorkerOTPScreenState extends State<SkilledWorkerOTPScreen> {
                   child:
                       skilledWorkerProvider.isLoading
                           ? const CircularProgressIndicator(color: Colors.white)
-                          : const Text(
-                            'Verify OTP',
+                          : Text(
+                            l10n.verifyOtp,
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 18,

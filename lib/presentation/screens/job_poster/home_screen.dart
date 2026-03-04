@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:skillzaar/l10n/app_localizations.dart';
 import 'package:skillzaar/presentation/widgets/banner.dart';
 import 'package:skillzaar/presentation/screens/job_poster/post_job_screen.dart';
-
 
 class HomeScreen extends StatefulWidget {
   final String searchQuery;
@@ -14,7 +14,10 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   String _selectedService = '';
 
-  List<Map<String, String>> _getSubcategoriesFor(String serviceType) {
+  List<Map<String, String>> _getSubcategoriesFor(
+    String serviceType,
+    AppLocalizations l10n,
+  ) {
     final cleaning = [
       {
         'title': 'House Cleaning',
@@ -44,23 +47,23 @@ class _HomeScreenState extends State<HomeScreen> {
       case 'Plumbing Services':
         return [
           {
-            'title': 'Leak Repair',
-            'desc': 'Tap, pipe, shower leaks',
+            'title': l10n.leakRepair,
+            'desc': l10n.tapPipeLeaks,
             'asset': 'assets/plumber.png',
           },
           {
-            'title': 'Drain Cleaning',
-            'desc': 'Clogs and slow drains',
+            'title': l10n.drainCleaning,
+            'desc': l10n.clogsSlowDrains,
             'asset': 'assets/plumber.png',
           },
           {
-            'title': 'Fixture Install',
-            'desc': 'Faucets, toilets, valves',
+            'title': l10n.fixtureInstall,
+            'desc': l10n.faucetsToilets,
             'asset': 'assets/plumber.png',
           },
           {
-            'title': 'Pipe Replacement',
-            'desc': 'PVC & metal fitting',
+            'title': l10n.pipeReplacement,
+            'desc': l10n.pvcMetalFitting,
             'asset': 'assets/plumber.png',
           },
         ];
@@ -136,23 +139,23 @@ class _HomeScreenState extends State<HomeScreen> {
       case 'Roofing Services':
         return [
           {
-            'title': 'Leak Repair',
-            'desc': 'Seal and waterproof',
+            'title': l10n.leakRepair,
+            'desc': l10n.tapPipeLeaks,
             'asset': 'assets/roof.png',
           },
           {
-            'title': 'Tile Replacement',
-            'desc': 'Shingle & sheet fix',
+            'title': l10n.leakRepair,
+            'desc': l10n.tapPipeLeaks,
             'asset': 'assets/roof.png',
           },
           {
-            'title': 'Roof Cleaning',
-            'desc': 'Debris & wash',
+            'title': l10n.leakRepair,
+            'desc': l10n.tapPipeLeaks,
             'asset': 'assets/roof.png',
           },
           {
-            'title': 'Coating',
-            'desc': 'Heat & waterproof layer',
+            'title': l10n.leakRepair,
+            'desc': l10n.tapPipeLeaks,
             'asset': 'assets/roof.png',
           },
         ];
@@ -324,7 +327,6 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-
   // Get all service types from the simple dropdown
   List<String> _getServiceTypes() {
     return [
@@ -380,8 +382,42 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  String _getLocalizedServiceName(String serviceType, AppLocalizations l10n) {
+    switch (serviceType) {
+      case 'Cleaning Services':
+        return l10n.cleaningServices;
+      case 'Plumbing Services':
+        return l10n.plumbingServices;
+      case 'Carpentry & Furniture':
+        return l10n.carpentryFurniture;
+      case 'Painting & Finishing':
+        return l10n.paintingFinishing;
+      case 'Masonry & Metalwork':
+        return l10n.masonryMetalwork;
+      case 'Roofing Services':
+        return l10n.roofingServices;
+      case 'Glass & Installation':
+        return l10n.glassInstallation;
+      case 'Outdoor & Gardening':
+        return l10n.outdoorGardening;
+      case 'Electrical Services':
+        return l10n.electricalServices;
+      case 'Labour & Moving':
+        return l10n.labourMoving;
+      case 'Car Care Services':
+        return l10n.carCareServices;
+      case 'Catering & Events':
+        return l10n.cateringEvents;
+      case 'Outdoor Construction':
+        return l10n.outdoorConstruction;
+      default:
+        return serviceType;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     // --- Search and filter logic ---
     final _searchQuery = widget.searchQuery;
     List<String> filteredCategories =
@@ -396,7 +432,7 @@ class _HomeScreenState extends State<HomeScreen> {
             : _selectedService;
     List<Map<String, String>> subcats =
         selected.isNotEmpty
-            ? _getSubcategoriesFor(selected).where((subcat) {
+            ? _getSubcategoriesFor(selected, l10n).where((subcat) {
               if (_searchQuery.isEmpty) return true;
               return (subcat['title']?.toLowerCase().contains(
                         _searchQuery.toLowerCase(),
@@ -451,7 +487,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         Image.asset(_getServiceEmoji(serviceType), height: 45),
                         const SizedBox(height: 4),
                         Text(
-                          serviceType,
+                          _getLocalizedServiceName(serviceType, l10n),
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             color: isSelected ? Colors.green : Colors.black87,

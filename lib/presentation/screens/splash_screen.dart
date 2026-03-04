@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:skillzaar/l10n/app_localizations.dart';
 import 'dart:async';
-
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -20,6 +20,7 @@ class _SplashScreenState extends State<SplashScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Scaffold(
       backgroundColor: Colors.white,
       body: Center(
@@ -36,8 +37,8 @@ class _SplashScreenState extends State<SplashScreen> {
               child: const Icon(Icons.work, size: 60, color: Colors.white),
             ),
             const SizedBox(height: 32),
-            const Text(
-              'Skillzaar',
+            Text(
+              l10n.skillzaar,
               style: TextStyle(
                 fontSize: 32,
                 fontWeight: FontWeight.bold,
@@ -45,8 +46,8 @@ class _SplashScreenState extends State<SplashScreen> {
               ),
             ),
             const SizedBox(height: 16),
-            const Text(
-              'Connecting Skills with Opportunities',
+            Text(
+              l10n.tagline,
               style: TextStyle(fontSize: 16, color: Colors.grey),
             ),
           ],

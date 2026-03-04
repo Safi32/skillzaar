@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:skillzaar/presentation/widgets/job_ad_card.dart';
 import 'package:skillzaar/presentation/widgets/job_ads_empty_state.dart';
+import 'package:skillzaar/l10n/app_localizations.dart';
 
 class JobPosterAdsScreen extends StatelessWidget {
   final bool myAdsOnly;
@@ -31,9 +32,9 @@ class JobPosterAdsScreen extends StatelessWidget {
             children: [
               const Icon(Icons.lock_outline, size: 64, color: Colors.grey),
               const SizedBox(height: 16),
-              const Text(
-                'Please log in to view your ads.',
-                style: TextStyle(fontSize: 18),
+              Text(
+                AppLocalizations.of(context)!.pleaseLoginToViewAds,
+                style: const TextStyle(fontSize: 18),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 12),
