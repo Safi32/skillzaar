@@ -536,7 +536,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                       ),
                                     )
                                     : Text(
-                                      l10n.continueGuest,
+                                      l10n.loginButton,
                                       style: TextStyle(
                                         fontSize: 18,
                                         fontWeight: FontWeight.bold,

@@ -326,7 +326,7 @@ class JobPosterSignUpScreenState extends State<JobPosterSignUpScreen> {
                                       ),
                                     )
                                     : Text(
-                                      l10n.continueGuest,
+                                      l10n.signUp,
                                       style: TextStyle(
                                         fontWeight: FontWeight.bold,
                                         fontSize: 18,

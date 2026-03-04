@@ -250,7 +250,7 @@ class _SkilledWorkerSignUpScreenState extends State<SkilledWorkerSignUpScreen> {
                               color: Colors.white,
                             )
                             : Text(
-                              l10n.continueGuest,
+                              l10n.signUp,
                               style: const TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 18,

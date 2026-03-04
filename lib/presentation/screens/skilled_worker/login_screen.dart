@@ -292,7 +292,7 @@ class _SkilledWorkerLoginScreenState extends State<SkilledWorkerLoginScreen> {
                                 color: Colors.white,
                               )
                               : Text(
-                                l10n.continueGuest,
+                                l10n.loginButton,
                                 style: const TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 18,

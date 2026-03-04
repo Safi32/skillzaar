@@ -102,6 +102,7 @@ class AppLocalizations {
   String get postJobsHire => _localizedStrings['postJobsHire'] ?? '';
   String get findApplyJobs => _localizedStrings['findApplyJobs'] ?? '';
   String get continueGuest => _localizedStrings['continueGuest'] ?? '';
+  String get loginButton => _localizedStrings['loginButton'] ?? '';
   String get or => _localizedStrings['or'] ?? '';
   String get jobLocation => _localizedStrings['jobLocation'] ?? '';
   String get max3Images => _localizedStrings['max3Images'] ?? '';
