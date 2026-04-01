@@ -1,0 +1,513 @@
+import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:skillzaar/l10n/app_localizations.dart';
+
+class RateJobPosterScreen extends StatefulWidget {
+  final String assignedJobId;
+  final bool isJobCompletion;
+
+  const RateJobPosterScreen({
+    super.key,
+    required this.assignedJobId,
+    required this.isJobCompletion,
+  });
+
+  @override
+  State<RateJobPosterScreen> createState() => _RateJobPosterScreenState();
+}
+
+class _RateJobPosterScreenState extends State<RateJobPosterScreen> {
+  double rating = 4.0;
+  // Map 1 star -> Poor, 5 stars -> Excellent
+  List<String> _getDefaultTexts(AppLocalizations l10n) => [
+    l10n.feedbackPoor,
+    l10n.feedbackAverage,
+    l10n.feedbackGood,
+    l10n.feedbackVeryGood,
+    l10n.feedbackExcellentClient,
+  ];
+  String? selectedText;
+  final TextEditingController _customController = TextEditingController();
+  bool _isSubmitting = false;
+  Map<String, dynamic>? _assignedJobData;
+  bool _isLoading = true;
+  double _currentJobPosterRating = 0.0;
+  int _currentRatingCount = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAssignedJobData();
+  }
+
+  Future<void> _loadAssignedJobData() async {
+    try {
+      final doc =
+          await FirebaseFirestore.instance
+              .collection('AssignedJobs')
+              .doc(widget.assignedJobId)
+              .get();
+
+      if (doc.exists) {
+        final data = doc.data()!;
+        setState(() {
+          _assignedJobData = data;
+          _isLoading = false;
+        });
+
+        // Load job poster's current rating
+        await _loadJobPosterRating(data['jobPosterId'] as String?);
+      } else {
+        setState(() {
+          _isLoading = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Assigned job not found'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error loading job data: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<void> _loadJobPosterRating(String? jobPosterId) async {
+    if (jobPosterId == null) return;
+
+    try {
+      final doc =
+          await FirebaseFirestore.instance
+              .collection('JobPosters')
+              .doc(jobPosterId)
+              .get();
+
+      if (doc.exists) {
+        final data = doc.data()!;
+        setState(() {
+          _currentJobPosterRating =
+              (data['averageRating'] as num?)?.toDouble() ?? 0.0;
+          _currentRatingCount = (data['ratingCount'] as int?) ?? 0;
+        });
+      }
+    } catch (e) {
+      print('Error loading job poster rating: $e');
+    }
+  }
+
+  void _onRatingChanged(double value) {
+    setState(() {
+      rating = value;
+    });
+  }
+
+  Future<void> _submitRating() async {
+    if (_isSubmitting || _assignedJobData == null) return;
+
+    setState(() {
+      _isSubmitting = true;
+    });
+
+    try {
+      final jobPosterId = _assignedJobData!['jobPosterId'] as String?;
+      final skilledWorkerId = _assignedJobData!['workerId'] as String?;
+      final jobId = _assignedJobData!['jobId'] as String?;
+
+      if (jobPosterId == null || skilledWorkerId == null || jobId == null) {
+        throw Exception('Missing required IDs');
+      }
+
+      final assignedRef = FirebaseFirestore.instance
+          .collection('AssignedJobs')
+          .doc(widget.assignedJobId);
+      final posterRef = FirebaseFirestore.instance
+          .collection('JobPosters')
+          .doc(jobPosterId);
+      final ratingRef = FirebaseFirestore.instance
+          .collection('JobPosterRatings')
+          .doc('${widget.assignedJobId}_$skilledWorkerId');
+
+      await FirebaseFirestore.instance.runTransaction((txn) async {
+        final assignedSnap = await txn.get(assignedRef);
+        if (!assignedSnap.exists) {
+          throw Exception('Assigned job not found');
+        }
+
+        final assignedData = assignedSnap.data() as Map<String, dynamic>;
+        final alreadyRated =
+            (assignedData['workerRatingCompleted'] as bool?) ?? false;
+        if (alreadyRated) {
+          throw Exception('You have already submitted a rating for this job.');
+        }
+
+        final hasPosterRated =
+            (assignedData['posterRatingCompleted'] as bool?) ??
+            assignedData['rating'] != null;
+
+        final ratingSnap = await txn.get(ratingRef);
+        if (ratingSnap.exists) {
+          throw Exception('You have already submitted a rating for this job.');
+        }
+
+        final posterSnap = await txn.get(posterRef);
+
+        txn.update(assignedRef, {
+          'workerRatingOfPoster': rating,
+          'workerRatingComment': selectedText ?? _customController.text,
+          'ratedByWorker': skilledWorkerId,
+          'ratedByWorkerAt': FieldValue.serverTimestamp(),
+          'workerRatingCompleted': true,
+          'fullyCompleted': hasPosterRated,
+          'fullyCompletedAt':
+              hasPosterRated
+                  ? FieldValue.serverTimestamp()
+                  : FieldValue.delete(),
+        });
+        if (posterSnap.exists) {
+          final posterData = posterSnap.data() as Map<String, dynamic>;
+          final currentAvg =
+              (posterData['averageRating'] as num?)?.toDouble() ?? 0.0;
+          final currentCount =
+              (posterData['ratingCount'] as num?)?.toInt() ?? 0;
+
+          final newCount = currentCount + 1;
+          final newAvg = ((currentAvg * currentCount) + rating) / newCount;
+
+          txn.set(posterRef, {
+            'averageRating': newAvg,
+            'ratingCount': newCount,
+            'lastRatedAt': FieldValue.serverTimestamp(),
+          }, SetOptions(merge: true));
+        }
+
+        txn.set(ratingRef, {
+          'assignedJobId': widget.assignedJobId,
+          'jobId': jobId,
+          'jobPosterId': jobPosterId,
+          'skilledWorkerId': skilledWorkerId,
+          'rating': rating,
+          'feedback': selectedText ?? _customController.text,
+          'ratedAt': FieldValue.serverTimestamp(),
+        });
+      });
+
+      // Show success message
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Rating submitted successfully!'),
+          backgroundColor: Colors.green,
+        ),
+      );
+
+      // Navigate to home screen
+      Navigator.pushNamedAndRemoveUntil(
+        context,
+        '/skilled-worker-home',
+        (route) => false,
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error submitting rating: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      setState(() {
+        _isSubmitting = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
+    final l10n = AppLocalizations.of(context)!;
+    final defaultTexts = _getDefaultTexts(l10n);
+
+    if (_assignedJobData == null) {
+      return Scaffold(body: Center(child: Text(l10n.jobDataNotAvailable)));
+    }
+
+    final jobPosterName =
+        _assignedJobData!['jobPosterName'] ?? l10n.clientLabel;
+    final jobTitle = _assignedJobData!['jobTitle'] ?? l10n.jobLabel;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(l10n.rateClient),
+        backgroundColor: Colors.green,
+        foregroundColor: Colors.white,
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Job Info Card
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.green.shade50,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.green.shade200),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    l10n.jobCompleted,
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.green.shade700,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '${l10n.jobLabel}: $jobTitle',
+                    style: const TextStyle(fontSize: 16),
+                  ),
+                  Text(
+                    '${l10n.clientLabel}: $jobPosterName',
+                    style: const TextStyle(fontSize: 16),
+                  ),
+                  const SizedBox(height: 8),
+                  // Current Rating Display
+                  Row(
+                    children: [
+                      Text(
+                        '${l10n.currentRating}: ',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      Row(
+                        children: List.generate(5, (index) {
+                          return Icon(
+                            index < _currentJobPosterRating
+                                ? Icons.star
+                                : Icons.star_border,
+                            color: Colors.amber,
+                            size: 16,
+                          );
+                        }),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        '${_currentJobPosterRating.toStringAsFixed(1)}/5.0',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.green.shade700,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        '(${_currentRatingCount} ${_currentRatingCount == 1 ? l10n.ratingLabel : l10n.ratingsLabel})',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 30),
+
+            // Rating Section
+            Text(
+              l10n.howWasExperienceClient,
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: Colors.black87,
+              ),
+            ),
+
+            const SizedBox(height: 20),
+
+            // Star Rating
+            Center(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(5, (index) {
+                  return GestureDetector(
+                    onTap: () => _onRatingChanged((index + 1).toDouble()),
+                    child: Icon(
+                      index < rating ? Icons.star : Icons.star_border,
+                      color: Colors.amber,
+                      size: 50,
+                    ),
+                  );
+                }),
+              ),
+            ),
+
+            const SizedBox(height: 20),
+
+            // Rating Text
+            Center(
+              child: Text(
+                defaultTexts[rating.toInt() - 1],
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.grey.shade700,
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 30),
+
+            // Quick Feedback Options
+            Text(
+              l10n.quickFeedback,
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.black87,
+              ),
+            ),
+
+            const SizedBox(height: 15),
+
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children:
+                  defaultTexts.map((text) {
+                    final isSelected = selectedText == text;
+                    return GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          selectedText = isSelected ? null : text;
+                          if (selectedText != null) {
+                            _customController.clear();
+                          }
+                        });
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color:
+                              isSelected ? Colors.green : Colors.grey.shade200,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color:
+                                isSelected
+                                    ? Colors.green
+                                    : Colors.grey.shade300,
+                          ),
+                        ),
+                        child: Text(
+                          text,
+                          style: TextStyle(
+                            color: isSelected ? Colors.white : Colors.black87,
+                            fontWeight:
+                                isSelected
+                                    ? FontWeight.w600
+                                    : FontWeight.normal,
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+            ),
+
+            const SizedBox(height: 20),
+
+            // Custom Feedback
+            Text(
+              l10n.customFeedback,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Colors.black87,
+              ),
+            ),
+
+            const SizedBox(height: 10),
+
+            TextField(
+              controller: _customController,
+              maxLines: 3,
+              decoration: InputDecoration(
+                hintText: l10n.feedbackHintClient,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: Colors.green, width: 2),
+                ),
+              ),
+              onChanged: (value) {
+                if (value.isNotEmpty) {
+                  setState(() {
+                    selectedText = null;
+                  });
+                }
+              },
+            ),
+
+            const SizedBox(height: 40),
+
+            // Submit Button
+            SizedBox(
+              width: double.infinity,
+              height: 50,
+              child: ElevatedButton(
+                onPressed: _isSubmitting ? null : _submitRating,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child:
+                    _isSubmitting
+                        ? const CircularProgressIndicator(color: Colors.white)
+                        : Text(
+                          l10n.submitRating,
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _customController.dispose();
+    super.dispose();
+  }
+}

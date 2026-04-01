@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "18417914632",
+    "project_id": "skillzaar-bcb0f",
+    "storage_bucket": "skillzaar-bcb0f.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:18417914632:android:381b0cba44617631d892bd",
+        "android_client_info": {
+          "package_name": "com.skillzaar.pk"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAtG2_o2-9_BrXDCAKikd_83uYGxIDfy30"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:18417914632:android:4cab83b8e1668174d892bd",
+        "android_client_info": {
+          "package_name": "com.skillzaar.worker"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAtG2_o2-9_BrXDCAKikd_83uYGxIDfy30"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
