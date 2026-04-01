@@ -1,4 +1,4 @@
-package com.skillzaar.skillzaar
+package com.skillzaar.pk
 
 import io.flutter.embedding.android.FlutterActivity
 
