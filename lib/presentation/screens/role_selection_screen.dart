@@ -44,197 +44,201 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
 
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        actions: [
-          Consumer<LocaleProvider>(
-            builder: (context, localeProvider, child) {
-              final isUrdu = localeProvider.locale.languageCode == 'ur';
-              return TextButton(
-                onPressed: () => localeProvider.toggleLocale(),
-                child: Text(
-                  isUrdu ? 'English' : 'اردو',
-                  style: const TextStyle(
-                    color: Colors.green,
-                    fontWeight: FontWeight.bold,
+      body: Stack(
+        children: [
+          Positioned(
+            top: -size.height * 0.15,
+            left: -size.width * 0.25,
+            child: Container(
+              width: size.width * 0.8,
+              height: size.width * 0.8,
+              decoration: BoxDecoration(
+                color: AppColors.green.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+            ),
+          ),
+          Positioned(
+            bottom: -size.height * 0.28,
+            right: -size.width * 0.05,
+            child: Container(
+              width: size.width * 0.8,
+              height: size.width * 0.8,
+              decoration: BoxDecoration(
+                color: AppColors.green.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+            ),
+          ),
+          SafeArea(
+            child: Stack(
+              children: [
+                Positioned(
+                  right: 0,
+                  child: Consumer<LocaleProvider>(
+                    builder: (context, localeProvider, child) {
+                      final isUrdu = localeProvider.locale.languageCode == 'ur';
+                      return TextButton(
+                        onPressed: () => localeProvider.toggleLocale(),
+                        child: Text(
+                          isUrdu ? 'English' : 'اردو',
+                          style: const TextStyle(
+                            color: Colors.green,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      );
+                    },
                   ),
                 ),
-              );
-            },
-          ),
-        ],
-      ),
-      body: SafeArea(
-        child: Stack(
-          children: [
-            // Green accent shape at top
-            Positioned(
-              top: -size.height * 0.15,
-              left: -size.width * 0.25,
-              child: Container(
-                width: size.width * 0.8,
-                height: size.width * 0.8,
-                decoration: BoxDecoration(
-                  color: AppColors.green.withOpacity(0.1),
-                  shape: BoxShape.circle,
+                Positioned(
+                  top: 16,
+                  right: 16,
+                  child: Image.asset(
+                    "assets/applogo.png", // Replace with your actual logo asset
+                    width: 150,
+                    height: 150,
+                  ),
                 ),
-              ),
-            ),
 
-            // Logo on top right
-            Positioned(
-              top: 16,
-              right: 16,
-              child: Image.asset(
-                "assets/applogo.png", // Replace with your actual logo asset
-                width: 150,
-                height: 150,
-              ),
-            ),
-
-            Center(
-              child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: size.width * 0.08),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const SizedBox(height: 60),
-
-                    // App name
-                    Text(
-                      l10n.findJobsHireTalent,
-                      style: GoogleFonts.poppins(
-                        fontSize: 28,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.green,
-                        letterSpacing: 1.1,
-                      ),
-                      textAlign: TextAlign.center,
+                Center(
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: size.width * 0.08,
                     ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const SizedBox(height: 60),
 
-                    const SizedBox(height: 10),
+                        // App name
+                        Text(
+                          l10n.findJobsHireTalent,
+                          style: GoogleFonts.poppins(
+                            fontSize: 28,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.green,
+                            letterSpacing: 1.1,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
 
-                    // Secondary tagline
-                    Text(
-                      l10n.chooseRole,
-                      style: GoogleFonts.inter(
-                        fontSize: 16,
-                        color: Colors.black54,
-                        fontWeight: FontWeight.w500,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
+                        const SizedBox(height: 10),
 
-                    const SizedBox(height: 50),
+                        // Secondary tagline
+                        Text(
+                          l10n.chooseRole,
+                          style: GoogleFonts.inter(
+                            fontSize: 16,
+                            color: Colors.black54,
+                            fontWeight: FontWeight.w500,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
 
-                    // Buttons as cards
-                    _buildRoleCard(
-                      context,
-                      title: l10n.iAmJobPoster,
-                      subtitle: l10n.postJobsHire,
-                      color: AppColors.green.withAlpha(200),
-                      textColor: Colors.white,
-                      onTap: () {
-                        Navigator.pushNamed(
+                        const SizedBox(height: 50),
+
+                        // Buttons as cards
+                        _buildRoleCard(
                           context,
-                          '/job-poster-login',
-                          arguments: {'role': 'job_poster'},
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 20),
-                    _buildRoleCard(
-                      context,
-                      title: l10n.iAmSkilledWorker,
-                      subtitle: l10n.findApplyJobs,
-                      color: AppColors.green.withAlpha(200),
-                      textColor: Colors.white,
-                      onTap: () {
-                        Navigator.pushNamed(
+                          title: l10n.iAmJobPoster,
+                          subtitle: l10n.postJobsHire,
+                          color: AppColors.green.withAlpha(200),
+                          textColor: Colors.white,
+                          onTap: () {
+                            Navigator.pushNamed(
+                              context,
+                              '/job-poster-login',
+                              arguments: {'role': 'job_poster'},
+                            );
+                          },
+                        ),
+                        const SizedBox(height: 20),
+                        _buildRoleCard(
                           context,
-                          '/skilled-worker-login',
-                          arguments: {'role': 'skilled_worker'},
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 30),
-                    Text(
-                      l10n.or,
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.grey[600],
-                      ),
-                    ),
+                          title: l10n.iAmSkilledWorker,
+                          subtitle: l10n.findApplyJobs,
+                          color: AppColors.green.withAlpha(200),
+                          textColor: Colors.white,
+                          onTap: () {
+                            Navigator.pushNamed(
+                              context,
+                              '/skilled-worker-login',
+                              arguments: {'role': 'skilled_worker'},
+                            );
+                          },
+                        ),
+                        const SizedBox(height: 30),
+                        Text(
+                          l10n.or,
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.grey[600],
+                          ),
+                        ),
 
-                    TextButton(
-                      onPressed: () {
-                        Navigator.pushNamed(context, '/job-poster-home');
-                      },
-                      style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(
-                          vertical: 12,
-                          horizontal: 24,
+                        TextButton(
+                          onPressed: () {
+                            Navigator.pushNamed(context, '/job-poster-home');
+                          },
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(
+                              vertical: 12,
+                              horizontal: 24,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              side: BorderSide(color: Colors.green.shade200),
+                            ),
+                          ),
+                          child: Text(
+                            l10n.continueGuest,
+                            style: const TextStyle(
+                              color: Colors.green,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                         ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          side: BorderSide(color: Colors.green.shade200),
-                        ),
-                      ),
-                      child: Text(
-                        l10n.continueGuest,
-                        style: const TextStyle(
-                          color: Colors.green,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
-              ),
-            ),
-            Positioned(
-              bottom: -size.height * 0.28,
-              right: -size.width * 0.05,
-              child: Container(
-                width: size.width * 0.8,
-                height: size.width * 0.8,
-                decoration: BoxDecoration(
-                  color: AppColors.green.withOpacity(0.1),
-                  shape: BoxShape.circle,
-                ),
-              ),
-            ),
-            Align(
-              alignment: Alignment.bottomCenter,
-              child: Padding(
-                padding: const EdgeInsets.only(bottom: 12.0),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // app version
-                    !isLoading
-                        ? Text(
-                          'Version: $version+$buildNumber',
+
+                Align(
+                  alignment: Alignment.bottomCenter,
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 12.0),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // app version
+                        !isLoading
+                            ? Text(
+                              'Version: $version+$buildNumber',
+                              style: TextStyle(
+                                color: Colors.grey[600],
+                                fontSize: 12,
+                              ),
+                            )
+                            : const Text("-"),
+                        const SizedBox(height: 4),
+                        Text(
+                          '© 2024 Skillzaar. All rights reserved.',
                           style: TextStyle(
                             color: Colors.grey[600],
                             fontSize: 12,
                           ),
-                        )
-                        : const Text("-"),
-                    const SizedBox(height: 4),
-                    Text(
-                      '© 2024 Skillzaar. All rights reserved.',
-                      style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                        ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
-              ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
