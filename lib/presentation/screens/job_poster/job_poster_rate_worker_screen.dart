@@ -27,11 +27,11 @@ class _JobPosterRateWorkerScreenState extends State<JobPosterRateWorkerScreen> {
   int _currentRatingCount = 0;
 
   List<String> _getFeedbackOptions(AppLocalizations l10n) => [
-    l10n.feedbackExcellent,
-    l10n.feedbackVeryGood,
-    l10n.feedbackGood,
-    l10n.feedbackAverage,
     l10n.feedbackPoor,
+    l10n.feedbackAverage,
+    l10n.feedbackGood,
+    l10n.feedbackVeryGood,
+    l10n.feedbackExcellent,
   ];
 
   String _extractWorkerDocId() {
@@ -274,7 +274,7 @@ class _JobPosterRateWorkerScreenState extends State<JobPosterRateWorkerScreen> {
                             Text(
                               '${l10n.currentRating}: ',
                               style: TextStyle(
-                                fontSize: 14,
+                                fontSize: 13,
                                 fontWeight: FontWeight.w500,
                               ),
                             ),
@@ -298,16 +298,19 @@ class _JobPosterRateWorkerScreenState extends State<JobPosterRateWorkerScreen> {
                                 color: Colors.green.shade700,
                               ),
                             ),
-                            const SizedBox(width: 8),
-                            Text(
-                              '($_currentRatingCount ${_currentRatingCount == 1 ? l10n.ratingLabel : l10n.ratingsLabel})',
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey,
-                              ),
-                            ),
+                            
                           ],
                         ),
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: Text(
+                                '($_currentRatingCount ${_currentRatingCount == 1 ? l10n.ratingLabel : l10n.ratingsLabel})',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                            ),
                       ],
                     ),
                   );
