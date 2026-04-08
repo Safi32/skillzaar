@@ -6,6 +6,7 @@ import 'package:skillzaar/l10n/app_localizations.dart';
 class LogoutDialog extends StatelessWidget {
   final VoidCallback onLogout;
   const LogoutDialog({super.key, required this.onLogout});
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
@@ -20,10 +21,7 @@ class LogoutDialog extends StatelessWidget {
         ElevatedButton(
           onPressed: () {
             Navigator.of(context).pop();
-            Provider.of<PhoneAuthProvider>(
-              context,
-              listen: false,
-            ).setLoggedInUserId(null);
+            Provider.of<PhoneAuthProvider>(context, listen: false).logout();
             onLogout();
           },
           style: ElevatedButton.styleFrom(

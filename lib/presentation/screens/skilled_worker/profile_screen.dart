@@ -67,8 +67,8 @@ class _ProfileContentState extends State<_ProfileContent> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Profile Setup'),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
+        backgroundColor: AppColors.green,
+        foregroundColor: Colors.white,
         elevation: 0,
       ),
       body: Container(
@@ -236,6 +236,7 @@ class _ProfileContentState extends State<_ProfileContent> {
                 const SizedBox(height: 8),
                 TextField(
                   controller: nameController,
+                  textInputAction: TextInputAction.next,
                   decoration: InputDecoration(
                     hintText: 'Enter your full name',
                     prefixIcon: const Icon(
@@ -259,6 +260,7 @@ class _ProfileContentState extends State<_ProfileContent> {
                 TextField(
                   controller: ageController,
                   keyboardType: TextInputType.number,
+                  textInputAction: TextInputAction.next,
                   decoration: InputDecoration(
                     hintText: 'Enter your age',
                     prefixIcon: const Icon(
@@ -281,6 +283,7 @@ class _ProfileContentState extends State<_ProfileContent> {
                 const SizedBox(height: 8),
                 TextField(
                   controller: cityController,
+                  textInputAction: TextInputAction.next,
                   decoration: InputDecoration(
                     hintText: 'Enter your city',
                     prefixIcon: const Icon(
@@ -304,6 +307,7 @@ class _ProfileContentState extends State<_ProfileContent> {
                 TextField(
                   controller: workingRadiusController,
                   keyboardType: TextInputType.number,
+                  textInputAction: TextInputAction.done,
                   decoration: InputDecoration(
                     labelText: 'Working Radius',
                     hintText: 'Enter working radius in km',

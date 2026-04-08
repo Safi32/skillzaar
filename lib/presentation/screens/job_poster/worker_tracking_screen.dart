@@ -104,73 +104,12 @@ class _WorkerTrackingScreenState extends State<WorkerTrackingScreen> {
       return Center(child: Text(l10n.jobNotFound));
     }
 
-    return Column(
-      children: [
-        // Job info card
-        Container(
-          margin: const EdgeInsets.all(16),
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.grey.withOpacity(0.2),
-                spreadRadius: 1,
-                blurRadius: 3,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                _jobData!['title_en'] ??
-                    _jobData!['title'] ??
-                    _jobData!['title_ur'] ??
-                    l10n.jobTitle,
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                _jobData!['description_en'] ??
-                    _jobData!['description'] ??
-                    _jobData!['description_ur'] ??
-                    l10n.noDescription,
-                style: const TextStyle(fontSize: 14, color: Colors.grey),
-              ),
-              // Service type information
-              if (_jobData!['serviceType'] != null) ...[
-                const SizedBox(height: 8),
-                _buildServiceTypeInfo(l10n),
-              ],
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  const Icon(Icons.location_on, size: 16, color: Colors.grey),
-                  const SizedBox(width: 4),
-                  Expanded(
-                    child: Text(
-                      _jobData!['Address'] ??
-                          _jobData!['address'] ??
-                          l10n.noAddress,
-                      style: const TextStyle(fontSize: 12),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-
-        // Worker info card
-        if (_workerData != null)
+    return SafeArea(
+      child: Column(
+        children: [
+          // Job info card
           Container(
-            margin: const EdgeInsets.symmetric(horizontal: 16),
+            margin: const EdgeInsets.all(16),
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: Colors.white,
@@ -184,109 +123,171 @@ class _WorkerTrackingScreenState extends State<WorkerTrackingScreen> {
                 ),
               ],
             ),
-            child: Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                CircleAvatar(
-                  radius: 25,
-                  backgroundImage:
-                      _workerData!['profileImageUrl'] != null
-                          ? NetworkImage(_workerData!['profileImageUrl'])
-                          : null,
-                  child:
-                      _workerData!['profileImageUrl'] == null
-                          ? const Icon(Icons.person)
-                          : null,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        _workerData!['name'] ??
-                            _workerData!['skilledWorkerName'] ??
-                            l10n.skilledWorkerText,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      Text(
-                        _workerData!['phoneNumber'] ?? l10n.noPhoneInfo,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color:
-                                  (_workerData!['isOnline'] ?? false)
-                                      ? Colors.green
-                                      : Colors.grey,
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Text(
-                              (_workerData!['isOnline'] ?? false)
-                                  ? l10n.statusOnline
-                                  : l10n.statusOffline,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            '${l10n.lastSeenLabel}: ${_formatLastSeen(_workerData!['lastSeen'], l10n)}',
-                            style: const TextStyle(
-                              fontSize: 10,
-                              color: Colors.grey,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
+                Text(
+                  _jobData!['title_en'] ??
+                      _jobData!['title'] ??
+                      _jobData!['title_ur'] ??
+                      l10n.jobTitle,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
                   ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  _jobData!['description_en'] ??
+                      _jobData!['description'] ??
+                      _jobData!['description_ur'] ??
+                      l10n.noDescription,
+                  style: const TextStyle(fontSize: 14, color: Colors.grey),
+                ),
+                // Service type information
+                if (_jobData!['serviceType'] != null) ...[
+                  const SizedBox(height: 8),
+                  _buildServiceTypeInfo(l10n),
+                ],
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    const Icon(Icons.location_on, size: 16, color: Colors.grey),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(
+                        _jobData!['Address'] ??
+                            _jobData!['address'] ??
+                            l10n.noAddress,
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
           ),
 
-        // Map
-        Expanded(
-          child: Container(
-            margin: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.grey.withOpacity(0.2),
-                  spreadRadius: 1,
-                  blurRadius: 3,
-                  offset: const Offset(0, 2),
-                ),
-              ],
+          if (_workerData != null)
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 16),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.grey.withOpacity(0.2),
+                    spreadRadius: 1,
+                    blurRadius: 3,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    radius: 25,
+                    backgroundImage:
+                        _workerData!['profileImageUrl'] != null
+                            ? NetworkImage(_workerData!['profileImageUrl'])
+                            : null,
+                    child:
+                        _workerData!['profileImageUrl'] == null
+                            ? const Icon(Icons.person)
+                            : null,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _workerData!['name'] ??
+                              _workerData!['skilledWorkerName'] ??
+                              l10n.skilledWorkerText,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Text(
+                          _workerData!['phoneNumber'] ?? l10n.noPhoneInfo,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color:
+                                    (_workerData!['isOnline'] ?? false)
+                                        ? Colors.green
+                                        : Colors.grey,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                (_workerData!['isOnline'] ?? false)
+                                    ? l10n.statusOnline
+                                    : l10n.statusOffline,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              '${l10n.lastSeenLabel}: ${_formatLastSeen(_workerData!['lastSeen'], l10n)}',
+                              style: const TextStyle(
+                                fontSize: 10,
+                                color: Colors.grey,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: WorkerTrackingMap(
-                jobId: widget.jobId,
-                workerId: widget.workerId,
-                jobLocation: _jobLocation,
+
+          // Map
+          Expanded(
+            child: Container(
+              margin: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.grey.withOpacity(0.2),
+                    spreadRadius: 1,
+                    blurRadius: 3,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: WorkerTrackingMap(
+                  jobId: widget.jobId,
+                  workerId: widget.workerId,
+                  jobLocation: _jobLocation,
+                ),
               ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 

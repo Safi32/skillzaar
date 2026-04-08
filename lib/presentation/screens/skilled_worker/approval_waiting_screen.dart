@@ -55,301 +55,334 @@ class _ApprovalWaitingScreenState extends State<ApprovalWaitingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final size = MediaQuery.of(context).size;
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       backgroundColor: Colors.white,
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              // Header
-              Icon(Icons.hourglass_empty, size: 80, color: Colors.orange),
-              const SizedBox(height: 24),
-
-              Text(
-                'Profile Under Review',
-                style: const TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
-                ),
-                textAlign: TextAlign.center,
+      body: Stack(
+        children: [
+          Positioned(
+            top: -size.height * 0.15,
+            left: -size.width * 0.25,
+            child: Container(
+              width: size.width * 0.8,
+              height: size.width * 0.8,
+              decoration: const BoxDecoration(
+                color: Color.fromRGBO(19, 185, 75, 0.1),
+                shape: BoxShape.circle,
               ),
-
-              const SizedBox(height: 16),
-
-              Text(
-                'Your skilled worker profile is currently being reviewed by our admin team.',
-                style: TextStyle(
-                  fontSize: 16,
-                  color: Colors.grey[600],
-                  height: 1.5,
-                ),
-                textAlign: TextAlign.center,
+            ),
+          ),
+          Positioned(
+            bottom: -size.height * 0.15,
+            right: -size.width * 0.25,
+            child: Container(
+              width: size.width * 0.8,
+              height: size.width * 0.8,
+              decoration: const BoxDecoration(
+                color: Color.fromRGBO(19, 185, 75, 0.1),
+                shape: BoxShape.circle,
               ),
+            ),
+          ),
+          SafeArea(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // Header
+                  Icon(Icons.hourglass_empty, size: 80, color: Colors.orange),
+                  const SizedBox(height: 24),
 
-              const SizedBox(height: 32),
+                  Text(
+                    'Profile Under Review',
+                    style: const TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
 
-              // Status Card
-              FutureBuilder<DocumentSnapshot?>(
-                future: UserDataService.getUserData(
-                  userId: widget.userId,
-                  userType: 'skilled_worker',
-                ),
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Card(
-                      child: Padding(
-                        padding: EdgeInsets.all(20),
-                        child: Center(child: CircularProgressIndicator()),
-                      ),
-                    );
-                  }
+                  const SizedBox(height: 16),
 
-                  if (snapshot.hasError || !snapshot.hasData) {
-                    return Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(20),
-                        child: Text(
-                          'Error loading status',
-                          style: TextStyle(color: Colors.red[600]),
+                  Text(
+                    'Your skilled worker profile is currently being reviewed by our admin team.',
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Colors.grey[600],
+                      height: 1.5,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+
+                  const SizedBox(height: 32),
+
+                  // Status Card
+                  FutureBuilder<DocumentSnapshot?>(
+                    future: UserDataService.getUserData(
+                      userId: widget.userId,
+                      userType: 'skilled_worker',
+                    ),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Card(
+                          child: Padding(
+                            padding: EdgeInsets.all(20),
+                            child: Center(child: CircularProgressIndicator()),
+                          ),
+                        );
+                      }
+
+                      if (snapshot.hasError || !snapshot.hasData) {
+                        return Card(
+                          child: Padding(
+                            padding: const EdgeInsets.all(20),
+                            child: Text(
+                              'Error loading status',
+                              style: TextStyle(color: Colors.red[600]),
+                            ),
+                          ),
+                        );
+                      }
+
+                      final data =
+                          snapshot.data!.data() as Map<String, dynamic>;
+                      final approvalStatus =
+                          data['approvalStatus'] ?? 'pending';
+                      final adminNotes = data['adminNotes'] ?? '';
+                      final createdAt = data['createdAt'] as Timestamp?;
+
+                      // Show success dialog if approved
+                      if (approvalStatus == 'approved') {
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          _showApprovalSuccessDialog(context);
+                        });
+                      }
+
+                      return Card(
+                        elevation: 4,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
                         ),
-                      ),
-                    );
-                  }
+                        child: Padding(
+                          padding: const EdgeInsets.all(20),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(
+                                    _getStatusIcon(approvalStatus),
+                                    color: _getStatusColor(approvalStatus),
+                                    size: 24,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Text(
+                                      _getStatusTitle(approvalStatus),
+                                      style: const TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 6,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: _getStatusColor(approvalStatus),
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                    child: Text(
+                                      approvalStatus.toUpperCase(),
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                _getStatusMessage(approvalStatus),
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: _getStatusColor(
+                                    approvalStatus,
+                                  ).withValues(alpha: 0.8),
+                                ),
+                              ),
+                              if (createdAt != null) ...[
+                                const SizedBox(height: 12),
+                                Text(
+                                  'Submitted: ${_formatDate(createdAt.toDate())}',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey[600],
+                                  ),
+                                ),
+                              ],
+                              if (adminNotes.isNotEmpty) ...[
+                                const SizedBox(height: 16),
+                                Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: Colors.grey[100],
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        'Admin Notes:',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        adminNotes,
+                                        style: const TextStyle(fontSize: 12),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
 
-                  final data = snapshot.data!.data() as Map<String, dynamic>;
-                  final approvalStatus = data['approvalStatus'] ?? 'pending';
-                  final adminNotes = data['adminNotes'] ?? '';
-                  final createdAt = data['createdAt'] as Timestamp?;
+                  const SizedBox(height: 32),
 
-                  // Show success dialog if approved
-                  if (approvalStatus == 'approved') {
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      _showApprovalSuccessDialog(context);
-                    });
-                  }
-
-                  return Card(
-                    elevation: 4,
+                  // What happens next
+                  Card(
+                    elevation: 2,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(12),
                     ),
                     child: Padding(
-                      padding: const EdgeInsets.all(20),
+                      padding: const EdgeInsets.all(16),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Row(
                             children: [
                               Icon(
-                                _getStatusIcon(approvalStatus),
-                                color: _getStatusColor(approvalStatus),
-                                size: 24,
+                                Icons.info_outline,
+                                color: Colors.blue[600],
+                                size: 20,
                               ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Text(
-                                  _getStatusTitle(approvalStatus),
-                                  style: const TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 6,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: _getStatusColor(approvalStatus),
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                child: Text(
-                                  approvalStatus.toUpperCase(),
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                  ),
+                              const SizedBox(width: 8),
+                              Text(
+                                'What happens next?',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.blue[600],
                                 ),
                               ),
                             ],
                           ),
-                          const SizedBox(height: 16),
-                          Text(
-                            _getStatusMessage(approvalStatus),
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: _getStatusColor(
-                                approvalStatus,
-                              ).withOpacity(0.8),
-                            ),
+                          const SizedBox(height: 12),
+                          _buildInfoItem(
+                            '1. Our admin team will review your profile and documents',
+                            Icons.verified_user,
                           ),
-                          if (createdAt != null) ...[
-                            const SizedBox(height: 12),
-                            Text(
-                              'Submitted: ${_formatDate(createdAt.toDate())}',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey[600],
-                              ),
-                            ),
-                          ],
-                          if (adminNotes.isNotEmpty) ...[
-                            const SizedBox(height: 16),
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: Colors.grey[100],
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    'Admin Notes:',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    adminNotes,
-                                    style: const TextStyle(fontSize: 12),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
+                          _buildInfoItem(
+                            '2. You will receive a notification once approved',
+                            Icons.notifications,
+                          ),
+                          _buildInfoItem(
+                            '3. Once approved, you can start receiving job requests',
+                            Icons.work,
+                          ),
                         ],
                       ),
                     ),
-                  );
-                },
-              ),
+                  ),
 
-              const SizedBox(height: 32),
+                  const SizedBox(height: 32),
 
-              // What happens next
-              Card(
-                elevation: 2,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  // Action buttons
+                  Column(
                     children: [
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.info_outline,
-                            color: Colors.blue[600],
-                            size: 20,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            'What happens next?',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.blue[600],
+                      SizedBox(
+                        width: double.infinity,
+                        height: 48,
+                        child: ElevatedButton(
+                          onPressed: _isRefreshing ? null : _refreshStatus,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.green,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
                             ),
                           ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      _buildInfoItem(
-                        '1. Our admin team will review your profile and documents',
-                        Icons.verified_user,
-                      ),
-                      _buildInfoItem(
-                        '2. You will receive a notification once approved',
-                        Icons.notifications,
-                      ),
-                      _buildInfoItem(
-                        '3. Once approved, you can start receiving job requests',
-                        Icons.work,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 32),
-
-              // Action buttons
-              Column(
-                children: [
-                  SizedBox(
-                    width: double.infinity,
-                    height: 48,
-                    child: ElevatedButton(
-                      onPressed: _isRefreshing ? null : _refreshStatus,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.green,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      child:
-                          _isRefreshing
-                              ? const Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  SizedBox(
-                                    width: 20,
-                                    height: 20,
-                                    child: CircularProgressIndicator(
-                                      color: Colors.white,
-                                      strokeWidth: 2,
-                                    ),
-                                  ),
-                                  SizedBox(width: 12),
-                                  Text(
-                                    'Refreshing...',
+                          child:
+                              _isRefreshing
+                                  ? const Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      SizedBox(
+                                        width: 20,
+                                        height: 20,
+                                        child: CircularProgressIndicator(
+                                          color: Colors.white,
+                                          strokeWidth: 2,
+                                        ),
+                                      ),
+                                      SizedBox(width: 12),
+                                      Text(
+                                        'Refreshing...',
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ],
+                                  )
+                                  : const Text(
+                                    'Refresh Status',
                                     style: TextStyle(
                                       fontSize: 16,
                                       fontWeight: FontWeight.bold,
                                     ),
                                   ),
-                                ],
-                              )
-                              : const Text(
-                                'Refresh Status',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextButton(
-                    onPressed: () {
-                      // Logout and return to role selection
-                      Navigator.pushNamedAndRemoveUntil(
-                        context,
-                        '/role-selection',
-                        (route) => false,
-                      );
-                    },
-                    child: const Text(
-                      'Logout',
-                      style: TextStyle(color: Colors.grey, fontSize: 14),
-                    ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      TextButton(
+                        onPressed: () {
+                          // Logout and return to role selection
+                          Navigator.pushNamedAndRemoveUntil(
+                            context,
+                            '/role-selection',
+                            (route) => false,
+                          );
+                        },
+                        child: const Text(
+                          'Logout',
+                          style: TextStyle(color: Colors.grey, fontSize: 14),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
-            ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -440,7 +473,7 @@ class _ApprovalWaitingScreenState extends State<ApprovalWaitingScreen> {
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: Colors.green.withOpacity(0.1),
+                  color: const Color.fromRGBO(0, 128, 0, 0.1),
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(

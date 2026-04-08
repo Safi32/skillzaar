@@ -16,6 +16,7 @@ class JobTitleInput extends StatelessWidget {
         const SizedBox(height: 8),
         TextField(
           controller: controller,
+          textInputAction: TextInputAction.next,
           decoration: InputDecoration(
             hintText: AppLocalizations.of(context)!.jobTitleHint,
             contentPadding: const EdgeInsets.symmetric(

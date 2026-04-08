@@ -219,336 +219,340 @@ class _JobPosterRateWorkerScreenState extends State<JobPosterRateWorkerScreen> {
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            FutureBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-              future:
-                  FirebaseFirestore.instance
-                      .collection('AssignedJobs')
-                      .doc(widget.requestId ?? '')
-                      .get(),
-              builder: (context, assignedSnap) {
-                final assignedData = assignedSnap.data?.data();
-                final jobTitle =
-                    assignedData?['jobTitle'] ??
-                    assignedData?['jobDetails']?['jobName'] ??
-                    l10n.jobLabel;
-                final workerName =
-                    assignedData?['workerName'] ??
-                    assignedData?['skilledWorkerName'] ??
-                    assignedData?['skilledWorkerDetails']?['skilledWorkerName'];
-
-                return Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: Colors.green.shade50,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.green.shade200),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        l10n.jobCompleted,
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.green.shade700,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        '${l10n.jobLabel}: $jobTitle',
-                        style: const TextStyle(fontSize: 16),
-                      ),
-                      Text(
-                        '${l10n.workerLabel}: ${workerName ?? l10n.skilledWorkerText}',
-                        style: const TextStyle(fontSize: 16),
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          Text(
-                            '${l10n.currentRating}: ',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          Row(
-                            children: List.generate(5, (index) {
-                              return Icon(
-                                index < _currentWorkerRating
-                                    ? Icons.star
-                                    : Icons.star_border,
-                                color: Colors.amber,
-                                size: 16,
-                              );
-                            }),
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            '${_currentWorkerRating.toStringAsFixed(1)}/5.0',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.green.shade700,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            '($_currentRatingCount ${_currentRatingCount == 1 ? l10n.ratingLabel : l10n.ratingsLabel})',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ),
-
-            const SizedBox(height: 20),
-
-            if (workerDocId.isNotEmpty)
+        child: SafeArea(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
               FutureBuilder<DocumentSnapshot<Map<String, dynamic>>>(
                 future:
                     FirebaseFirestore.instance
-                        .collection('SkilledWorkers')
-                        .doc(workerDocId)
+                        .collection('AssignedJobs')
+                        .doc(widget.requestId ?? '')
                         .get(),
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
-                  if (!snapshot.hasData || !snapshot.data!.exists) {
-                    return Text(l10n.workerNotFound);
-                  }
+                builder: (context, assignedSnap) {
+                  final assignedData = assignedSnap.data?.data();
+                  final jobTitle =
+                      assignedData?['jobTitle'] ??
+                      assignedData?['jobDetails']?['jobName'] ??
+                      l10n.jobLabel;
+                  final workerName =
+                      assignedData?['workerName'] ??
+                      assignedData?['skilledWorkerName'] ??
+                      assignedData?['skilledWorkerDetails']?['skilledWorkerName'];
 
-                  final data = snapshot.data!.data();
-                  final String name =
-                      (data?['Name'] ??
-                              data?['displayName'] ??
-                              data?['name'] ??
-                              data?['FullName'] ??
-                              '-')
-                          .toString();
-                  final String phone =
-                      (data?['phoneNumber'] ??
-                              data?['userPhone'] ??
-                              data?['phone'] ??
-                              data?['skilledWorkerPhone'] ??
-                              data?['Phone'] ??
-                              '-')
-                          .toString();
-                  final String city =
-                      (data?['City'] ?? data?['city'] ?? '').toString();
-                  final String? profileUrl =
-                      (data?['ProfilePicture'] ??
-                              data?['profileImage'] ??
-                              data?['photoURL'] ??
-                              data?['imageUrl'] ??
-                              data?['skilledWorkerProfileImage'])
-                          ?.toString();
-
-                  final nextAvg =
-                      (data?['averageRating'] as num?)?.toDouble() ?? 0.0;
-                  final nextCount =
-                      (data?['ratingCount'] as num?)?.toInt() ?? 0;
-                  if (_currentWorkerRating != nextAvg ||
-                      _currentRatingCount != nextCount) {
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      if (!mounted) return;
-                      setState(() {
-                        _currentWorkerRating = nextAvg;
-                        _currentRatingCount = nextCount;
-                      });
-                    });
-                  }
-
-                  return _buildWorkerCard(
-                    name: name,
-                    phone: phone,
-                    city: city.isEmpty ? '-' : city,
-                    profileUrl:
-                        (profileUrl != null && profileUrl.isNotEmpty)
-                            ? profileUrl
-                            : null,
-                  );
-                },
-              )
-            else
-              Text(l10n.workerIdMissing),
-
-            const SizedBox(height: 30),
-
-            Text(
-              l10n.howWasExperienceWorker,
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: Colors.black87,
-              ),
-            ),
-
-            const SizedBox(height: 20),
-
-            Center(
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(5, (index) {
-                  return GestureDetector(
-                    onTap:
-                        () => setState(() => rating = (index + 1).toDouble()),
-                    child: Icon(
-                      index < rating ? Icons.star : Icons.star_border,
-                      color: Colors.amber,
-                      size: 50,
+                  return Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Colors.green.shade50,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.green.shade200),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          l10n.jobCompleted,
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.green.shade700,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          '${l10n.jobLabel}: $jobTitle',
+                          style: const TextStyle(fontSize: 16),
+                        ),
+                        Text(
+                          '${l10n.workerLabel}: ${workerName ?? l10n.skilledWorkerText}',
+                          style: const TextStyle(fontSize: 16),
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Text(
+                              '${l10n.currentRating}: ',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            Row(
+                              children: List.generate(5, (index) {
+                                return Icon(
+                                  index < _currentWorkerRating
+                                      ? Icons.star
+                                      : Icons.star_border,
+                                  color: Colors.amber,
+                                  size: 16,
+                                );
+                              }),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              '${_currentWorkerRating.toStringAsFixed(1)}/5.0',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.green.shade700,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              '($_currentRatingCount ${_currentRatingCount == 1 ? l10n.ratingLabel : l10n.ratingsLabel})',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
                   );
-                }),
+                },
               ),
-            ),
 
-            const SizedBox(height: 20),
+              const SizedBox(height: 20),
 
-            Center(
-              child: Text(
-                feedbackOptions[rating.toInt() - 1],
+              if (workerDocId.isNotEmpty)
+                FutureBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+                  future:
+                      FirebaseFirestore.instance
+                          .collection('SkilledWorkers')
+                          .doc(workerDocId)
+                          .get(),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+                    if (!snapshot.hasData || !snapshot.data!.exists) {
+                      return Text(l10n.workerNotFound);
+                    }
+
+                    final data = snapshot.data!.data();
+                    final String name =
+                        (data?['Name'] ??
+                                data?['displayName'] ??
+                                data?['name'] ??
+                                data?['FullName'] ??
+                                '-')
+                            .toString();
+                    final String phone =
+                        (data?['phoneNumber'] ??
+                                data?['userPhone'] ??
+                                data?['phone'] ??
+                                data?['skilledWorkerPhone'] ??
+                                data?['Phone'] ??
+                                '-')
+                            .toString();
+                    final String city =
+                        (data?['City'] ?? data?['city'] ?? '').toString();
+                    final String? profileUrl =
+                        (data?['ProfilePicture'] ??
+                                data?['profileImage'] ??
+                                data?['photoURL'] ??
+                                data?['imageUrl'] ??
+                                data?['skilledWorkerProfileImage'])
+                            ?.toString();
+
+                    final nextAvg =
+                        (data?['averageRating'] as num?)?.toDouble() ?? 0.0;
+                    final nextCount =
+                        (data?['ratingCount'] as num?)?.toInt() ?? 0;
+                    if (_currentWorkerRating != nextAvg ||
+                        _currentRatingCount != nextCount) {
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        if (!mounted) return;
+                        setState(() {
+                          _currentWorkerRating = nextAvg;
+                          _currentRatingCount = nextCount;
+                        });
+                      });
+                    }
+
+                    return _buildWorkerCard(
+                      name: name,
+                      phone: phone,
+                      city: city.isEmpty ? '-' : city,
+                      profileUrl:
+                          (profileUrl != null && profileUrl.isNotEmpty)
+                              ? profileUrl
+                              : null,
+                    );
+                  },
+                )
+              else
+                Text(l10n.workerIdMissing),
+
+              const SizedBox(height: 30),
+
+              Text(
+                l10n.howWasExperienceWorker,
                 style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.grey.shade700,
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
                 ),
               ),
-            ),
 
-            const SizedBox(height: 30),
+              const SizedBox(height: 20),
 
-            Text(
-              l10n.quickFeedback,
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.black87,
-              ),
-            ),
-
-            const SizedBox(height: 15),
-
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children:
-                  feedbackOptions.map((text) {
-                    final isSelected = selectedFeedback == text;
+              Center(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: List.generate(5, (index) {
                     return GestureDetector(
-                      onTap: () {
-                        setState(() {
-                          selectedFeedback = isSelected ? null : text;
-                          if (selectedFeedback != null) {
-                            _feedbackController.clear();
-                          }
-                        });
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          color:
-                              isSelected ? Colors.green : Colors.grey.shade200,
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
+                      onTap:
+                          () => setState(() => rating = (index + 1).toDouble()),
+                      child: Icon(
+                        index < rating ? Icons.star : Icons.star_border,
+                        color: Colors.amber,
+                        size: 50,
+                      ),
+                    );
+                  }),
+                ),
+              ),
+
+              const SizedBox(height: 20),
+
+              Center(
+                child: Text(
+                  feedbackOptions[rating.toInt() - 1],
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey.shade700,
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 30),
+
+              Text(
+                l10n.quickFeedback,
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+              ),
+
+              const SizedBox(height: 15),
+
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children:
+                    feedbackOptions.map((text) {
+                      final isSelected = selectedFeedback == text;
+                      return GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            selectedFeedback = isSelected ? null : text;
+                            if (selectedFeedback != null) {
+                              _feedbackController.clear();
+                            }
+                          });
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
                             color:
                                 isSelected
                                     ? Colors.green
-                                    : Colors.grey.shade300,
+                                    : Colors.grey.shade200,
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color:
+                                  isSelected
+                                      ? Colors.green
+                                      : Colors.grey.shade300,
+                            ),
+                          ),
+                          child: Text(
+                            text,
+                            style: TextStyle(
+                              color: isSelected ? Colors.white : Colors.black87,
+                              fontWeight:
+                                  isSelected
+                                      ? FontWeight.w600
+                                      : FontWeight.normal,
+                            ),
                           ),
                         ),
-                        child: Text(
-                          text,
-                          style: TextStyle(
-                            color: isSelected ? Colors.white : Colors.black87,
-                            fontWeight:
-                                isSelected
-                                    ? FontWeight.w600
-                                    : FontWeight.normal,
-                          ),
-                        ),
-                      ),
-                    );
-                  }).toList(),
-            ),
-
-            const SizedBox(height: 20),
-
-            Text(
-              l10n.customFeedback,
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: Colors.black87,
+                      );
+                    }).toList(),
               ),
-            ),
 
-            const SizedBox(height: 10),
+              const SizedBox(height: 20),
 
-            TextField(
-              controller: _feedbackController,
-              maxLines: 3,
-              decoration: InputDecoration(
-                hintText: l10n.feedbackHintWorker,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: Colors.green, width: 2),
+              Text(
+                l10n.customFeedback,
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
                 ),
               ),
-              onChanged: (value) {
-                if (value.isNotEmpty) {
-                  setState(() {
-                    selectedFeedback = null;
-                  });
-                }
-              },
-            ),
 
-            const SizedBox(height: 40),
+              const SizedBox(height: 10),
 
-            SizedBox(
-              width: double.infinity,
-              height: 50,
-              child: ElevatedButton(
-                onPressed: _isSubmitting ? null : _submitRating,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
+              TextField(
+                controller: _feedbackController,
+                maxLines: 3,
+                decoration: InputDecoration(
+                  hintText: l10n.feedbackHintWorker,
+                  border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Colors.green, width: 2),
+                  ),
                 ),
-                child:
-                    _isSubmitting
-                        ? const CircularProgressIndicator(color: Colors.white)
-                        : Text(
-                          l10n.submitRatingCompleteJob,
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
+                onChanged: (value) {
+                  if (value.isNotEmpty) {
+                    setState(() {
+                      selectedFeedback = null;
+                    });
+                  }
+                },
               ),
-            ),
-          ],
+
+              const SizedBox(height: 40),
+
+              SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: ElevatedButton(
+                  onPressed: _isSubmitting ? null : _submitRating,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child:
+                      _isSubmitting
+                          ? const CircularProgressIndicator(color: Colors.white)
+                          : Text(
+                            l10n.submitRatingCompleteJob,
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

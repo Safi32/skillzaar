@@ -52,7 +52,6 @@ class AppRoutes {
     '/job-poster-login': (context) => LoginScreen(),
     '/job-poster-quick-register': (context) => LoginScreen(),
     '/job-poster-signup': (context) => const JobPosterSignUpScreen(),
-    '/job-poster-otp': (context) => const job_poster_otp.JobPosterOtpScreen(phone:''),
     '/job-poster-post-job': (context) => const PostJobScreen(),
     '/job-poster-home': (context) => const JobPosterHomeScreen(),
     // '/job-poster-requests': (context) => const JobRequestsScreen(), // Removed
@@ -133,6 +132,16 @@ class AppRoutes {
           builder:
               (context) =>
                   JobAcceptedDetailsScreen(jobId: jobId, requestId: requestId),
+        );
+      case '/job-poster-otp':
+        final args = settings.arguments as Map<String, dynamic>?;
+        return MaterialPageRoute(
+          builder:
+              (context) => job_poster_otp.JobPosterOtpScreen(
+                phone: args?['phoneNumber'] ?? '',
+                verificationId: args?['verificationId'] ?? '',
+                isSignUp: args?['isSignUp'] == true,
+              ),
         );
       case '/skilled-worker-job-detail':
         final args = settings.arguments as Map<String, dynamic>?;

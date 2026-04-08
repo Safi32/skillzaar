@@ -27,6 +27,7 @@ class _WorkerTrackingMapState extends State<WorkerTrackingMap> {
   LatLng? _jobLocation;
   LatLng? _workerLocation;
   bool _isLoading = true;
+  bool _permissionDenied = false;
   String? _workerName;
   bool _isWorkerOnline = false;
   DateTime? _lastLocationUpdate;
@@ -40,6 +41,28 @@ class _WorkerTrackingMapState extends State<WorkerTrackingMap> {
 
   Future<void> _initializeMap() async {
     try {
+      // Request location permission
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          // Permissions denied
+          setState(() {
+            _permissionDenied = true;
+            _isLoading = false;
+          });
+          return;
+        }
+      }
+      if (permission == LocationPermission.deniedForever) {
+        // Permissions denied forever
+        setState(() {
+          _permissionDenied = true;
+          _isLoading = false;
+        });
+        return;
+      }
+
       // Get current location
       final position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
@@ -227,6 +250,29 @@ class _WorkerTrackingMapState extends State<WorkerTrackingMap> {
 
   @override
   Widget build(BuildContext context) {
+    if (_permissionDenied) {
+      final l10n = AppLocalizations.of(context)!;
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.location_off, size: 64, color: Colors.red),
+            const SizedBox(height: 16),
+            Text(
+              'Location Permission Required',
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Please enable location permissions in settings to track worker location.',
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 14, color: Colors.grey),
+            ),
+          ],
+        ),
+      );
+    }
+
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
     }

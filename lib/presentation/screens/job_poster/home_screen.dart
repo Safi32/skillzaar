@@ -12,7 +12,14 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  String _selectedService = '';
+  late String _selectedService;
+
+  @override
+  void initState() {
+    super.initState();
+    // Pre-select the first category so it's highlighted on first load
+    _selectedService = _getServiceTypes().first;
+  }
 
   List<Map<String, String>> _getSubcategoriesFor(
     String serviceType,
@@ -426,10 +433,7 @@ class _HomeScreenState extends State<HomeScreen> {
           return cat.toLowerCase().contains(_searchQuery.toLowerCase());
         }).toList();
 
-    String selected =
-        _selectedService.isEmpty
-            ? (filteredCategories.isNotEmpty ? filteredCategories.first : '')
-            : _selectedService;
+    String selected = _selectedService;
     List<Map<String, String>> subcats =
         selected.isNotEmpty
             ? _getSubcategoriesFor(selected, l10n).where((subcat) {
@@ -449,57 +453,73 @@ class _HomeScreenState extends State<HomeScreen> {
       body: Column(
         children: [
           const HireBanner(),
-          const SizedBox(height: 12),
-          // No extra search bar here, only the top one is used
           SizedBox(
-            height: 90,
+            height: 130,
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
               itemCount: filteredCategories.length,
               itemBuilder: (context, index) {
                 final serviceType = filteredCategories[index];
                 final isSelected = _selectedService == serviceType;
-                return GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      _selectedService = serviceType;
-                    });
-                  },
-                  child: Container(
-                    width: 70,
-                    margin: const EdgeInsets.only(right: 6),
-                    padding: const EdgeInsets.all(4.0),
-                    decoration: BoxDecoration(
-                      color:
-                          isSelected
-                              ? Colors.green.withOpacity(0.1)
-                              : Colors.transparent,
-                      borderRadius: BorderRadius.circular(8),
-                      border:
-                          isSelected
-                              ? Border.all(color: Colors.green, width: 2)
-                              : null,
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Image.asset(_getServiceEmoji(serviceType), height: 45),
-                        const SizedBox(height: 4),
-                        Text(
-                          _getLocalizedServiceName(serviceType, l10n),
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: isSelected ? Colors.green : Colors.black87,
-                            fontSize: 9,
-                            fontWeight:
-                                isSelected ? FontWeight.bold : FontWeight.w500,
-                            height: 1.1,
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  child: GestureDetector(
+                    onTap: () => setState(() => _selectedService = serviceType),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      curve: Curves.easeInOut,
+                      width: 76,
+                      margin: const EdgeInsets.only(right: 10),
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 10,
+                        horizontal: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color:
+                            isSelected
+                                ? const Color.fromRGBO(19, 185, 75, 0.12)
+                                : Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color:
+                                isSelected
+                                    ? const Color.fromRGBO(19, 185, 75, 0.2)
+                                    : Colors.black.withValues(alpha: 0.06),
+                            blurRadius: isSelected ? 12 : 6,
+                            offset: const Offset(0, 3),
                           ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
+                        ],
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Image.asset(
+                            _getServiceEmoji(serviceType),
+                            height: 40,
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            _getLocalizedServiceName(serviceType, l10n),
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color:
+                                  isSelected
+                                      ? const Color(0xFF13B94B)
+                                      : Colors.grey[700],
+                              fontSize: 9,
+                              fontWeight:
+                                  isSelected
+                                      ? FontWeight.w700
+                                      : FontWeight.w500,
+                              height: 1.2,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 );
@@ -509,7 +529,12 @@ class _HomeScreenState extends State<HomeScreen> {
           const SizedBox(height: 16),
           Expanded(
             child: ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+              padding: const EdgeInsets.only(
+                top: 10,
+                left: 16,
+                right: 16,
+                bottom: 100,
+              ),
               itemCount: subcats.length,
               itemBuilder: (context, index) {
                 final item = subcats[index];
@@ -555,34 +580,75 @@ class _SubCategoryCard extends StatelessWidget {
     required this.subtitle,
     required this.imageAsset,
     required this.onTap,
-    Key? key,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 2,
-      margin: EdgeInsets.zero,
-      child: ListTile(
-        onTap: onTap,
-        leading: ClipRRect(
-          borderRadius: BorderRadius.circular(8),
-          child: Image.asset(
-            imageAsset,
-            width: 48,
-            height: 48,
-            fit: BoxFit.cover,
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.06),
+              blurRadius: 10,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          child: Row(
+            children: [
+              Container(
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  color: const Color.fromRGBO(19, 185, 75, 0.08),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                padding: const EdgeInsets.all(8),
+                child: Image.asset(imageAsset, fit: BoxFit.contain),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 15,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      subtitle,
+                      style: TextStyle(color: Colors.grey[500], fontSize: 13),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: const Color.fromRGBO(19, 185, 75, 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.arrow_forward_ios_rounded,
+                  size: 14,
+                  color: Color(0xFF13B94B),
+                ),
+              ),
+            ],
           ),
         ),
-        title: Text(
-          title,
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-        ),
-        subtitle: Text(
-          subtitle,
-          style: TextStyle(color: Colors.grey[700], fontSize: 13),
-        ),
-        trailing: const Icon(Icons.chevron_right, color: Colors.grey),
       ),
     );
   }

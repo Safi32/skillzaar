@@ -18,7 +18,12 @@ class JobPosterProfileScreen extends StatelessWidget {
       builder: (context, uiProvider, authProvider, child) {
         return Scaffold(
           body: SingleChildScrollView(
-            padding: const EdgeInsets.all(16.0),
+            padding: const EdgeInsets.only(
+              left: 16,
+              right: 16,
+              top: 16,
+              bottom: 160,
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -148,9 +153,10 @@ class JobPosterProfileScreen extends StatelessWidget {
 
                                 if (shouldDelete == true) {
                                   final ui = context.read<UIStateProvider>();
-                                  final success = await context
-                                      .read<PhoneAuthProvider>()
-                                      .deactivateAndDeleteCurrentUser(context);
+                                  final success =
+                                      await context
+                                          .read<PhoneAuthProvider>()
+                                          .deactivateAndDeleteCurrentUser();
 
                                   if (success && context.mounted) {
                                     // Navigate to login/landing
@@ -171,7 +177,6 @@ class JobPosterProfileScreen extends StatelessWidget {
                             ),
                           ],
                 ),
-                SizedBox(height: 50),
               ],
             ),
           ),

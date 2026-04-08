@@ -35,6 +35,7 @@ class SignUpWidget extends StatelessWidget {
         // Phone Input
         TextField(
           controller: controller,
+          textInputAction: TextInputAction.next,
           decoration: InputDecoration(
             hintText: hintText,
             filled: true,

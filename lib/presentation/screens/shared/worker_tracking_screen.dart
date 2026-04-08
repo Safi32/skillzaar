@@ -240,128 +240,135 @@ class _WorkerTrackingScreenState extends State<WorkerTrackingScreen> {
                   ),
                 ),
               )
-              : Column(
-                children: [
-                  // Worker Info Card
-                  Container(
-                    margin: const EdgeInsets.all(16),
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.green.shade50,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.green.shade200),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.person,
-                              color: Colors.green.shade700,
-                              size: 24,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              '${l10n.skilledWorkerText}: $_workerName',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.green.shade700,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.location_on,
-                              color: Colors.green.shade700,
-                              size: 20,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              '${l10n.distanceToJob}: ${_distance.toStringAsFixed(1)} km',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.green.shade700,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.access_time,
-                              color: Colors.grey.shade600,
-                              size: 20,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              '${l10n.lastUpdate}: $_lastUpdateTime',
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: Colors.grey.shade600,
-                              ),
-                            ),
-                          ],
-                        ),
-                        if (_workerPhone.isNotEmpty) ...[
-                          const SizedBox(height: 8),
+              : SafeArea(
+                child: Column(
+                  children: [
+                    // Worker Info Card
+                    Container(
+                      margin: const EdgeInsets.only(
+                        left: 16,
+                        right: 16,
+                        top: 16,
+                      ),
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.green.shade50,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.green.shade200),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
                           Row(
                             children: [
                               Icon(
-                                Icons.phone,
-                                color: Colors.grey.shade600,
-                                size: 20,
+                                Icons.person,
+                                color: Colors.green.shade700,
+                                size: 24,
                               ),
                               const SizedBox(width: 8),
                               Text(
-                                '${l10n.phoneText}: $_workerPhone',
+                                '${l10n.skilledWorkerText}: $_workerName',
                                 style: TextStyle(
-                                  fontSize: 14,
-                                  color: Colors.grey.shade600,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.green.shade700,
                                 ),
                               ),
                             ],
                           ),
-                        ],
-                      ],
-                    ),
-                  ),
-
-                  // Map
-                  Expanded(
-                    child: Container(
-                      margin: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.grey.shade300),
-                      ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
-                        child: GoogleMap(
-                          onMapCreated: (GoogleMapController controller) {
-                            // Map controller not needed for this implementation
-                          },
-                          initialCameraPosition: CameraPosition(
-                            target:
-                                _jobLocation ?? const LatLng(30.3753, 69.3451),
-                            zoom: GoogleMapsConfig.defaultZoom,
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.location_on,
+                                color: Colors.green.shade700,
+                                size: 20,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                '${l10n.distanceToJob}: ${_distance.toStringAsFixed(1)} km',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.green.shade700,
+                                ),
+                              ),
+                            ],
                           ),
-                          markers: _markers,
-                          myLocationEnabled: false,
-                          myLocationButtonEnabled: false,
-                          zoomControlsEnabled: true,
-                          mapToolbarEnabled: false,
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.access_time,
+                                color: Colors.green.shade700,
+                                size: 20,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                '${l10n.lastUpdate}: $_lastUpdateTime',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.green.shade700,
+                                ),
+                              ),
+                            ],
+                          ),
+                          if (_workerPhone.isNotEmpty) ...[
+                            const SizedBox(height: 8),
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.phone,
+                                  color: Colors.green.shade700,
+                                  size: 20,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  '${l10n.phoneText}: $_workerPhone',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.green.shade700,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+
+                    // Map
+                    Expanded(
+                      child: Container(
+                        margin: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.grey.shade300),
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: GoogleMap(
+                            onMapCreated: (GoogleMapController controller) {
+                              // Map controller not needed for this implementation
+                            },
+                            initialCameraPosition: CameraPosition(
+                              target:
+                                  _jobLocation ??
+                                  const LatLng(30.3753, 69.3451),
+                              zoom: GoogleMapsConfig.defaultZoom,
+                            ),
+                            markers: _markers,
+                            myLocationEnabled: false,
+                            myLocationButtonEnabled: false,
+                            zoomControlsEnabled: true,
+                            mapToolbarEnabled: false,
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
     );
   }

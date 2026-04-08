@@ -39,117 +39,136 @@ class _CnicScreenState extends State<CnicScreen> {
     final size = MediaQuery.of(context).size;
 
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       appBar: AppBar(
         title: const Text('Upload CNIC'),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
+        backgroundColor: AppColors.green,
+        foregroundColor: Colors.white,
         elevation: 0,
       ),
-      body: Container(
-        width: double.infinity,
-        height: double.infinity,
-        color: Colors.white,
-        child: SingleChildScrollView(
-          child: Padding(
-            padding: EdgeInsets.symmetric(
-              horizontal: size.width * 0.08,
-              vertical: 24,
+      body: Stack(
+        children: [
+          Positioned(
+            bottom: -size.height * 0.15,
+            right: -size.width * 0.25,
+            child: Container(
+              width: size.width * 0.8,
+              height: size.width * 0.8,
+              decoration: const BoxDecoration(
+                color: Color.fromRGBO(19, 185, 75, 0.1),
+                shape: BoxShape.circle,
+              ),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Upload CNIC',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.green,
-                  ),
+          ),
+          Container(
+            width: double.infinity,
+            height: double.infinity,
+            color: Colors.transparent,
+            child: SingleChildScrollView(
+              child: Padding(
+                padding: EdgeInsets.symmetric(
+                  horizontal: size.width * 0.08,
+                  vertical: 24,
                 ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Upload your National ID (front & back)',
-                  style: TextStyle(fontSize: 16, color: Colors.grey),
-                ),
-                const SizedBox(height: 32),
-                Row(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(
-                      child: _CnicImagePicker(
-                        label: 'Front',
-                        image: frontImage,
-                        onTap: () => pickImage(true),
+                    const Text(
+                      'Upload CNIC',
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.green,
                       ),
                     ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: _CnicImagePicker(
-                        label: 'Back',
-                        image: backImage,
-                        onTap: () => pickImage(false),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Upload your National ID (front & back)',
+                      style: TextStyle(fontSize: 16, color: Colors.grey),
+                    ),
+                    const SizedBox(height: 32),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _CnicImagePicker(
+                            label: 'Front',
+                            image: frontImage,
+                            onTap: () => pickImage(true),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: _CnicImagePicker(
+                            label: 'Back',
+                            image: backImage,
+                            onTap: () => pickImage(false),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 32),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 48,
+                      child: ElevatedButton(
+                        onPressed:
+                            (frontImage == null ||
+                                    backImage == null ||
+                                    isUploading)
+                                ? null
+                                : () async {
+                                  setState(() => isUploading = true);
+                                  try {
+                                    // store temp images in provider to upload later
+                                    final provider =
+                                        Provider.of<SkilledWorkerProvider>(
+                                          context,
+                                          listen: false,
+                                        );
+                                    // Upload immediately and store URLs
+                                    await provider.uploadCnicImages(
+                                      front: frontImage!,
+                                      back: backImage!,
+                                    );
+
+                                    // Redirect to profile screen after CNIC upload
+                                    Navigator.pushNamed(
+                                      context,
+                                      '/skilled-worker-profile',
+                                    );
+                                  } finally {
+                                    if (mounted)
+                                      setState(() => isUploading = false);
+                                  }
+                                },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.green,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          elevation: 1,
+                        ),
+                        child:
+                            isUploading
+                                ? const CircularProgressIndicator(
+                                  color: Colors.white,
+                                )
+                                : const Text(
+                                  'Next',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 32),
-                SizedBox(
-                  width: double.infinity,
-                  height: 48,
-                  child: ElevatedButton(
-                    onPressed:
-                        (frontImage == null || backImage == null || isUploading)
-                            ? null
-                            : () async {
-                              setState(() => isUploading = true);
-                              try {
-                                // store temp images in provider to upload later
-                                final provider =
-                                    Provider.of<SkilledWorkerProvider>(
-                                      context,
-                                      listen: false,
-                                    );
-                                // Upload immediately and store URLs
-                                await provider.uploadCnicImages(
-                                  front: frontImage!,
-                                  back: backImage!,
-                                );
-
-                                // Redirect to profile screen after CNIC upload
-                                Navigator.pushNamed(
-                                  context,
-                                  '/skilled-worker-profile',
-                                );
-                              } finally {
-                                if (mounted)
-                                  setState(() => isUploading = false);
-                              }
-                            },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.green,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      elevation: 1,
-                    ),
-                    child:
-                        isUploading
-                            ? const CircularProgressIndicator(
-                              color: Colors.white,
-                            )
-                            : const Text(
-                              'Next',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
-        ),
+        ],
       ),
     );
   }

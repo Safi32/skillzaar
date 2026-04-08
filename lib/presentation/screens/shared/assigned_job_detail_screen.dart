@@ -313,258 +313,262 @@ class _AssignedJobDetailScreenState extends State<AssignedJobDetailScreen> {
 
           return SingleChildScrollView(
             padding: const EdgeInsets.all(20),
-            child: Column(
-              children: [
-                _buildGlassCard(
-                  title: l10n.jobDetailsText,
-                  children: [
-                    _buildInfoRow(
-                      "📌 ${l10n.jobTitleText}",
-                      jobDetails['jobName'] ?? l10n.noTitle,
-                    ),
-                    _buildInfoRow(
-                      "📍 ${l10n.locationText}",
-                      jobDetails['jobLocation'] ?? l10n.noLocation,
-                    ),
-                    _buildBudgetStreamRow(
-                      "💰 ${l10n.budgetText}",
-                      jobDetails['budget']! == '0'
-                          ? (_cachedBudget ?? '0')
-                          : jobDetails['budget']!,
-                      widget.assignedJobId,
-                      l10n,
-                    ),
-                    _buildInfoRow(
-                      "📝 ${l10n.descriptionText}",
-                      jobDetails['jobDescription'] ?? l10n.noDescription,
-                    ),
-                    _buildInfoRow(
-                      "📅 ${l10n.createdText}",
-                      _formatDate(jobDetails['createdAt']),
-                    ),
-                    _buildInfoRow(
-                      "⚡ ${l10n.urgencyText}",
-                      jobDetails['urgency'] ?? l10n.normalUrgency,
-                    ),
-                    _buildInfoRow(
-                      "⏱️ ${l10n.durationText}",
-                      jobDetails['estimatedDuration'] ?? l10n.notSpecified,
-                    ),
-                    _buildInfoRow(
-                      "📊 ${l10n.statusText}",
-                      _getLocalizedStatus(status, l10n).toUpperCase(),
-                    ),
-                  ],
-                ),
-
-                const SizedBox(height: 20),
-
-                // Skilled Worker Details Card
-                _buildGlassCard(
-                  title: l10n.skilledWorkerDetailsText,
-                  children: [
-                    _buildInfoRow(
-                      "👤 ${l10n.nameText}",
-                      skilledWorkerDetails['skilledWorkerName'] ?? l10n.unknown,
-                    ),
-                    _buildInfoRow(
-                      "📞 ${l10n.phoneText}",
-                      skilledWorkerDetails['phoneNumber'] ?? l10n.notAvailable,
-                    ),
-                    _buildInfoRow(
-                      "🏙️ ${l10n.cityText}",
-                      skilledWorkerDetails['skilledWorkerCity'] ??
-                          l10n.notSpecified,
-                    ),
-                    _buildInfoRow(
-                      "⭐ ${l10n.ratingText}",
-                      skilledWorkerDetails['averageRating']?.toString() ??
-                          l10n.noRating,
-                    ),
-                    _buildInfoRow(
-                      "💼 ${l10n.experienceLabel}",
-                      skilledWorkerDetails['skilledWorkerExperience'] ??
-                          l10n.notSpecified,
-                    ),
-                    _buildInfoRow(
-                      "💰 ${l10n.rateText}",
-                      skilledWorkerDetails['hourlyRate']?.toString() ??
-                          l10n.notSpecified,
-                    ),
-                    _buildInfoRow(
-                      "📋 ${l10n.descriptionText}",
-                      skilledWorkerDetails['skilledWorkerDescription'] ??
-                          l10n.noDescription,
-                    ),
-                  ],
-                ),
-
-                const SizedBox(height: 20),
-
-                // Job Poster Details Card (if available)
-                if (jobPosterDetails.isNotEmpty)
-                  FutureBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-                    future:
-                        FirebaseFirestore.instance
-                            .collection('JobPosters')
-                            .doc(data['jobPosterId'] ?? '')
-                            .get(),
-                    builder: (context, posterSnap) {
-                      final posterData = posterSnap.data?.data();
-                      final posterRating = _formatRating(
-                        posterData?['averageRating'] ??
-                            posterData?['rating'] ??
-                            data['jobPosterRating'] ??
-                            data['jobPosterAverageRating'],
-                      );
-
-                      return _buildGlassCard(
-                        title: l10n.jobPosterDetailsText,
-                        children: [
-                          _buildInfoRow(
-                            "👤 ${l10n.nameText}",
-                            jobPosterDetails['name'] ?? l10n.unknown,
-                          ),
-                          _buildInfoRow(
-                            "📞 ${l10n.phoneText}",
-                            jobPosterDetails['phoneNumber'] ??
-                                l10n.notAvailable,
-                          ),
-                          _buildInfoRow(
-                            "⭐ ${l10n.ratingText}",
-                            posterRating?.toString() ?? l10n.noRating,
-                          ),
-                          _buildInfoRow(
-                            "📧 ${l10n.emailText}",
-                            jobPosterDetails['email'] ?? l10n.notAvailable,
-                          ),
-                          _buildInfoRow(
-                            "📍 ${l10n.addressText}",
-                            jobPosterDetails['address'] ?? l10n.notSpecified,
-                          ),
-                        ],
-                      );
-                    },
+            child: SafeArea(
+              child: Column(
+                children: [
+                  _buildGlassCard(
+                    title: l10n.jobDetailsText,
+                    children: [
+                      _buildInfoRow(
+                        "📌 ${l10n.jobTitleText}",
+                        jobDetails['jobName'] ?? l10n.noTitle,
+                      ),
+                      _buildInfoRow(
+                        "📍 ${l10n.locationText}",
+                        jobDetails['jobLocation'] ?? l10n.noLocation,
+                      ),
+                      _buildBudgetStreamRow(
+                        "💰 ${l10n.budgetText}",
+                        jobDetails['budget']! == '0'
+                            ? (_cachedBudget ?? '0')
+                            : jobDetails['budget']!,
+                        widget.assignedJobId,
+                        l10n,
+                      ),
+                      _buildInfoRow(
+                        "📝 ${l10n.descriptionText}",
+                        jobDetails['jobDescription'] ?? l10n.noDescription,
+                      ),
+                      _buildInfoRow(
+                        "📅 ${l10n.createdText}",
+                        _formatDate(jobDetails['createdAt']),
+                      ),
+                      _buildInfoRow(
+                        "⚡ ${l10n.urgencyText}",
+                        jobDetails['urgency'] ?? l10n.normalUrgency,
+                      ),
+                      _buildInfoRow(
+                        "⏱️ ${l10n.durationText}",
+                        jobDetails['estimatedDuration'] ?? l10n.notSpecified,
+                      ),
+                      _buildInfoRow(
+                        "📊 ${l10n.statusText}",
+                        _getLocalizedStatus(status, l10n).toUpperCase(),
+                      ),
+                    ],
                   ),
 
-                const SizedBox(height: 30),
+                  const SizedBox(height: 20),
 
-                // Action Buttons - Different for each user type
-                if (widget.userType == 'skilled_worker') ...[
-                  // Skilled Worker Buttons
-                  if (status == 'completed' && !workerRatingCompleted) ...[
-                    _neonButton(
-                      text: l10n.rateJobPoster,
-                      color: Colors.green,
-                      onTap: () {
-                        Navigator.pushNamed(
-                          context,
-                          '/rate-job-poster',
-                          arguments: {
-                            'assignedJobId': widget.assignedJobId,
-                            'isJobCompletion': true,
-                          },
+                  // Skilled Worker Details Card
+                  _buildGlassCard(
+                    title: l10n.skilledWorkerDetailsText,
+                    children: [
+                      _buildInfoRow(
+                        "👤 ${l10n.nameText}",
+                        skilledWorkerDetails['skilledWorkerName'] ??
+                            l10n.unknown,
+                      ),
+                      _buildInfoRow(
+                        "📞 ${l10n.phoneText}",
+                        skilledWorkerDetails['phoneNumber'] ??
+                            l10n.notAvailable,
+                      ),
+                      _buildInfoRow(
+                        "🏙️ ${l10n.cityText}",
+                        skilledWorkerDetails['skilledWorkerCity'] ??
+                            l10n.notSpecified,
+                      ),
+                      _buildInfoRow(
+                        "⭐ ${l10n.ratingText}",
+                        skilledWorkerDetails['averageRating']?.toString() ??
+                            l10n.noRating,
+                      ),
+                      _buildInfoRow(
+                        "💼 ${l10n.experienceLabel}",
+                        skilledWorkerDetails['skilledWorkerExperience'] ??
+                            l10n.notSpecified,
+                      ),
+                      _buildInfoRow(
+                        "💰 ${l10n.rateText}",
+                        skilledWorkerDetails['hourlyRate']?.toString() ??
+                            l10n.notSpecified,
+                      ),
+                      _buildInfoRow(
+                        "📋 ${l10n.descriptionText}",
+                        skilledWorkerDetails['skilledWorkerDescription'] ??
+                            l10n.noDescription,
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  // Job Poster Details Card (if available)
+                  if (jobPosterDetails.isNotEmpty)
+                    FutureBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+                      future:
+                          FirebaseFirestore.instance
+                              .collection('JobPosters')
+                              .doc(data['jobPosterId'] ?? '')
+                              .get(),
+                      builder: (context, posterSnap) {
+                        final posterData = posterSnap.data?.data();
+                        final posterRating = _formatRating(
+                          posterData?['averageRating'] ??
+                              posterData?['rating'] ??
+                              data['jobPosterRating'] ??
+                              data['jobPosterAverageRating'],
+                        );
+
+                        return _buildGlassCard(
+                          title: l10n.jobPosterDetailsText,
+                          children: [
+                            _buildInfoRow(
+                              "👤 ${l10n.nameText}",
+                              jobPosterDetails['name'] ?? l10n.unknown,
+                            ),
+                            _buildInfoRow(
+                              "📞 ${l10n.phoneText}",
+                              jobPosterDetails['phoneNumber'] ??
+                                  l10n.notAvailable,
+                            ),
+                            _buildInfoRow(
+                              "⭐ ${l10n.ratingText}",
+                              posterRating?.toString() ?? l10n.noRating,
+                            ),
+                            _buildInfoRow(
+                              "📧 ${l10n.emailText}",
+                              jobPosterDetails['email'] ?? l10n.notAvailable,
+                            ),
+                            _buildInfoRow(
+                              "📍 ${l10n.addressText}",
+                              jobPosterDetails['address'] ?? l10n.notSpecified,
+                            ),
+                          ],
                         );
                       },
                     ),
+
+                  const SizedBox(height: 30),
+
+                  // Action Buttons - Different for each user type
+                  if (widget.userType == 'skilled_worker') ...[
+                    // Skilled Worker Buttons
+                    if (status == 'completed' && !workerRatingCompleted) ...[
+                      _neonButton(
+                        text: l10n.rateJobPoster,
+                        color: Colors.green,
+                        onTap: () {
+                          Navigator.pushNamed(
+                            context,
+                            '/rate-job-poster',
+                            arguments: {
+                              'assignedJobId': widget.assignedJobId,
+                              'isJobCompletion': true,
+                            },
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+                    _buildJobApprovalButton(context, data),
                     const SizedBox(height: 16),
-                  ],
-                  _buildJobApprovalButton(context, data),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _neonButton(
-                          text: l10n.callText,
-                          color: Colors.green,
-                          onTap: () {
-                            _makePhoneCall(
-                              context,
-                              jobPosterDetails['phoneNumber'],
-                            );
-                          },
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _neonButton(
+                            text: l10n.callText,
+                            color: Colors.green,
+                            onTap: () {
+                              _makePhoneCall(
+                                context,
+                                jobPosterDetails['phoneNumber'],
+                              );
+                            },
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: _neonButton(
-                          text: l10n.navigateText,
-                          color: Colors.blue,
-                          onTap: () {
-                            _navigateToJobDetail(context, data['jobId']);
-                          },
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: _neonButton(
+                            text: l10n.navigateText,
+                            color: Colors.blue,
+                            onTap: () {
+                              _navigateToJobDetail(context, data['jobId']);
+                            },
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                ] else ...[
-                  // Job Poster Buttons
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _neonButton(
-                          text: l10n.trackWorker,
-                          color: Colors.green,
-                          onTap: () {
-                            _trackWorker(context, data);
-                          },
+                      ],
+                    ),
+                  ] else ...[
+                    // Job Poster Buttons
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _neonButton(
+                            text: l10n.trackWorker,
+                            color: Colors.green,
+                            onTap: () {
+                              _trackWorker(context, data);
+                            },
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
+                      ],
+                    ),
 
-                  const SizedBox(height: 16),
+                    const SizedBox(height: 16),
 
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _neonButton(
-                          text: l10n.completeJob,
-                          color: Colors.green,
-                          onTap: () {
-                            final workerId =
-                                (data['workerId'] ?? data['skilledWorkerId'])
-                                    ?.toString();
-                            if (workerId == null || workerId.trim().isEmpty) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text(
-                                    'Worker information missing. Cannot complete job.',
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _neonButton(
+                            text: l10n.completeJob,
+                            color: Colors.green,
+                            onTap: () {
+                              final workerId =
+                                  (data['workerId'] ?? data['skilledWorkerId'])
+                                      ?.toString();
+                              if (workerId == null || workerId.trim().isEmpty) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      'Worker information missing. Cannot complete job.',
+                                    ),
+                                    backgroundColor: Colors.red,
                                   ),
-                                  backgroundColor: Colors.red,
+                                );
+                                return;
+                              }
+
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder:
+                                      (context) => JobPosterRateWorkerScreen(
+                                        skilledWorkerDetails: {
+                                          'docId': workerId.trim(),
+                                        },
+                                        requestId: widget.assignedJobId,
+                                      ),
                                 ),
                               );
-                              return;
-                            }
-
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder:
-                                    (context) => JobPosterRateWorkerScreen(
-                                      skilledWorkerDetails: {
-                                        'docId': workerId.trim(),
-                                      },
-                                      requestId: widget.assignedJobId,
-                                    ),
-                              ),
-                            );
-                          },
+                            },
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: _neonButton(
-                          text: l10n.cancelJobText,
-                          color: Colors.red,
-                          onTap: () {
-                            _cancelJob(context, widget.assignedJobId);
-                          },
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: _neonButton(
+                            text: l10n.cancelJobText,
+                            color: Colors.red,
+                            onTap: () {
+                              _cancelJob(context, widget.assignedJobId);
+                            },
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
+                      ],
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
           );
         },
