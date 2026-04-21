@@ -104,8 +104,9 @@ class AuthWrapper extends StatelessWidget {
         return const Scaffold(body: Center(child: CircularProgressIndicator()));
 
       case AuthStatus.loggedIn:
-        if (auth.role == 'skilled_worker')
+        if (auth.role == 'skilled_worker') {
           return const SkilledWorkerHomeScreen();
+        }
         if (auth.role == 'job_poster') return const JobPosterSessionRouter();
         return const RoleSelectionScreen();
     }
@@ -135,12 +136,13 @@ class _JobPosterSessionRouterState extends State<JobPosterSessionRouter> {
     final auth = Provider.of<AuthStateProvider>(context, listen: false);
 
     if (auth.status != AuthStatus.loggedIn || auth.role != 'job_poster') {
-      if (mounted)
+      if (mounted) {
         Navigator.pushNamedAndRemoveUntil(
           context,
           '/role-selection',
           (route) => false,
         );
+      }
       return;
     }
 

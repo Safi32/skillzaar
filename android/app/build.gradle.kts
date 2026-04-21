@@ -31,7 +31,7 @@ android {
         applicationId = "com.skillzaar.worker"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = 23
+        minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
@@ -75,17 +75,9 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = true
-            isShrinkResources = true
-            signingConfig = when {
-                useReleaseSigning -> signingConfigs.getByName("release")
-                allowDebugSigningForRelease -> signingConfigs.getByName("debug")
-                else -> throw GradleException(
-                    "Release signing is not configured. Provide android/key.properties with 'storeFile', " +
-                        "or set env ANDROID_KEYSTORE_PATH/ANDROID_KEYSTORE_PASSWORD/ANDROID_KEY_ALIAS/ANDROID_KEY_PASSWORD."
-                )
-            }
-            
+            // TODO: Add your own signing config for the release build.
+            // Signing with the debug keys for now, so `flutter run --release` works.
+            signingConfig = signingConfigs.getByName("debug")
         }
     }
 

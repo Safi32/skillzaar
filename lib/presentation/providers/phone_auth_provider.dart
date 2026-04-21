@@ -13,12 +13,40 @@ import 'package:skillzaar/core/services/job_request_service.dart';
 // ─────────────────────────────────────────────────────────────────────────────
 String formatPhoneNumber(String input) {
   input = input.trim().replaceAll(RegExp(r'[\s\-\(\)]'), '');
-  if (input.startsWith('+')) return input;
-  if (input.startsWith('0') && input.length == 11)
-    return '+92${input.substring(1)}';
-  if (input.startsWith('92') && input.length == 12) return '+$input';
-  if (input.length == 10) return '+92$input';
-  if (input.length == 11 && !input.startsWith('0')) return '+92$input';
+
+  // Log the formatting process
+  print('📱 Formatting phone: "$input"');
+
+  if (input.startsWith('+')) {
+    print('📱 Already has +, returning: $input');
+    return input;
+  }
+
+  if (input.startsWith('0') && input.length == 11) {
+    final formatted = '+92${input.substring(1)}';
+    print('📱 Pakistani format (0...), returning: $formatted');
+    return formatted;
+  }
+
+  if (input.startsWith('92') && input.length == 12) {
+    final formatted = '+$input';
+    print('📱 Country code format, returning: $formatted');
+    return formatted;
+  }
+
+  if (input.length == 10) {
+    final formatted = '+92$input';
+    print('📱 10-digit format, returning: $formatted');
+    return formatted;
+  }
+
+  if (input.length == 11 && !input.startsWith('0')) {
+    final formatted = '+92$input';
+    print('📱 11-digit format, returning: $formatted');
+    return formatted;
+  }
+
+  print('📱 No format match, returning as-is: $input');
   return input;
 }
 
@@ -86,6 +114,18 @@ class PhoneAuthProvider with ChangeNotifier {
     _error = null;
     notifyListeners();
 
+    log('🚀 Starting OTP send process for: $phone');
+
+    // Test Firebase Auth availability
+    try {
+      final currentUser = fb.FirebaseAuth.instance.currentUser;
+      log(
+        '🔍 Firebase Auth instance available, current user: ${currentUser?.uid ?? 'none'}',
+      );
+    } catch (e) {
+      log('❌ Firebase Auth instance error: $e');
+    }
+
     fb.FirebaseAuth.instance.verifyPhoneNumber(
       phoneNumber: phone,
       forceResendingToken: _resendToken,
@@ -93,15 +133,20 @@ class PhoneAuthProvider with ChangeNotifier {
       verificationCompleted: (fb.PhoneAuthCredential credential) {
         // Auto-verified on some Android devices — complete with a special marker.
         // The OTP screen handles this case.
-        log('verificationCompleted (auto)');
+        log('✅ verificationCompleted (auto-verification)');
+        log('🔍 Completer completed status: ${completer.isCompleted}');
         _isLoading = false;
         notifyListeners();
         if (!completer.isCompleted) {
+          log('✅ Completing with __auto__ marker for auto-verification');
           completer.complete('__auto__');
+        } else {
+          log('⚠️ Completer already completed, ignoring verificationCompleted');
         }
       },
       verificationFailed: (fb.FirebaseAuthException e) {
-        log('verificationFailed: ${e.code} ${e.message}');
+        log('❌ verificationFailed: ${e.code} - ${e.message}');
+        log('❌ Full error details: $e');
         _isLoading = false;
         _error = _friendlyError(e);
         notifyListeners();
@@ -110,24 +155,41 @@ class PhoneAuthProvider with ChangeNotifier {
         }
       },
       codeSent: (String verificationId, int? resendToken) {
-        log('codeSent — verificationId received');
+        log('📱 codeSent - verificationId: $verificationId');
+        log('🔄 resendToken: $resendToken');
+        log('🔍 Completer completed status: ${completer.isCompleted}');
         _resendToken = resendToken;
         _isLoading = false;
         notifyListeners();
         if (!completer.isCompleted) {
+          log('✅ Completing completer with verificationId');
           completer.complete(verificationId);
+        } else {
+          log('⚠️ Completer already completed, ignoring codeSent');
         }
       },
       codeAutoRetrievalTimeout: (String verificationId) {
+        log('⏰ codeAutoRetrievalTimeout - verificationId: $verificationId');
         // Timeout — verificationId is still valid for manual entry.
         // Only complete if not already done.
         if (!completer.isCompleted) {
+          log('⏰ Completing with verificationId from timeout');
           completer.complete(verificationId);
         }
       },
     );
 
-    return completer.future;
+    return completer.future.timeout(
+      const Duration(seconds: 90), // Increased timeout
+      onTimeout: () {
+        log('⏰ OTP request timed out after 90 seconds');
+        _isLoading = false;
+        _error =
+            'OTP request timed out. Please check your connection and try again.';
+        notifyListeners();
+        throw Exception(_error);
+      },
+    );
   }
 
   // ── verifyOtp ─────────────────────────────────────────────────────────────
@@ -201,6 +263,7 @@ class PhoneAuthProvider with ChangeNotifier {
 
   // ── Helpers ───────────────────────────────────────────────────────────────
   String _friendlyError(fb.FirebaseAuthException e) {
+    log('🔍 Processing Firebase error: ${e.code} - ${e.message}');
     switch (e.code) {
       case 'too-many-requests':
         return 'Too many requests. Please wait before trying again.';
@@ -209,9 +272,22 @@ class PhoneAuthProvider with ChangeNotifier {
       case 'quota-exceeded':
         return 'SMS quota exceeded. Please try again later.';
       case 'app-not-authorized':
-        return 'App not authorized. Please contact support.';
+        return 'App not authorized for Firebase Auth. Please contact support.';
+      case 'captcha-check-failed':
+        return 'reCAPTCHA verification failed. Please try again.';
+      case 'web-context-already-presented':
+        return 'Authentication already in progress. Please wait.';
+      case 'web-context-cancelled':
+        return 'Authentication was cancelled. Please try again.';
+      case 'missing-client-identifier':
+        return 'Missing app configuration. Please contact support.';
+      case 'network-request-failed':
+        return 'Network error. Please check your internet connection.';
+      case 'internal-error':
+        return 'Internal error occurred. Please try again later.';
       default:
-        return e.message ?? e.code;
+        log('⚠️ Unhandled Firebase Auth error: ${e.code}');
+        return e.message ?? 'Authentication error: ${e.code}';
     }
   }
 
@@ -300,13 +376,58 @@ class PhoneAuthProvider with ChangeNotifier {
               'updatedAt': FieldValue.serverTimestamp(),
               'createdAt': FieldValue.serverTimestamp(),
             }, SetOptions(merge: true));
-        service.startFirestoreNotificationListener(
-          userId: _loggedInUserId!,
-          collectionName: 'notifcation',
-        );
+
+        // Send welcome notification
+        await _sendWelcomeNotification();
+
+        // Start notification listener after a short delay to avoid immediate notifications
+        Future.delayed(const Duration(seconds: 3), () {
+          service.startFirestoreNotificationListener(
+            userId: _loggedInUserId!,
+            collectionName: 'notifcation',
+          );
+        });
       }
     } catch (e) {
       log('_saveFcmToken error: $e');
+    }
+  }
+
+  Future<void> _sendWelcomeNotification() async {
+    if (_loggedInUserId == null) return;
+    try {
+      // First, clean up any existing empty notifications for this user
+      final existingNotifications =
+          await FirebaseFirestore.instance
+              .collection('notifcation')
+              .where('userId', isEqualTo: _loggedInUserId!)
+              .get();
+
+      for (final doc in existingNotifications.docs) {
+        final data = doc.data();
+        final title = (data['title'] ?? '').toString().trim();
+        final body = (data['body'] ?? '').toString().trim();
+
+        // Delete empty or generic notifications
+        if (title.isEmpty || body.isEmpty || title == 'Notification') {
+          await doc.reference.delete();
+          log('🗑️ Deleted empty notification: $title');
+        }
+      }
+
+      // Create a welcome notification document
+      await FirebaseFirestore.instance.collection('notifcation').add({
+        'userId': _loggedInUserId!,
+        'title': 'Welcome to Skillzaar! 🎉',
+        'body':
+            'Your account has been created successfully. Start posting jobs and find skilled workers in your area.',
+        'delivered': false,
+        'createdAt': FieldValue.serverTimestamp(),
+        'data': {'type': 'welcome', 'action': 'none'},
+      });
+      log('✅ Welcome notification created');
+    } catch (e) {
+      log('❌ Failed to create welcome notification: $e');
     }
   }
 

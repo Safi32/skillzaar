@@ -83,12 +83,18 @@ class NotificationService {
                 final doc = change.doc;
                 final data = doc.data() as Map<String, dynamic>?;
                 if (data == null) continue;
-                final title = (data['title'] ?? 'Notification').toString();
-                final body = (data['body'] ?? '').toString();
+                final title = (data['title'] ?? 'Skillzaar').toString().trim();
+                final body =
+                    (data['body'] ?? 'You have a new notification')
+                        .toString()
+                        .trim();
                 final delivered = data['delivered'] == true;
 
-                // Only show once
-                if (!delivered) {
+                // Only show notifications with meaningful content
+                if (!delivered &&
+                    title.isNotEmpty &&
+                    body.isNotEmpty &&
+                    title != 'Notification') {
                   await showLocalNotificationFromData(
                     title: title,
                     body: body,
@@ -298,7 +304,7 @@ class NotificationService {
           importance: Importance.high,
           priority: Priority.high,
           showWhen: true,
-          icon: '@mipmap/ic_launcher',
+          icon: 'ic_notification',
         );
 
     const DarwinNotificationDetails iOSPlatformChannelSpecifics =
@@ -313,8 +319,16 @@ class NotificationService {
       iOS: iOSPlatformChannelSpecifics,
     );
 
-    final title = message.notification?.title ?? 'Skillzaar Notification';
+    final title = message.notification?.title ?? 'Skillzaar';
     final body = message.notification?.body ?? 'You have a new notification';
+
+    // Don't show notifications with empty or generic content
+    if (title.trim().isEmpty ||
+        body.trim().isEmpty ||
+        title == 'Notification') {
+      print('⚠️ Skipping notification with empty or generic content');
+      return;
+    }
 
     print('🔔 Local notification - Title: $title');
     print('🔔 Local notification - Body: $body');
@@ -336,6 +350,19 @@ class NotificationService {
     required String body,
     Map<String, String>? data,
   }) async {
+    // Validate notification content
+    final cleanTitle = title.trim();
+    final cleanBody = body.trim();
+
+    if (cleanTitle.isEmpty ||
+        cleanBody.isEmpty ||
+        cleanTitle == 'Notification') {
+      print(
+        '⚠️ Skipping notification with empty or generic content: "$cleanTitle" - "$cleanBody"',
+      );
+      return;
+    }
+
     const AndroidNotificationDetails androidPlatformChannelSpecifics =
         AndroidNotificationDetails(
           'job_notifications',
@@ -344,7 +371,7 @@ class NotificationService {
           importance: Importance.high,
           priority: Priority.high,
           showWhen: true,
-          icon: '@mipmap/ic_launcher',
+          icon: 'ic_notification',
         );
 
     const DarwinNotificationDetails iOSPlatformChannelSpecifics =
@@ -361,11 +388,13 @@ class NotificationService {
 
     await _localNotifications.show(
       DateTime.now().millisecondsSinceEpoch ~/ 1000,
-      title,
-      body,
+      cleanTitle,
+      cleanBody,
       platformChannelSpecifics,
       payload: (data ?? {}).toString(),
     );
+
+    print('✅ Local notification shown: "$cleanTitle" - "$cleanBody"');
   }
 
   /// Handle notification tap from local notifications

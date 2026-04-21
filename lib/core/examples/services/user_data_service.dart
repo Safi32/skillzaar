@@ -197,7 +197,8 @@ class UserDataService {
               .collection(collection)
               .where('phoneNumber', isEqualTo: phoneNumber)
               .limit(1)
-              .get();
+              .get()
+              .timeout(const Duration(seconds: 10));
         },
         operationName: 'userExistsByPhone',
       );

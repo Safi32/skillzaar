@@ -4,6 +4,7 @@ import 'package:skillzaar/core/examples/services/user_data_service.dart';
 import 'package:skillzaar/core/theme/app_theme.dart';
 import 'package:skillzaar/l10n/app_localizations.dart';
 import '../../providers/phone_auth_provider.dart';
+import '../../providers/auth_state_provider.dart';
 import '../job_poster/otp_screen.dart';
 
 class JobPosterSignUpScreen extends StatefulWidget {
@@ -80,11 +81,37 @@ class _JobPosterSignUpScreenState extends State<JobPosterSignUpScreen> {
       );
 
       // 3. Send OTP — await the verificationId directly
+      print('🚀 About to call sendOtp for: $phone');
       final verificationId = await pap.sendOtp(phone);
+      print('✅ sendOtp returned verificationId: $verificationId');
 
       if (!mounted) return;
 
+      // Handle auto-verification case
+      if (verificationId == '__auto__') {
+        print(
+          '🔄 Auto-verification detected, proceeding directly to verification',
+        );
+        // Auto-verification happened, proceed directly to OTP verification
+        // This simulates entering a dummy OTP since it's already verified
+        final auth = Provider.of<AuthStateProvider>(context, listen: false);
+        await auth.setJobPosterSignedIn(
+          id: pap.loggedInUserId!,
+          name: pap.pendingDisplayName ?? pap.loggedInPhoneNumber,
+          phone: pap.loggedInPhoneNumber,
+        );
+
+        if (!mounted) return;
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          '/job-poster-home',
+          (_) => false,
+        );
+        return;
+      }
+
       // 4. Navigate to OTP screen, passing verificationId as a constructor param
+      print('🧭 Navigating to OTP screen...');
       Navigator.push(
         context,
         MaterialPageRoute(
@@ -96,12 +123,27 @@ class _JobPosterSignUpScreenState extends State<JobPosterSignUpScreen> {
               ),
         ),
       );
+      print('✅ Navigation completed');
     } catch (e) {
       if (mounted) {
+        String errorMessage;
+        if (e.toString().contains('app-not-authorized')) {
+          errorMessage =
+              'Firebase configuration error. Please check SHA-1 fingerprint in Firebase Console.';
+        } else if (e.toString().contains('network-request-failed')) {
+          errorMessage =
+              'Network error. Please check your internet connection.';
+        } else if (e.toString().contains('captcha-check-failed')) {
+          errorMessage = 'reCAPTCHA verification failed. Please try again.';
+        } else {
+          errorMessage = '${l10n.registrationFailed}: $e';
+        }
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('${l10n.registrationFailed}: $e'),
+            content: Text(errorMessage),
             backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
           ),
         );
       }
